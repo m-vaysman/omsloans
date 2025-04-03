@@ -1,0 +1,67 @@
+﻿<UserControl
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:OMS.Loans.Views"
+             xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
+             xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol" xmlns:dxg1="http://schemas.devexpress.com/winfx/2008/xaml/editors"
+                                                                                      xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
+             xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm" x:Class="OMS.Loans.Views.BlotterView"
+             mc:Ignorable="d" 
+             
+             d:DesignHeight="450" d:DesignWidth="800">
+    <UserControl.Resources>
+        <Style TargetType="dxlc:LayoutItem">
+            <Setter Property="Margin" Value="1"/>
+            
+        </Style>
+        <Style TargetType="dxg1:TextEdit">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="ShowBorder" Value="true"/>
+        </Style>
+    </UserControl.Resources>
+    <dxmvvm:Interaction.Behaviors>
+        <dx:DXMessageBoxService/>
+        <dxmvvm:EventToCommand EventName="Loaded" Command="{Binding ViewModelSetUpCommand}">           
+        </dxmvvm:EventToCommand>
+    </dxmvvm:Interaction.Behaviors>
+    <DockPanel>
+        <dxlc:LayoutControl DockPanel.Dock="Left">
+            <dxlc:LayoutGroup Orientation="Vertical">
+                <dxlc:LayoutItem Label="CP" AddColonToLabel="True">
+                    <dxg:LookUpEdit  ItemsSource="{Binding CounterParties}" ValueMember="CounterPartyId" DisplayMember="CounterPartyName" SelectedItem="{Binding SelectedCounterParty, UpdateSourceTrigger=LostFocus}">
+                    </dxg:LookUpEdit>
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem Label="Ticker" AddColonToLabel="True">
+                    <dxg1:TextEdit Text="{Binding BlotterItem.Ticker }"/>
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem Label="TradeAccount" AddColonToLabel="True">
+                    <dxg1:TextEdit Text="{Binding BlotterItem.TradeAcct}"/>
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem Label="Trade Date" AddColonToLabel="True">
+                    <dxg1:TextEdit Text="{Binding BlotterItem.TradeDate}" MaskUseAsDisplayFormat="True" MaskType="DateTime" Mask="d"/>
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem Label="Buy/Sell" AddColonToLabel="True">
+                    <dxg1:TextEdit Text="{Binding BlotterItem.BuySell}"/>
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem Label="Price" AddColonToLabel="True">
+                    <dxg1:TextEdit Text="{Binding BlotterItem.Price}" MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="P2"/>
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem Label="Spread" AddColonToLabel="True">
+                    <dxg1:TextEdit Text="{Binding BlotterItem.Spread}" MaskUseAsDisplayFormat="True" MaskType="Numeric" Mask="P2"/>
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem Label="Notional" AddColonToLabel="True">
+                    <dxg1:TextEdit Text="{Binding BlotterItem.Notional}" MaskType="Numeric" Mask="c"/>
+                </dxlc:LayoutItem>
+                <dxlc:LayoutItem>
+                    <dx:SimpleButton Content="&gt;" Command="{Binding SaveBlotterItemCommand}" HorizontalAlignment="Right"/>
+                </dxlc:LayoutItem>
+            </dxlc:LayoutGroup>
+        </dxlc:LayoutControl>
+
+
+
+    </DockPanel>
+</UserControl>

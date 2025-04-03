@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="14.0.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="DevExpress.Images" Version="24.2.6" />
+    <PackageReference Include="devexpress.wpf.accordion" Version="24.2.6" />
+    <PackageReference Include="DevExpress.Wpf.Core" Version="24.2.6" />
+    <PackageReference Include="devexpress.wpf.docking" Version="24.2.6" />
+    <PackageReference Include="devexpress.wpf.grid.core" Version="24.2.6" />
+    <PackageReference Include="devexpress.wpf.layoutcontrol" Version="24.2.6" />
+    <PackageReference Include="DevExpress.Wpf.ThemesLW" Version="24.2.6" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LoanDbModel\LoanDbModel.csproj" />
+  </ItemGroup>
+
+</Project>
