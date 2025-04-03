@@ -2,6 +2,13 @@
 
 This is a demo **Order Management System (OMS)** for **Loan Trade Entry**, built using **WPF (.NET 6)** with a modular MVVM architecture. It showcases key enterprise design patterns, component separation, and UI responsiveness using **DevExpress**, **AutoMapper**, and **MVVM Toolkit**.
 
+
+## 📸 UI Preview
+
+Here’s a screenshot of the trade blotter view with DevExpress Grid and entry fields:
+
+![Loan Trade Entry Blotter](Assets/Blotter.png)
+
 ---
 
 ## 🧰 Tech Stack
