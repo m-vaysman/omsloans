@@ -1,6 +1,21 @@
 # OMS.Loans – WPF Loan Trade Entry System (Demo Project)
 
-This is a demo **Order Management System (OMS)** for **Loan Trade Entry**, built using **WPF (.NET 6)** with a modular MVVM architecture. It showcases key enterprise design patterns, component separation, and UI responsiveness using **DevExpress**, **AutoMapper**, and **MVVM Toolkit**.
+This is a demo for a future pet project **Order Management System (OMS)** for **Loan Trade Entry**, built using **WPF (.NET 8)** with a modular MVVM architecture. It showcases key enterprise design patterns, component separation, and UI responsiveness using **DevExpress**, **AutoMapper**, and **MVVM Toolkit**.
+Currently built out first phase which is to capture Blottered. Trades.
+This OMS should have Blotter to Trade. Trade Allocation. Events management(paydowns,drawdowns accruals, cash). Lastly it will have a module to match incoming cash with events. 
+
+
+## 📸 UI Preview
+
+Here’s a screenshot of the blotter view with DevExpress GridControl and trade entry fields:
+
+The screen is a view composed of two other views a form for trade entry and a grid in a seperate view for blottered trade look up. The form has validation built in. It will not allow user to push trades with missing or wrong fields. 
+The grid is searchable. It also allows user to easily book and replicate a blottered trade. Simply highlight a row and grid fills with trade data. 
+
+![Blotter Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/Blotter.PNG)
+
+
+
 
 ---
 
