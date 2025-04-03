@@ -15,7 +15,14 @@ The grid is searchable. It also allows user to easily book and replicate a blott
 ![Blotter Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/Blotter.PNG)
 
 
+Deploy migration: simply change CONNECTION STRING in LoanDBContext.cs
+protected override void OnConfiguring(DbContextOptionsBuilder options)
+=> options.UseSqlServer(@"Data Source=YOUR_SERVER;User ID=YOUR_USER;Password=YOUR_PASSWORD;Initial Catalog=Oms;TrustServerCertificate=true;MultipleActiveResultSets=True;Max Pool Size=100;")
 
+in project dir run 
+   dotnet-ef migrations add InitialMigration
+   
+![Migrations Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/Migrations.PNG)
 
 ---
 
