@@ -21,14 +21,21 @@ The grid is searchable. It also allows user to easily book and replicate a blott
 
 ![Blotter Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/Blotter.PNG)
 
-ACCRUAL ENTRY
+## 🧾 Accrual Entry Flow
+
+**Accrual Entry**  
 ![AccrualEntry Screenshot](Assets/AccrualEntry.png)
 
-ACCRUAL ENTERED
+⬇️
+
+**Accrual Entered**  
 ![AccrualEntered Screenshot](Assets/AccrualEntered.png)
 
-ACCRUAL SAVED
+⬇️
+
+**Accrual Saved**  
 ![AccrualSaved Screenshot](Assets/AccrualsSaved.png)
+
 
 Deploy migration: simply change CONNECTION STRING in LoanDBContext.cs
 protected override void OnConfiguring(DbContextOptionsBuilder options)
