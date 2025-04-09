@@ -35,6 +35,7 @@
                     <dxg:GridControl.View>
                         <dxg:TableView
                             AllowBestFit="True"
+                            FontSize="9"
                             AllowColumnMoving="False"
                             AllowHeaderNavigation="True"
                             ShowGroupPanel="False"
@@ -73,8 +74,16 @@
                         <dxg:GridColumn FieldName="Notional" IsSmart="True" />
                         <dxg:GridColumn FieldName="FromDate" IsSmart="True" />
                         <dxg:GridColumn FieldName="ToDate" IsSmart="True" />
-                        <dxg:GridColumn FieldName="BankRate" IsSmart="True" />
-                        <dxg:GridColumn FieldName="Spread" IsSmart="True" />
+                        <dxg:GridColumn FieldName="BankRate" IsSmart="True" >
+                            <dxg:GridColumn.EditSettings>
+                                <dxe:TextEditSettings MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="p"/>
+                            </dxg:GridColumn.EditSettings>
+                        </dxg:GridColumn>
+                        <dxg:GridColumn FieldName="Spread" IsSmart="True" >
+                            <dxg:GridColumn.EditSettings>
+                                <dxe:TextEditSettings MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="p"/>
+                            </dxg:GridColumn.EditSettings>
+                        </dxg:GridColumn>
                         <dxg:GridColumn FieldName="Act" IsSmart="True" />
                         <dxg:GridColumn
                             AllowEditing="False"
