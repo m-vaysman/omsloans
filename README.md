@@ -9,7 +9,7 @@ This OMS should have Blotter to Trade. Trade Allocation. Events management(paydo
 
 
 
-![LoanTraderMainUi](https://bitbucket.org/frfield/omsloans/raw/main/Assets/LoanTraderMainUi.PNG)
+![LoanTraderMainUi_Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/LoanTraderMainUi.PNG)
 
 Here’s a screenshot of the blotter view with DevExpress GridControl and trade entry fields:
 
