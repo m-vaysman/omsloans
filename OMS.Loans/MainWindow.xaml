@@ -6,15 +6,20 @@
     xmlns:dxa="http://schemas.devexpress.com/winfx/2008/xaml/accordion"
     xmlns:dxdo="http://schemas.devexpress.com/winfx/2008/xaml/docking"
     xmlns:viewmodels="clr-namespace:OMS.Loans.ViewModels"
+    Icon="pack://application:,,,/Assets/LT_Logo.png"
+    
     xmlns:views="clr-namespace:OMS.Loans.Views"
+    xmlns:views1="clr-namespace:OMS.Loans.ViewModels.Views"
     Width="2000"
     Height="800"
-    Title="MainWindow">
+    FontFamily="Arial"
+    FontSize="12"
+    FontWeight="DemiBold"
+    Title="Loan Trader">
     <Grid>
         <Grid.Resources>
             <DataTemplate DataType="{x:Type viewmodels:BlotterViewModel}">
                 <views:BlotterView />
-
             </DataTemplate>
             <DataTemplate DataType="{x:Type viewmodels:BlotterEntriesViewModel}">
                 <views:BlotterEntriesView />
@@ -22,31 +27,129 @@
             <viewmodels:MainViewModel x:Key="viewModel" />
         </Grid.Resources>
         <dxdo:DockLayoutManager
-            DockingStyle="VS2010"
             ClosedPanelsBarVisibility="Never"
             DataContext="{StaticResource viewModel}"
+            DockingStyle="VS2010"
             FloatingMode="Desktop"
             ItemsSource="{Binding ChildViews}">
-            <dxdo:DockLayoutManager.FloatGroups>
-                <dxdo:FloatGroup/>
-            </dxdo:DockLayoutManager.FloatGroups>
-            <dxdo:DockLayoutManager.LayoutRoot>
-                <dxdo:LayoutGroup HorizontalAlignment="Left" Orientation="Horizontal"  >
-                    <dxdo:LayoutPanel
-                        AllowDock="True"
-                        AllowClose="False"
-                        Caption="Blotter"
-                        ItemWidth="800"
-                        ShowPinButton="True"
-                        Name="Navigation">
-                        <views:BlotterEntryView  VerticalAlignment="Stretch"/>
-                      
-                        
-                    </dxdo:LayoutPanel>
-        
-                </dxdo:LayoutGroup>
-              
-            </dxdo:DockLayoutManager.LayoutRoot>
+            <dxdo:LayoutGroup Name="lgMainView" Orientation="Horizontal">
+                <dxdo:LayoutPanel
+                     
+                    HorizontalAlignment="Left"
+                    AllowClose="False"
+                    AllowDock="True"
+                    AutoHidden="True"
+                    Name="lpBlotter"
+                    Caption="Blotter"
+                    ItemWidth="800"
+                    ShowPinButton="True">
+                    
+                    <views:BlotterEntryView x:Name="vwBlotterEntryView" VerticalAlignment="Stretch" />
+               
+                </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel
+                    HorizontalAlignment="Left"
+                    AllowClose="False"
+                    AllowDock="True"
+                    AutoHidden="True"
+                    Name="lpTestView"
+                    ItemWidth="600"
+                    Caption="Trade Entry"
+                    ShowPinButton="True">
+                    <views:TestView />
+                </dxdo:LayoutPanel>
+  
+                <dxdo:LayoutPanel
+       HorizontalAlignment="Left"
+       AllowClose="False"
+       AllowDock="True"
+       AutoHidden="True"
+       ItemWidth="800"
+       Name="lpSettlementsView"
+       Caption="Settlements"
+       ShowPinButton="True">
+                    <views1:SettlementsView x:Name="vwSettlementsView"/>
+                </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel
+       HorizontalAlignment="Left"
+       AllowClose="False"
+       AllowDock="True"
+       AutoHidden="True"
+       Caption="Breaks"
+       ShowPinButton="True">
+                    <TextBox/>
+                </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel
+      HorizontalAlignment="Left"
+      AllowClose="False"
+      AllowDock="True"
+      AutoHidden="True"
+      ItemWidth="500"
+      Caption="MTM"
+      ShowPinButton="True">
+                    
+                </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel
+HorizontalAlignment="Left"
+AllowClose="False"
+AllowDock="True"
+AutoHidden="True"
+ItemWidth="500"
+Caption="PNL"
+ShowPinButton="True">
+
+                </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel
+HorizontalAlignment="Left"
+AllowClose="False"
+AllowDock="True"
+AutoHidden="True"
+ItemWidth="500"
+Caption="Reporting"
+ShowPinButton="True">
+
+                </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel
+HorizontalAlignment="Left"
+AllowClose="False"
+AllowDock="True"
+AutoHidden="True"
+ItemWidth="500"
+Caption="Wires"
+ShowPinButton="True">
+
+                </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel
+HorizontalAlignment="Left"
+AllowClose="False"
+AllowDock="True"
+AutoHidden="True"
+ItemWidth="500"
+Caption="Breaks"
+ShowPinButton="True">
+
+                </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel
+HorizontalAlignment="Left"
+AllowClose="False"
+AllowDock="True"
+AutoHidden="True"
+ItemWidth="500"
+Caption="Facility Setup"
+ShowPinButton="True">
+
+                </dxdo:LayoutPanel>
+                <dxdo:LayoutPanel
+HorizontalAlignment="Left"
+AllowClose="False"
+AllowDock="True"
+AutoHidden="True"
+ItemWidth="500"
+Caption="CASH MATCHING"
+ShowPinButton="True">
+
+                </dxdo:LayoutPanel>
+            </dxdo:LayoutGroup>
         </dxdo:DockLayoutManager>
     </Grid>
 </dx:ThemedWindow>

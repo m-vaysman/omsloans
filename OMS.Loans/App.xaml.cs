@@ -26,23 +26,26 @@ namespace OMS.Loans
             serviceCollection.AddSingleton<IMapper>(mapper => new MappingProfile().Mapper);
             serviceCollection.AddScoped<ICounterParties, CounterPartyService>();
             serviceCollection.AddScoped<IBlotterEntries, BlotterEntriesService>();
+            serviceCollection.AddScoped<ITradeEntries, TradeEntriesService>();
+            serviceCollection.AddScoped<ITradeDocumentRetriever, DocumentsRetrievingService>();
             serviceCollection.AddDbContext<LoanDbContext>(ServiceLifetime.Scoped);
             serviceCollection.AddTransient<BlotterViewModel>();
-
+            serviceCollection.AddScoped<IAccrualEntries, AccrualsEntriesService>();
+            serviceCollection.AddScoped<ITradeBalanceVsAccrued, TradeBalanceVsAccruedService>();
+            serviceCollection.AddTransient<AccrualEntriesViewModel>();
             serviceCollection.AddTransient<BlotterEntriesViewModel>();
-
+            serviceCollection.AddTransient<TradeEntryViewModel>();
             return serviceCollection.BuildServiceProvider();
         }
         static App()
         {
 
             CompatibilitySettings.UseLightweightThemes = true;
-
-            ApplicationThemeHelper.ApplicationThemeName = LightweightTheme.Win11Dark.Name;
+            //LightweightTheme.Office2019BlackBrickwork.Name;
+            ApplicationThemeHelper.ApplicationThemeName = LightweightTheme.Office2019BlackCobaltBlue.Name;
             ApplicationThemeHelper.UpdateApplicationThemeName();
             SplashScreenManager.CreateThemed().ShowOnStartup();
-
-
+       
 
         }
 

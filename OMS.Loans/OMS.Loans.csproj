@@ -23,4 +23,9 @@
     <ProjectReference Include="..\LoanDbModel\LoanDbModel.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Assets\" />
+	  <Resource Include="Assets/LT_Logo.png" />
+  </ItemGroup>
+
 </Project>

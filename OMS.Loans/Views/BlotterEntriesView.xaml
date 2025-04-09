@@ -6,8 +6,10 @@
              xmlns:local="clr-namespace:OMS.Loans.Views"
              xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
              xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
+             xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
+   
     <DockPanel MaxHeight="700" MaxWidth="1100">
         <dx:SimpleButton DockPanel.Dock="Top" HorizontalAlignment="Right" Glyph="{dx:DXImage GrayScaleImages/Actions/Reset_32x32.png}" Command="{Binding LoadBlotterEntriesCommand}"/>
         <dxg:GridControl LostFocus="GridControl_LostFocus" DockPanel.Dock="Bottom" ItemsSource="{Binding BlotterEntries}" SelectionMode="Row" SelectedItem="{Binding SelectedBlotterEntry}"  AutoGenerateColumns="None" >

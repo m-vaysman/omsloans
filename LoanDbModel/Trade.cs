@@ -8,6 +8,8 @@
     public class Trade
     {
         public Collection<Paydown> Paydowns { get; set; }
+        public Collection<TradeDocument> TradeDocuments { get; set; }
+        public Collection<Accrual> Accruals { get; set; }
         public int TradeId { get; set; }
         public CounterParty CounterParty { get; set; }
         public int CounterPartyId { get; set; }
@@ -69,6 +71,8 @@
         [Precision(18, 2)]
         [Required]
         public decimal Spread { get; set; }
+
+        public bool IsSettled { get; set; }
 
     }
 

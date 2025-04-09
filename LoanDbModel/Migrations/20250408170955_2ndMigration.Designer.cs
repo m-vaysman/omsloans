@@ -4,6 +4,7 @@ using LoanDbModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LoanDbModel.Migrations
 {
     [DbContext(typeof(LoanDbContext))]
-    partial class LoanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250408170955_2ndMigration")]
+    partial class _2ndMigration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -44,11 +47,6 @@ namespace LoanDbModel.Migrations
                     b.Property<decimal>("BankRate")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<DateTime>("CreatedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
                     b.Property<DateOnly>("FromDate")
                         .HasColumnType("date");
 
@@ -69,9 +67,6 @@ namespace LoanDbModel.Migrations
 
                     b.Property<int>("TradeId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedDate")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("AccrualId");
 
@@ -102,11 +97,6 @@ namespace LoanDbModel.Migrations
 
                     b.Property<int>("CounterPartyId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.Property<string>("Document")
                         .HasColumnType("nvarchar(max)");
@@ -141,9 +131,6 @@ namespace LoanDbModel.Migrations
                     b.Property<DateTime>("TradeDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("UpdatedDate")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("BlotterId");
 
                     b.HasIndex("CounterPartyId");
@@ -167,17 +154,9 @@ namespace LoanDbModel.Migrations
                         .IsRequired()
                         .HasColumnType("varchar(500)");
 
-                    b.Property<DateTime>("CreatedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
                     b.Property<string>("DomicileCountry")
                         .IsRequired()
                         .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime>("UpdatedDate")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("CounterPartyId");
 
@@ -196,11 +175,6 @@ namespace LoanDbModel.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<DateTime>("CreatedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
 
@@ -216,9 +190,6 @@ namespace LoanDbModel.Migrations
 
                     b.Property<int>("TradeId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedDate")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("PaydownId");
 
@@ -239,11 +210,6 @@ namespace LoanDbModel.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<DateTime>("CreatedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
 
@@ -253,9 +219,6 @@ namespace LoanDbModel.Migrations
 
                     b.Property<int>("PaydownId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedDate")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("SettledPaydownCashWireId");
 
@@ -290,11 +253,6 @@ namespace LoanDbModel.Migrations
 
                     b.Property<int>("CounterPartyId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.Property<string>("Currency")
                         .IsRequired()
@@ -358,9 +316,6 @@ namespace LoanDbModel.Migrations
                     b.Property<DateTime>("TradeDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("UpdatedDate")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("TradeId");
 
                     b.HasIndex("CounterPartyId");
@@ -380,11 +335,6 @@ namespace LoanDbModel.Migrations
                         .IsRequired()
                         .HasColumnType("varchar(100)");
 
-                    b.Property<DateTime>("CreatedDate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
                     b.Property<byte[]>("Data")
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
@@ -395,9 +345,6 @@ namespace LoanDbModel.Migrations
 
                     b.Property<int>("TradeId")
                         .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedDate")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("TradeDocumentId");
 

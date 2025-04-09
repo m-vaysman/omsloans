@@ -1,0 +1,320 @@
+﻿<UserControl
+    x:Class="OMS.Loans.Views.TestView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="clr-namespace:OMS.Loans.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
+    xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
+    xmlns:dxe1="http://schemas.devexpress.com/winfx/2008/xaml/grid"
+    xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
+    xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="clr-namespace:OMS.Loans.ViewModels"
+    xmlns:views="clr-namespace:OMS.Loans.Views"
+    MaxWidth="400"
+    mc:Ignorable="d"
+    d:DataContext="{d:DesignInstance Type=viewmodels:TradeEntryDesignViewModel}"
+    d:DesignHeight="1300"
+    d:DesignWidth="500">
+    <dxmvvm:Interaction.Behaviors>
+        <dx:DXMessageBoxService />
+        <dxmvvm:OpenFileDialogService />
+        <dx:DialogService>
+            <dx:DialogService.DialogStyle>
+                <Style TargetType="dx:DXDialogWindow">
+                    <Setter Property="dx:ThemeManager.ThemeName" Value="DeepBlue"/>
+                    <Setter Property="MaxHeight" Value="700"/>
+                    <Setter Property="MaxWidth" Value="900"/>
+                </Style>
+            </dx:DialogService.DialogStyle>
+            <dx:DialogService.ViewTemplate>
+                <DataTemplate>
+                    <views:AccrualEntriesView/>
+                </DataTemplate>
+            </dx:DialogService.ViewTemplate>
+        </dx:DialogService>
+        <dxmvvm:EventToCommand Command="{Binding InitializeViewModelCommand}" EventName="Loaded" />
+    </dxmvvm:Interaction.Behaviors>
+    <UserControl.Resources>
+        <Style TargetType="dxlc:LayoutGroup">
+            <Setter Property="Margin" Value="5" />
+            <Setter Property="GroupBoxDisplayMode" Value="Light" />
+        </Style>
+        <converters:BoolToBuySellConverter x:Key="BoolToBuySellConverter" />
+        <converters:BuySellMatchConverter x:Key="BuySellMatchConverter" />
+        <dxmvvm:BooleanNegationConverter x:Key="BooleanNegationConverter"/>
+        <converters:PercentageConverter x:Key="PercentageConverter"/>
+    </UserControl.Resources>
+    <Grid>
+        <dxlc:LayoutControl>
+            <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical">
+                <dxlc:LayoutGroup View="GroupBox">
+                    <dxlc:LayoutItem VerticalAlignment="Center">
+                        <dxe:HyperlinkEdit
+                            VerticalAlignment="Center"
+                            x:Name="editor"
+                            AllowAutoNavigate="True"
+                            RequestNavigation="ReInitializeViewModel_RequestNavigation"
+                            Text="New Trade" />
+                    </dxlc:LayoutItem>
+                </dxlc:LayoutGroup>
+                <dxlc:LayoutGroup Header="Trade Basics"
+                                  View="GroupBox"
+                                  IsEnabled="{Binding TradeEntryItem.IsSettled, Converter={StaticResource BooleanNegationConverter}}">
+                    <dxlc:LayoutGroup Orientation="Vertical">
+                        <dxlc:LayoutItem Label="TradeId">
+                            <dxe:TextEdit
+                                Mask="f0"
+                                MaskType="Numeric"
+                                Name="TradeId"
+                                NullValue="0"
+                                Text="{Binding TradeEntryItem.TradeId}">
+                                <dxmvvm:Interaction.Behaviors>
+                                    <dxmvvm:EventToCommand Command="{Binding LoadTradeRelatedDataCommand}" EventName="LostFocus" />
+                                </dxmvvm:Interaction.Behaviors>
+                            </dxe:TextEdit>
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="CounterPartyId">
+                            <dxe:TextEdit IsEnabled="False" NullValue="0" Text="{Binding TradeEntryItem.CounterPartyId}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="CUSIP">
+                            <dxe:TextEdit IsEnabled="False" Text="{Binding TradeEntryItem.CUSIP}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Counter Party">
+                            <dxe1:LookUpEdit
+                                DisplayMember="CounterPartyName"
+                                ItemsSource="{Binding CounterParties}"
+                                SelectedItem="{Binding TradeEntryItem.CounterParty}"
+                                ValueMember="CounterPartyId" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Ticker">
+                            <dxe:TextEdit Text="{Binding TradeEntryItem.Ticker}" />
+                        </dxlc:LayoutItem>
+                    </dxlc:LayoutGroup>
+                    <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical" />
+                </dxlc:LayoutGroup>
+                <dxlc:LayoutGroup
+                    Header="Portfolio"
+                    Name="Portfolio"
+                    View="GroupBox"
+                    IsEnabled="{Binding TradeEntryItem.IsSettled, Converter={StaticResource BooleanNegationConverter}}"
+                    >
+                    <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical">
+                        <dxlc:LayoutItem Label="Trade Acct">
+                            <dxe1:LookUpEdit ItemsSource="{Binding TradeAccounts}" SelectedItem="{Binding TradeEntryItem.TradeAcct}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Strategy">
+                            <dxe1:LookUpEdit ItemsSource="{Binding Strategies}" SelectedItem="{Binding TradeEntryItem.Strategy}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="SubStrategy">
+                            <dxe1:LookUpEdit ItemsSource="{Binding SubStrategies}" SelectedItem="{Binding TradeEntryItem.SubStrategy}" />
+                        </dxlc:LayoutItem>
+                    </dxlc:LayoutGroup>
+                </dxlc:LayoutGroup>
+                <dxlc:LayoutGroup Header="Dates and Direction"
+                                  View="GroupBox"
+                                  IsEnabled="{Binding TradeEntryItem.IsSettled, Converter={StaticResource BooleanNegationConverter}}"
+                                  >
+                    <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical">
+                        <dxlc:LayoutItem Label="Trade Date">
+                            <dxe:DateEdit
+                                EditValue="{Binding TradeEntryItem.TradeDate}"
+                                Name="StartDateEdit"
+                                ShowToday="True" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Settlement Date">
+                            <dxe:DateEdit
+                                EditValue="{Binding TradeEntryItem.SettlementDate}"
+                                MinValue="{Binding ElementName=StartDateEdit, Path=EditValue}"
+                                ShowToday="True" />
+                        </dxlc:LayoutItem>
+                    </dxlc:LayoutGroup>
+                </dxlc:LayoutGroup>
+                <dxlc:LayoutGroup Header="Amounts and Pricing"
+                                  View="GroupBox"
+                                  IsEnabled="{Binding TradeEntryItem.IsSettled, Converter={StaticResource BooleanNegationConverter}}"
+                                  >
+                    <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical">
+                        <dxlc:LayoutItem>
+
+                            <dxlc:FlowLayoutControl
+                                HorizontalAlignment="Center"
+                                ItemSpace="15"
+                                Name="flowLayoutControl1"
+                                Orientation="Horizontal"
+                                Padding="0">
+                                <RadioButton
+                                    Content="Buy"
+                                    GroupName="BuySell"
+                                    IsChecked="{Binding TradeEntryItem.BuySell, 
+                                     Converter={StaticResource BuySellMatchConverter}, 
+                                     ConverterParameter=B, 
+                                     Mode=TwoWay}" />
+                                <RadioButton
+                                    Content="Sell"
+                                    GroupName="BuySell"
+                                    IsChecked="{Binding TradeEntryItem.BuySell, 
+                                     Converter={StaticResource BuySellMatchConverter}, 
+                                     ConverterParameter=S, 
+                                     Mode=TwoWay}" />
+
+                            </dxlc:FlowLayoutControl>
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Price">
+                            <dxe:TextEdit
+                                AllowNullInput="True"
+                                Mask="p2"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                NullValue="0"
+                                EditValue="{Binding TradeEntryItem.Price, ValidatesOnNotifyDataErrors=True, UpdateSourceTrigger=LostFocus}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Spread">
+                            <dxe:TextEdit
+                                AllowNullInput="True"
+                                Mask="p2"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.Spread}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Notional">
+                            <dxe:TextEdit
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.Notional}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Global Commitment">
+                            <dxe:TextEdit
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.GlobalCommitment}" />
+                        </dxlc:LayoutItem>
+                    </dxlc:LayoutGroup>
+                    <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical" />
+                </dxlc:LayoutGroup>
+                <dxlc:LayoutGroup Header="Adjustments" View="GroupBox">
+                    <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical">
+                        <dxlc:LayoutItem Label="Term Unfunded">
+                            <dxe:TextEdit
+                                AllowNullInput="True"
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.TermUnfundedAmount}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Fees/Costs">
+                            <dxe:TextEdit
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.FeesCosts}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Interest Received">
+                            <dxe:TextEdit
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.InterestReceived}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Economic Benefit">
+                            <dxe:TextEdit
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.EconomicBenefit}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Commitment Reduction">
+                            <dxe:TextEdit
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.CommitmentReduction}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Delay Compensation">
+                            <dxe:TextEdit
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.DelayCompensation}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutItem Label="Additional Credit">
+                            <dxe:TextEdit
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding TradeEntryItem.AdditionalCredit}" />
+                        </dxlc:LayoutItem>
+                    </dxlc:LayoutGroup>
+                    <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical" />
+                </dxlc:LayoutGroup>
+                <dxlc:LayoutGroup Name="Booking" View="GroupBox">
+                    <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical">
+                        <dxlc:LayoutItem Label="Total:">
+                            <dxe:TextEdit
+                                IsEnabled="False"
+                                Mask="c"
+                                MaskType="Numeric"
+                                MaskUseAsDisplayFormat="True"
+                                Text="{Binding Total, Mode=OneWay}" />
+                        </dxlc:LayoutItem>
+                        <dxlc:LayoutGroup>
+
+                            <dxlc:LayoutItem>
+                                <dx:SimpleButton
+                                    HorizontalAlignment="Right"
+                                    Command="{Binding AttachDocumentationCommand}"
+                                    FontSize="9"
+                                    Content="Attach Doc" />
+                            </dxlc:LayoutItem>
+                            <dxlc:LayoutItem>
+                                <dx:SimpleButton
+                                    HorizontalAlignment="Left"
+                                    FontSize="9"
+                                    Content="Pay Downs" />
+                                                        </dxlc:LayoutItem>
+                            <dxlc:LayoutItem>
+                                <dx:SimpleButton
+                                    HorizontalAlignment="Left"
+                                    FontSize="9"
+                                    Command="{Binding ShowAccrualsCommand}"
+                                    Content="Accruals" />
+                            </dxlc:LayoutItem>
+                            <dxlc:LayoutItem>
+                                <dx:SimpleButton
+                                    HorizontalAlignment="Left"
+                                    FontSize="9"
+                                    Command="{Binding BookTradeCommand}"
+                                    Content="Book Trade" />
+                            </dxlc:LayoutItem>
+                        </dxlc:LayoutGroup>
+
+                        <dxlc:LayoutItem />
+                    </dxlc:LayoutGroup>
+                </dxlc:LayoutGroup>
+                <dxlc:LayoutGroup Header="Attachments" View="GroupBox">
+                    <dxlc:LayoutItem>
+                        <dxe:ListBoxEdit ItemsSource="{Binding Documents}" Name="lbeDocuments">
+                            <dxe:ListBoxEdit.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid />
+                                </ItemsPanelTemplate>
+                            </dxe:ListBoxEdit.ItemsPanel>
+                            <dxe:ListBoxEdit.ItemTemplate>
+                                <DataTemplate>
+                                <TextBlock Name="tbDocument">
+                                    <dxe:HyperlinkEdit Name="hleDocumentName"  Text="{Binding Name}" Command="{Binding StartCommand}"></dxe:HyperlinkEdit>
+                                </TextBlock>
+                                </DataTemplate>
+                            </dxe:ListBoxEdit.ItemTemplate>
+                           
+                        </dxe:ListBoxEdit>
+                    </dxlc:LayoutItem>
+                </dxlc:LayoutGroup>
+            </dxlc:LayoutGroup>
+
+        </dxlc:LayoutControl>
+    </Grid>
+</UserControl>

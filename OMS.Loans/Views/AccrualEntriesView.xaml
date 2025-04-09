@@ -1,0 +1,116 @@
+﻿<UserControl
+    x:Class="OMS.Loans.Views.AccrualEntriesView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
+    xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
+    xmlns:dxgo="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
+    xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"
+    xmlns:dxmvvm1="http://schemas.devexpress.com/winfx/2008/xaml/core"
+    xmlns:local="clr-namespace:OMS.Loans.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:System="clr-namespace:System;assembly=System.Runtime"
+    xmlns:viewmodels="clr-namespace:OMS.Loans.ViewModels"
+    mc:Ignorable="d"
+    d:DataContext="{d:DesignInstance Type={x:Type viewmodels:AccrualEntriesViewModel}}"
+    d:DesignHeight="900"
+    d:DesignWidth="1000">
+    <dxmvvm:Interaction.Behaviors>
+        <dxmvvm:EventToCommand Command="{Binding InitializeViewModelCommand}" />
+        <dxmvvm1:DXMessageBoxService/>
+    </dxmvvm:Interaction.Behaviors>
+    <dxgo:LayoutControl >
+        <dxgo:LayoutGroup Orientation="Vertical">
+            <dxgo:LayoutItem>
+                <dxg:GridControl
+                    
+                    MaxHeight="1700"
+                    MaxWidth="2900"
+                    HorizontalAlignment="Left"
+                    DesignTimeDataObjectType="{x:Type viewmodels:AccrualEntryItemViewModel}"
+                    ItemsSource="{Binding AccrualEntryItems}"
+                    x:Name="Accrual_Grid"
+                    SelectionMode="Row">
+                    <dxg:GridControl.View>
+                        <dxg:TableView
+                            AllowBestFit="True"
+                            AllowColumnMoving="False"
+                            AllowHeaderNavigation="True"
+                            ShowGroupPanel="False"
+                            AllowMoveColumnToDropArea="False"
+                            BestFitArea="Header"
+                            BestFitMode="AllRows"
+                            EditFormShowMode="Dialog"
+                            Loaded="TableView_Loaded"
+                            NewItemRowPosition="Bottom"
+                            ShowCheckBoxSelectorColumn="True"
+                            ShowCriteriaInAutoFilterRow="False"
+                            ShowDataNavigator="False"
+                            ShowFocusedRectangle="True"
+                            ShowSelectionRectangle="True"
+                            TotalSummaryPosition="Bottom" />
+                    </dxg:GridControl.View>
+                    <dxg:GridControl.Columns>
+                        <dxg:GridColumn
+                            AllowEditing="False"
+                            EditFormStartNewRow="False"
+                            FieldName="AccrualId"
+                            IsSmart="True" />
+                        <dxg:GridColumn
+                            AllowEditing="False"
+                            FieldName="AccrualCode"
+                            IsSmart="True" />
+                        <dxg:GridColumn
+                            AllowEditing="False"
+                            FieldName="TradeId"
+                            IsSmart="True" />
+                        <dxg:GridColumn
+                            AllowEditing="False"
+                            EditFormStartNewRow="False"
+                            FieldName="ParentAccrualId"
+                            IsSmart="True" />
+                        <dxg:GridColumn FieldName="Notional" IsSmart="True" />
+                        <dxg:GridColumn FieldName="FromDate" IsSmart="True" />
+                        <dxg:GridColumn FieldName="ToDate" IsSmart="True" />
+                        <dxg:GridColumn FieldName="BankRate" IsSmart="True" />
+                        <dxg:GridColumn FieldName="Spread" IsSmart="True" />
+                        <dxg:GridColumn FieldName="Act" IsSmart="True" />
+                        <dxg:GridColumn
+                            AllowEditing="False"
+                            EditFormStartNewRow="False"
+                            FieldName="ExpectedCash"
+                            IsSmart="True">
+                            <dxg:GridColumn.EditSettings>
+                                <dxe:TextEditSettings
+                                    Mask="c"
+                                    MaskType="Numeric"
+                                    MaskUseAsDisplayFormat="True" />
+                            </dxg:GridColumn.EditSettings>
+                        </dxg:GridColumn>
+                        <dxg:GridColumn
+                            EditFormStartNewRow="False"
+                            FieldName="Note"
+                            IsSmart="True" />
+                        <dxg:GridColumn
+                            AllowEditing="False"
+                            EditFormStartNewRow="False"
+                            FieldName="HasErrors"
+                            IsSmart="True" />
+                    </dxg:GridControl.Columns>
+                      
+                </dxg:GridControl>
+            </dxgo:LayoutItem>
+            <dxgo:LayoutGroup HorizontalAlignment="Center"  Orientation="Horizontal">
+                <dxgo:LayoutItem >
+                    <dxe:HyperlinkEdit Text="Check Accruals" />
+                </dxgo:LayoutItem>
+
+                <dxgo:LayoutItem >
+                    <dxe:HyperlinkEdit Text="Save Accruals" Command="{Binding SaveAccrualsCommand}"/>
+                </dxgo:LayoutItem>
+            </dxgo:LayoutGroup>
+        </dxgo:LayoutGroup>
+
+    </dxgo:LayoutControl>
+</UserControl>

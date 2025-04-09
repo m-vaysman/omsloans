@@ -2,6 +2,7 @@
 using OMS.Loans.Common;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace OMS.Loans.Services
@@ -18,10 +19,16 @@ namespace OMS.Loans.Services
             }
 
             this.loanDbContext = loanDbContext;
+            CounterParties = new();
         }
+
+        public ObservableCollection<CounterParty> CounterParties { get; }
+
         public IEnumerable<CounterParty> GetCounterParties()
         {
-            return loanDbContext.CounterParties.ToList();
+            CounterParties.Clear();
+             loanDbContext.CounterParties.ToList().ForEach(c=>CounterParties.Add(c));
+            return CounterParties;
         }
     }
 }

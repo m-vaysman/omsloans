@@ -1,0 +1,114 @@
+﻿<UserControl x:Class="OMS.Loans.Views.TradeEntryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:OMS.Loans.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="800">
+    <Grid>
+       
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Grid Margin="20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Trade Basics -->
+                    <GroupBox Header="Trade Basics" Grid.Row="0" Grid.ColumnSpan="2" Margin="0 0 0 10">
+                        <UniformGrid Columns="4" Margin="10">
+                            <TextBlock Text="Trade ID" />
+                            <TextBox />
+                            <TextBlock Text="CounterParty" />
+                            <ComboBox />
+                            <TextBlock Text="CounterParty ID" />
+                            <TextBox />
+                            <TextBlock Text="Ticker" />
+                            <TextBox />
+                            <TextBlock Text="CUSIP" />
+                            <TextBox />
+                        </UniformGrid>
+                    </GroupBox>
+
+                    <!-- Dates & Direction -->
+                    <GroupBox Header="Dates and Direction" Grid.Row="1" Grid.ColumnSpan="2" Margin="0 0 0 10">
+                        <UniformGrid Columns="3" Margin="10">
+                            <TextBlock Text="Trade Date" />
+                            <DatePicker />
+                            <TextBlock Text="Settlement Date" />
+                            <DatePicker />
+                            <TextBlock Text="Buy/Sell" />
+                            <ComboBox>
+                                <ComboBoxItem>Buy</ComboBoxItem>
+                                <ComboBoxItem>Sell</ComboBoxItem>
+                            </ComboBox>
+                        </UniformGrid>
+                    </GroupBox>
+
+                    <!-- Amounts & Pricing -->
+                    <GroupBox Header="Amounts and Pricing" Grid.Row="2" Grid.ColumnSpan="2" Margin="0 0 0 10">
+                        <UniformGrid Columns="4" Margin="10">
+                            <TextBlock Text="Price" />
+                            <TextBox />
+                            <TextBlock Text="Notional" />
+                            <TextBox />
+                            <TextBlock Text="Spread" />
+                            <TextBox />
+                            <TextBlock Text="Global Commitment" />
+                            <TextBox />
+                        </UniformGrid>
+                    </GroupBox>
+
+                    <!-- Adjustments & Benefits -->
+                    <GroupBox Header="Adjustments and Benefits" Grid.Row="3" Grid.ColumnSpan="2" Margin="0 0 0 10">
+                        <UniformGrid Columns="4" Margin="10">
+                            <TextBlock Text="Term Unfunded" />
+                            <TextBox />
+                            <TextBlock Text="Commitment Reduction" />
+                            <TextBox />
+                            <TextBlock Text="Fees/Costs" />
+                            <TextBox />
+                            <TextBlock Text="Delay Compensation" />
+                            <TextBox />
+                            <TextBlock Text="Interest Received" />
+                            <TextBox />
+                            <TextBlock Text="Additional Credit" />
+                            <TextBox />
+                            <TextBlock Text="Economic Benefit" />
+                            <TextBox />
+                        </UniformGrid>
+                    </GroupBox>
+
+                    <!-- Account & Strategy -->
+                    <GroupBox Header="Account and Strategy" Grid.Row="4" Grid.ColumnSpan="2">
+                        <UniformGrid Columns="4" Margin="10">
+                            <TextBlock Text="Trade Account" />
+                            <TextBox />
+                            <TextBlock Text="Strategy" />
+                            <TextBox />
+                            <TextBlock Text="SubStrategy" />
+                            <TextBox />
+                            <TextBlock Text="Currency" />
+                            <ComboBox>
+                                <ComboBoxItem>USD</ComboBoxItem>
+                                <ComboBoxItem>EUR</ComboBoxItem>
+                                <ComboBoxItem>JPY</ComboBoxItem>
+                                <!-- Add more currencies as needed -->
+                            </ComboBox>
+                        </UniformGrid>
+                    </GroupBox>
+                </Grid>
+            </ScrollViewer>
+     
+
+    </Grid>
+</UserControl>
