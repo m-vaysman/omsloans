@@ -1,7 +1,7 @@
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?logo=linkedin)](https://www.linkedin.com/in/michael-v-5961689/)
 
-# OMS.Loans – WPF Loan Trade Entry System (Demo Project)
+# OMS.Loans – WPF Loan Trade Management System (On-going)
 
 This is a demo for a future pet project **Order Management System (OMS)** for **Loan Trade Entry**, built using **WPF (.NET 8)** with a modular MVVM architecture. It showcases key enterprise design patterns, component separation, and UI responsiveness using **DevExpress**, **AutoMapper**, and **MVVM Toolkit**.
 Currently built out first phase which is to capture Blottered. Trades.
