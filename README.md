@@ -96,7 +96,7 @@ Split amounts appear as separate line items and can each be independently matche
 
 Below is an example of the **Cash Matching** screen in use:
 
-![Cash Matching Screen](./Assets/CashMatching.png)
+![Cash Matching Screen](Assets/CashMatching.png)
 
 > _(Update the image path based on your actual folder structure)_
 
