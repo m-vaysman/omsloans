@@ -50,6 +50,60 @@ in project dir run
    
 ![Migrations Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/Migrations.PNG)
 
+Absolutely — here’s the updated section for your `README.md`, with the **split functionality** included:
+
+---
+
+## 💵 Cash Matching Screen
+
+The **Cash Matching** screen is used to reconcile **expected loan cash flows** (left panel) with **incoming external payments** (right panel). This tool allows operations or finance users to match cash movements effectively for audit, reporting, or settlement purposes.
+
+### 🔄 Workflow Overview
+
+- **Left Panel (Expected Cash)**  
+  Displays anticipated loan cash flows from internal systems. Each row includes fields like `Code`, `Counter Party`, `Amount`, and `Expected Date`.
+
+- **Right Panel (External Cash)**  
+  Lists external payments received, including payment `Source`, `Amount`, `Date`, and associated metadata such as `Counter Party` and `Code`.
+
+- **Middle Panel (Matched Records)**  
+  This panel shows groups of matched cash flows. Users can:
+  - Push items from the **Expected** and **External** panels into the middle.
+  - Form matching groups where the **total of expected and received payments nets to zero**.
+  - Visualize all components of a match in one place for easier review and validation.
+
+### ✂️ Split Functionality
+
+Users can **split incoming external payments into custom amounts** before matching. This allows flexibility when:
+
+- A single incoming payment covers multiple expected items
+- Payment amounts do not perfectly align with expected values
+- Partial matches need to be reconciled over time
+
+Split amounts appear as separate line items and can each be independently matched.
+
+### 🎯 Key Features
+
+- Manual and flexible matching using UI buttons or drag-and-drop
+- Ability to split external cash into multiple matchable components
+- Visual confirmation when match totals reach zero
+- Automatic total calculation for matched groups
+- Clear and intuitive three-panel layout
+
+---
+
+### 📸 Screenshot
+
+Below is an example of the **Cash Matching** screen in use:
+
+![Cash Matching Screen](./Assets/CashMatching.png)
+
+> _(Update the image path based on your actual folder structure)_
+
+---
+
+Let me know if you'd like to add keyboard shortcuts, backend reconciliation logic, or user role/access details as well.
+
 ---
 
 ## 🧰 Tech Stack
