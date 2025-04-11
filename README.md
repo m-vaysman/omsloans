@@ -3,10 +3,23 @@
 
 # OMS.Loans – WPF Loan Trade Management System (On-going)
 
-This is a demo for a future pet project **Order Management System (OMS)** for **Loan Trade Entry**, built using **WPF (.NET 8)** with a modular MVVM architecture. It showcases key enterprise design patterns, component separation, and UI responsiveness using **DevExpress**, **AutoMapper**, and **MVVM Toolkit**.
-Currently built out first phase which is to capture Blottered. Trades.
+This is beginning of an OMS which can be used for managing trading/operations around Syndicated Loan product Built using **WPF (.NET 8)** with a modular MVVM architecture with Entity Framework 9 for back-end. It showcases key enterprise design patterns, component separation, and UI responsiveness using **DevExpress**, **AutoMapper**, and **MVVM Toolkit**.
+
 This OMS should have Blotter to Trade. Trade Allocation. Events management(paydowns,drawdowns accruals, cash). Lastly it will have a module to match incoming cash with events. 
 
+More updated repository is kept seperately. 
+
+#BUILD / DEPLOY
+1. Build using csc.exe or any C# IDE.
+2.  Deploy migration: simply change CONNECTION STRING in LoanDBContext.cs
+protected override void OnConfiguring(DbContextOptionsBuilder options)
+=> options.UseSqlServer(@"Data Source=YOUR_SERVER;User ID=YOUR_USER;Password=YOUR_PASSWORD;Initial Catalog=Oms;TrustServerCertificate=true;MultipleActiveResultSets=True;Max Pool Size=100;")
+
+
+in project dir run 
+   dotnet-ef migrations add InitialMigration
+   
+![Migrations Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/Migrations.PNG)
 
 ## 📸 UI Preview
 
@@ -40,17 +53,9 @@ The grid is searchable. It also allows user to easily book and replicate a blott
 ![AccrualSaved Screenshot](Assets/AccrualsSaved.png)
 
 
-Deploy migration: simply change CONNECTION STRING in LoanDBContext.cs
-protected override void OnConfiguring(DbContextOptionsBuilder options)
-=> options.UseSqlServer(@"Data Source=YOUR_SERVER;User ID=YOUR_USER;Password=YOUR_PASSWORD;Initial Catalog=Oms;TrustServerCertificate=true;MultipleActiveResultSets=True;Max Pool Size=100;")
 
 
-in project dir run 
-   dotnet-ef migrations add InitialMigration
-   
-![Migrations Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/Migrations.PNG)
 
-Absolutely — here’s the updated section for your `README.md`, with the **split functionality** included:
 
 ---
 
@@ -108,7 +113,7 @@ Let me know if you'd like to add keyboard shortcuts, backend reconciliation logi
 
 ## 🧰 Tech Stack
 
-- **WPF (.NET 6)**
+- **WPF (.NET 8)**
 - **MVVM Toolkit** (`CommunityToolkit.Mvvm`)
 - **DevExpress WPF UI Controls**
 - **Entity Framework Core** (with migrations)
