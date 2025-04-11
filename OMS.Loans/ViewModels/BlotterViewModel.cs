@@ -19,14 +19,16 @@ using System.Linq;
 namespace OMS.Loans.ViewModels
 {
     /// <summary>
-    /// ViewModel for managing loan trade blotter entries in the WPF OMS.
-    /// Implements MVVM using ObservableObject and DevExpress docking support.
+    /// ViewModel for managing loan blotter entries.
+    /// Supports MVVM design, validation, command enablement, AutoMapper integration, and messaging.
     /// </summary>
     public partial class BlotterViewModel : ObservableObject, IMVVMDockingProperties, ISupportServices
     {
-        IServiceContainer serviceContainer = null;
+        private IServiceContainer serviceContainer = null;
 
-       
+        /// <summary>
+        /// Provides access to DevExpress service container for resolving UI services like IMessageBoxService.
+        /// </summary>
         public IServiceContainer ServiceContainer
         {
             get
@@ -36,67 +38,87 @@ namespace OMS.Loans.ViewModels
                 return serviceContainer;
             }
         }
+
+        // Dependencies
         private readonly LoanDbContext loanDbContext;
         private readonly ICounterParties counterPartyService;
         private readonly IMapper mapper;
+
+        // Bindable collections and selected values
         [ObservableProperty]
         public ObservableCollection<BlotterItem> blotterItems;
+
         [ObservableProperty]
         public BlotterItem blotterItem;
+
         [ObservableProperty]
         public ObservableCollection<CounterParty> counterParties;
+
         [ObservableProperty]
         public CounterParty selectedCounterParty;
 
+        /// <summary>
+        /// Constructor for design-time/test use with mapper only.
+        /// Registers for Trade selection messages.
+        /// </summary>
         public BlotterViewModel(IMapper mapper)
         {
             this.mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
 
-
-
+            // Listen for trade selection and initialize BlotterItem
             WeakReferenceMessenger.Default.Register<BlotteredTradeSelectedMessage>(this, (e, o) =>
             {
-
                 this.BlotterItem = new BlotterItem();
                 this.BlotterItem.PropertyChanged += BlotterItem_PropertyChanged;
+
+                // Map incoming domain model to editable ViewModel
                 var m = mapper.Map<Blotter, BlotterItem>(o.BlotterItem);
                 this.BlotterItem = m;
-                this.SaveBlotterItemCommand.NotifyCanExecuteChanged();
+
+                SaveBlotterItemCommand.NotifyCanExecuteChanged();
             });
         }
 
         /// <summary>
-        /// Responds to property changes in the current blotter item, e.g., for validation.
+        /// Constructor with service and DbContext injection.
         /// </summary>
-        private void BlotterItem_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        public BlotterViewModel(LoanDbContext loanDbContext, ICounterParties counterPartyService, IMapper mapper)
+            : this(mapper)
         {
-            this.SaveBlotterItemCommand.NotifyCanExecuteChanged();
-        }
-
-        /// <summary>
-        /// Called automatically when SelectedCounterParty changes.
-        /// </summary>
-        partial void OnSelectedCounterPartyChanged(CounterParty counterParty)
-        {
-            this.SaveBlotterItemCommand.NotifyCanExecuteChanged();
-        }
-
-        /// <summary>
-        /// Full constructor with services and DB context injection.
-        /// </summary>
-        public BlotterViewModel(LoanDbContext loanDbContext, ICounterParties counterPartyService, IMapper mapper) : this(mapper)
-        {
-            BlotterItems = new ObservableCollection<BlotterItem>();
-            CounterParties = new();
             this.loanDbContext = loanDbContext;
             this.counterPartyService = counterPartyService ?? throw new ArgumentNullException(nameof(counterPartyService));
 
-            this.blotterItem = new BlotterItem();
+            BlotterItems = new ObservableCollection<BlotterItem>();
+            CounterParties = new ObservableCollection<CounterParty>();
+
+            this.BlotterItem = new BlotterItem
+            {
+                BuySell = "B",
+                TradeDate = DateTime.Now
+            };
             this.BlotterItem.PropertyChanged += BlotterItem_PropertyChanged;
-            this.BlotterItem.BuySell = "B";
-            this.BlotterItem.TradeDate = DateTime.Now;
         }
 
+        /// <summary>
+        /// Called when any property of the current blotter item changes.
+        /// Used to re-evaluate Save command availability.
+        /// </summary>
+        private void BlotterItem_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            SaveBlotterItemCommand.NotifyCanExecuteChanged();
+        }
+
+        /// <summary>
+        /// Updates Save command state when the selected counterparty changes.
+        /// </summary>
+        partial void OnSelectedCounterPartyChanged(CounterParty counterParty)
+        {
+            SaveBlotterItemCommand.NotifyCanExecuteChanged();
+        }
+
+        /// <summary>
+        /// Loads counterparties into memory for dropdown binding.
+        /// </summary>
         [RelayCommand]
         public void ViewModelSetUp()
         {
@@ -104,7 +126,9 @@ namespace OMS.Loans.ViewModels
             {
                 if (CounterParties.Count == 0)
                 {
-                    counterPartyService.GetCounterParties().ToList().ForEach(cp => CounterParties.Add(cp));
+                    var list = counterPartyService.GetCounterParties();
+                    foreach (var cp in list)
+                        CounterParties.Add(cp);
                 }
             }
             catch (Exception e)
@@ -113,51 +137,62 @@ namespace OMS.Loans.ViewModels
             }
         }
 
-        
+        /// <summary>
+        /// Determines whether the Save command should be enabled.
+        /// </summary>
         private bool CanSaveBlotterItem()
         {
-            if (BlotterItem == null)
+            if (BlotterItem == null || SelectedCounterParty == null)
                 return false;
-            if (SelectedCounterParty == null)
-                return false;
+
             if (SelectedCounterParty.CounterPartyName.IsNullOrEmpty())
                 return false;
 
             if (BlotterItem.Ticker.IsNullOrEmpty() || BlotterItem.TradeAcct.IsNullOrEmpty())
                 return false;
 
-           return !BlotterItem.HasErrors;
-        } 
+            return !BlotterItem.HasErrors;
+        }
 
+        /// <summary>
+        /// Saves the current blotter item to the database.
+        /// </summary>
         [RelayCommand(CanExecute = nameof(CanSaveBlotterItem))]
         public void SaveBlotterItem()
         {
-
             try
             {
-                var blotter = new Blotter();
+                var blotter = new Blotter
+                {
+                    CounterPartyId = SelectedCounterParty.CounterPartyId,
+                    BuySell = BlotterItem.BuySell,
+                    Ticker = BlotterItem.Ticker,
+                    TradeAcct = BlotterItem.TradeAcct,
+                    TradeDate = BlotterItem.TradeDate,
+                    Price = BlotterItem.Price,
+                    Spread = BlotterItem.Spread,
+                    Notional = BlotterItem.Notional
+                };
 
-                
-                blotter.CounterPartyId = SelectedCounterParty.CounterPartyId;
-                blotter.BuySell = BlotterItem.BuySell;
-                blotter.Ticker = BlotterItem.Ticker;
-                blotter.TradeAcct = BlotterItem.TradeAcct;
-                blotter.TradeDate = BlotterItem.TradeDate;
-                blotter.Price = BlotterItem.Price;
-                blotter.Spread = BlotterItem.Spread;
-                blotter.Notional = BlotterItem.Notional;
                 loanDbContext.Add(blotter);
                 loanDbContext.SaveChanges();
+
                 SelectedCounterParty = null;
-                MessageBoxService.ShowMessage($"Blotter booked. Id:{blotter.BlotterId}");
-                WeakReferenceMessenger.Default.Send(new TradeBlotteredMessage() { BlotteredTrade = BlotterItem });
+
+                MessageBoxService.ShowMessage($"Blotter booked. Id: {blotter.BlotterId}");
+
+                // Notify other viewmodels that a blotter trade was saved
+                WeakReferenceMessenger.Default.Send(new TradeBlotteredMessage
+                {
+                    BlotteredTrade = BlotterItem
+                });
             }
             catch (Exception e)
             {
                 MessageBoxService.ShowMessage(e.Message, "Error", MessageButton.OK, MessageIcon.Error);
-
             }
 
+            // Reset the form for a new entry
             this.BlotterItem = new BlotterItem();
             this.BlotterItem.PropertyChanged += BlotterItem_PropertyChanged;
         }
@@ -168,10 +203,12 @@ namespace OMS.Loans.ViewModels
         public IMessageBoxService MessageBoxService => ServiceContainer.GetService<IMessageBoxService>();
 
         /// <summary>
-        /// Required for DevExpress docking integration.
+        /// Required by DevExpress to determine which dock panel this ViewModel binds to.
         /// </summary>
-        public string TargetName { get => "DockPanels"; set => throw new NotImplementedException(); }
-
-
+        public string TargetName
+        {
+            get => "DockPanels";
+            set => throw new NotImplementedException();
+        }
     }
 }

@@ -7,48 +7,74 @@ using System.Linq;
 
 namespace OMS.Loans.ViewModels
 {
+    /// <summary>
+    /// ViewModel representing a blotter trade item.
+    /// Includes property change notification and runtime validation.
+    /// </summary>
     public partial class BlotterItem : ObservableObject, INotifyDataErrorInfo
-
     {
+        // Blotter trade properties
         [ObservableProperty]
         public string counterPartyName;
+
         [ObservableProperty]
         public string ticker;
+
         [ObservableProperty]
         public int counterPartyId;
+
         [ObservableProperty]
         public string cusip;
+
         [ObservableProperty]
         public DateTime tradeDate;
+
         [ObservableProperty]
         public string buySell;
+
         [ObservableProperty]
         public decimal price;
+
         [ObservableProperty]
         public decimal globalCommitment;
+
         [ObservableProperty]
         public decimal notional;
+
         [ObservableProperty]
         public string tradeAcct;
+
         [ObservableProperty]
         public string document;
+
         [ObservableProperty]
         public string ticket;
+
         [ObservableProperty]
         public decimal spread;
 
-        #region Validation
+        #region Validation Implementation (INotifyDataErrorInfo)
+
+        // Dictionary holding validation errors per property
         private readonly Dictionary<string, List<string>> _errors = new();
 
+        // True if any property has validation errors
         public bool HasErrors => _errors.Count > 0;
 
+        // Event required by INotifyDataErrorInfo for UI to react to validation changes
         public event EventHandler<DataErrorsChangedEventArgs> ErrorsChanged;
 
+        /// <summary>
+        /// Raise the ErrorsChanged event for the specified property.
+        /// </summary>
         protected void OnErrorsChanged(string propertyName)
         {
             ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
         }
 
+        /// <summary>
+        /// Get validation errors for a given property.
+        /// </summary>
         public IEnumerable GetErrors(string propertyName)
         {
             if (string.IsNullOrEmpty(propertyName))
@@ -57,6 +83,9 @@ namespace OMS.Loans.ViewModels
             return _errors.TryGetValue(propertyName, out var errors) ? errors : null;
         }
 
+        /// <summary>
+        /// Add a validation error for a given property, if not already present.
+        /// </summary>
         private void AddError(string propertyName, string error)
         {
             if (!_errors.ContainsKey(propertyName))
@@ -69,6 +98,9 @@ namespace OMS.Loans.ViewModels
             }
         }
 
+        /// <summary>
+        /// Clear all validation errors for a given property.
+        /// </summary>
         private void ClearErrors(string propertyName)
         {
             if (_errors.Remove(propertyName))
@@ -76,6 +108,10 @@ namespace OMS.Loans.ViewModels
                 OnErrorsChanged(propertyName);
             }
         }
+
+        #endregion
+
+        #region Validation Hooks (Property Change Interceptors)
 
         partial void OnTickerChanged(string value)
         {
@@ -108,15 +144,18 @@ namespace OMS.Loans.ViewModels
         partial void OnBuySellChanged(string value)
         {
             ClearErrors(nameof(BuySell));
-            if (string.IsNullOrWhiteSpace(value)) {
-                AddError(nameof(BuySell), "Buy/Sell value is required");
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                AddError(nameof(BuySell), "Buy/Sell value is required.");
                 return;
             }
-            var acceptableValues = new List<string>() { "B","S"};
-            if(!acceptableValues.Any(v => v.Equals(BuySell, StringComparison.OrdinalIgnoreCase))) { 
-                AddError(nameof(BuySell), "Buy/Sell value must be 'B' or 'S'");
-            }
 
+            var acceptableValues = new List<string> { "B", "S" };
+            if (!acceptableValues.Any(v => v.Equals(value, StringComparison.OrdinalIgnoreCase)))
+            {
+                AddError(nameof(BuySell), "Buy/Sell value must be 'B' or 'S'.");
+            }
         }
 
         partial void OnSpreadChanged(decimal value)
@@ -132,6 +171,7 @@ namespace OMS.Loans.ViewModels
             if (value <= 0)
                 AddError(nameof(Notional), "Notional must be greater than zero.");
         }
+
+        #endregion
     }
-#endregion
 }

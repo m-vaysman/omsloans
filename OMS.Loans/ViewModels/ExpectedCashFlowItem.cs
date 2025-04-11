@@ -1,77 +1,42 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace OMS.Loans.ViewModels
 {
-    public partial class ExpectedCashFlowItemViewModel:ObservableValidator
+    /// <summary>
+    /// ViewModel representing an expected cash flow item.
+    /// Includes validation support via ObservableValidator.
+    /// </summary>
+    public partial class ExpectedCashFlowItemViewModel : ObservableValidator
     {
+        /// <summary>
+        /// Unique code identifying the expected cash flow item.
+        /// </summary>
         [ObservableProperty]
         private string code;
+
+        /// <summary>
+        /// Name of the counterparty associated with this cash flow.
+        /// </summary>
         [ObservableProperty]
         private string counterParty;
+
+        /// <summary>
+        /// Source or description of the expected payment (e.g., 'Loan Interest').
+        /// </summary>
         [ObservableProperty]
         private string source;
+
+        /// <summary>
+        /// Expected cash amount (positive).
+        /// </summary>
         [ObservableProperty]
         private decimal amount;
+
+        /// <summary>
+        /// Date when the payment is expected to be received.
+        /// </summary>
         [ObservableProperty]
         private DateOnly expectedCashPaymentDate;
-
-    }
-    public partial class CashMatchItemViewModel : ObservableObject {
-
-        public object OriginalVm {get;}
-
-        [ObservableProperty]
-        string sourceType;
-        [ObservableProperty]
-        DateOnly date;
-        [ObservableProperty]
-        string source;
-        [ObservableProperty]
-        string counterParty;
-        [ObservableProperty]
-        string code;
-        [ObservableProperty]
-        decimal amount;
-
-        public CashMatchItemViewModel(ExpectedCashFlowItemViewModel expectedCash)
-        {
-            if (expectedCash is null)
-            {
-                throw new ArgumentNullException(nameof(expectedCash));
-            }
-
-            SourceType = "expectedCash";
-            Date = expectedCash.ExpectedCashPaymentDate;
-            Source = expectedCash.Source;
-            CounterParty = expectedCash.CounterParty;
-            Code = expectedCash.Code;
-            Amount = expectedCash.Amount;
-            OriginalVm = expectedCash;
-            
-        }
-
-        public CashMatchItemViewModel(ExternalCashFlowItemViewModel externalCash)
-        {
-            if (externalCash is null)
-            {
-                throw new ArgumentNullException(nameof(externalCash));
-            }
-
-            SourceType = "externalCash";
-            Date = externalCash.Date;
-            Source = "Payment";
-            Code = string.IsNullOrWhiteSpace(externalCash.SubCode)?externalCash.Code:externalCash.SubCode;
-            counterParty = externalCash.CounterParty;
-            Amount = -1.0m*externalCash.Amount;
-            OriginalVm = externalCash;
-        }
-
-
-
     }
 }
