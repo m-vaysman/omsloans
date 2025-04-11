@@ -1,0 +1,109 @@
+﻿<UserControl x:Class="OMS.Loans.Views.CashMatchingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:OMS.Loans.Views" xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
+             xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
+             xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
+             xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core" xmlns:viewmodels="clr-namespace:OMS.Loans.ViewModels" d:DataContext="{d:DesignInstance Type=viewmodels:ExpectedCashFlowItemMergedViewModel}"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="3000">
+    <UserControl.Resources>
+        <dx:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </UserControl.Resources>
+    <dxlc:LayoutControl MinWidth="2000">
+       
+        <dxlc:LayoutGroup Name="lgGridsContainer" Orientation="Horizontal">
+            <dxlc:LayoutGroup View="GroupBox" Header="EXPECTED PAYMENTS">
+                <dxlc:LayoutGroup.HeaderTemplate>
+                    <DataTemplate>
+                        <DockPanel>
+                            <TextBlock Text="{Binding}" HorizontalAlignment="Center"/>
+                        </DockPanel>
+                    </DataTemplate>
+                </dxlc:LayoutGroup.HeaderTemplate>
+            <dxlc:LayoutItem  VerticalAlignment="Stretch">
+                <local:ExpectedCashFlowView Margin="0,25,0,0"/>
+            </dxlc:LayoutItem>
+            </dxlc:LayoutGroup>
+            <dxlc:LayoutGroup   View="GroupBox" Header="PAYMENT MATCHING" Orientation="Vertical">
+                <dxlc:LayoutGroup.HeaderTemplate>
+                    <DataTemplate>
+                        <DockPanel>
+                            <TextBlock Text="{Binding}" HorizontalAlignment="Center"/>
+                        </DockPanel>
+                    </DataTemplate>
+                </dxlc:LayoutGroup.HeaderTemplate>
+                <dxlc:LayoutItem VerticalAlignment="Stretch">
+                <dxg:GridControl Visibility="{Binding CollectionIsNotEmpty, Converter={StaticResource BoolToVisibilityConverter}}"
+                                 Background="Transparent"
+                                 DesignTimeDataObjectType="{x:Type viewmodels:CashMatchItemViewModel}"
+                                 SelectionMode="Row"
+                                 VerticalAlignment="Stretch"
+                                 Margin="0,35,0,10"
+                                 ItemsSource="{Binding CashMatchingItems}"
+                                 SelectedItem="{Binding SelectedItem}">
+                    <dxg:GridControl.View>
+                        <dxg:TableView ShowGroupPanel="False" AllowHeaderNavigation="True" TotalSummaryPosition="Bottom" AllowEditing="False" AutoWidth="True">
+                            <dxg:TableView.FormatConditions>
+                                <dxg:FormatCondition Expression="[SourceType] = 'externalCash'" FieldName="SourceType" ApplyToRow="True">
+                                    <dx:Format Background="#008080"/>
+                                </dxg:FormatCondition>
+                                <dxg:FormatCondition Expression="[SourceType] = 'expectedCash'" FieldName="SourceType" ApplyToRow="True">
+                                    <dx:Format Background="#FF7F50"/>
+                                </dxg:FormatCondition>
+                            </dxg:TableView.FormatConditions>
+
+
+                        </dxg:TableView>
+                    </dxg:GridControl.View>
+                        <dxg:GridColumn Header="Reject">
+                            <dxg:GridColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <dx:SimpleButton Command="{Binding DataContext.RemoveSelectedItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage GrayScaleImages/Edit/Delete_16x16.png}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </dxg:GridColumn.CellTemplate>
+                        </dxg:GridColumn>
+                    <dxg:GridColumn FieldName="SourceType" IsSmart="True"/>
+                    <dxg:GridColumn FieldName="Date" IsSmart="True"/>
+                    <dxg:GridColumn FieldName="Source" IsSmart="True"/>
+                    <dxg:GridColumn FieldName="CounterParty" IsSmart="True"/>
+                    <dxg:GridColumn FieldName="Code" IsSmart="True"/>
+                    <dxg:GridColumn FieldName="Amount" IsSmart="True"/>
+                    <dxg:GridControl.TotalSummary>
+                        <dxg:GridSummaryItem FieldName="Amount" SummaryType="Sum" DisplayFormat="Total:{0:C}"  />
+
+                    </dxg:GridControl.TotalSummary>
+                </dxg:GridControl>
+
+            </dxlc:LayoutItem>
+               
+                <dxlc:LayoutItem >
+                    <DockPanel>
+                        
+                            <dx:SimpleButton Content="APPLY" Command="{Binding ApplyCashCommand}" Background="LawnGreen"/>
+
+                        
+                    </DockPanel>
+                   
+                </dxlc:LayoutItem>
+            </dxlc:LayoutGroup>
+
+            <dxlc:LayoutGroup View="GroupBox" Header="EXTERNAL PAYMENTS">
+                <dxlc:LayoutGroup.HeaderTemplate>
+                    <DataTemplate>
+                        <DockPanel>
+                            <TextBlock Text="{Binding}" HorizontalAlignment="Center"/>
+                        </DockPanel>
+                    </DataTemplate>
+                </dxlc:LayoutGroup.HeaderTemplate>
+                <dxlc:LayoutItem VerticalAlignment="Stretch">
+                <local:ExternalCashFlowView/>
+            </dxlc:LayoutItem>
+            </dxlc:LayoutGroup>
+        </dxlc:LayoutGroup>
+    </dxlc:LayoutControl>
+</UserControl>

@@ -1,6 +1,7 @@
 ﻿using DevExpress.Mvvm;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -26,5 +27,22 @@ namespace OMS.Loans.Infrastructure
             stream.CopyTo(memoryStream);
             return memoryStream.ToArray();
         }
+
+        public static void RemoveByReference<T>(this ObservableCollection<T> collection, T itemToRemove)
+    where T : class
+        {
+            if (collection == null || itemToRemove == null)
+                return;
+
+            for (int i = 0; i < collection.Count; i++)
+            {
+                if (ReferenceEquals(collection[i], itemToRemove))
+                {
+                    collection.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+
     }
 }

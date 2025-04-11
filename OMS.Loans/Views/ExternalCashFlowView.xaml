@@ -1,0 +1,69 @@
+﻿<UserControl
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:OMS.Loans.Views" xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid" xmlns:viewmodels="clr-namespace:OMS.Loans.ViewModels"
+             xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors" xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core" xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol" d:DataContext="{d:DesignInstance Type=viewmodels:ExternalCashFlowViewModel}" x:Class="OMS.Loans.Views.ExternalCashFlowView"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <dxlc:LayoutControl>
+       
+        <dxlc:LayoutGroup Orientation="Horizontal">
+            <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Stretch">
+                <dx:SimpleButton  
+                    VerticalAlignment="Center"
+                    Command="{Binding PublishExternalCashFlowItemCommand}"
+                    HorizontalAlignment="Center"
+                    Glyph="{dx:FontIconSource ColorName=Blue, Glyph=60889}"
+                    Margin="0,30,0,0"/>
+            </dxlc:LayoutItem>
+            <dxlc:LayoutItem VerticalAlignment="Stretch">
+        <DockPanel>
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" HorizontalAlignment="Right">
+                <dx:SimpleButton  HorizontalAlignment="Right" Content="Split" Command="{Binding SplitCommand}"/>
+                <dx:SimpleButton  HorizontalAlignment="Right" Content="Remove Split" Command="{Binding RemoveSplitCommand}"/>
+             
+            </StackPanel>
+            
+            <dxg:GridControl
+                Background="Transparent"
+                DockPanel.Dock="Bottom"
+                DesignTimeDataObjectType="{x:Type viewmodels:ExternalCashFlowItemViewModel}"
+                ItemsSource="{Binding ExternalCashFlowEntries}"
+                
+                SelectedItem="{Binding SelectedItem}">
+                
+                <dxg:GridControl.View>
+                    <dxg:TableView  AllowHeaderNavigation="True" ShowIndicator="False" ShowVerticalLines="False" ShowGroupPanel="False" AllowDragDrop="True" TotalSummaryPosition="Bottom" AutoWidth="True">
+                                <dxg:TableView.RowStyle>
+                                    <Style TargetType="dxg:RowControl">
+                                        <Setter Property="Background" Value="#008080"/>
+                                    </Style>
+                                </dxg:TableView.RowStyle>
+                
+                    </dxg:TableView>
+                </dxg:GridControl.View>
+                        <dxg:GridColumn Header="Match" >
+                            <dxg:GridColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <dx:SimpleButton Background="Black"  Command="{Binding DataContext.PublishExternalCashFlowItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage SvgImages/DiagramIcons/PreviousPage.svg}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </dxg:GridColumn.CellTemplate>
+                        </dxg:GridColumn>
+                <dxg:GridColumn  FieldName="CounterParty" AllowEditing="False" IsSmart="True"/>
+                <dxg:GridColumn FieldName="Code" AllowEditing="False" IsSmart="True"/>
+                <dxg:GridColumn FieldName="SubCode" AllowEditing="False" IsSmart="True"/>
+                <dxg:GridColumn FieldName="Date" AllowEditing="False" IsSmart="True"/>
+                <dxg:GridColumn FieldName="Amount" AllowEditing="False" IsSmart="True"/>
+            <dxg:GridColumn FieldName="AmountToSplit" IsSmart="True"/>
+               
+                
+        </dxg:GridControl>
+        </DockPanel>
+            </dxlc:LayoutItem>
+        </dxlc:LayoutGroup>
+    </dxlc:LayoutControl>
+</UserControl>

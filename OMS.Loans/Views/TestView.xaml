@@ -79,7 +79,7 @@
                             <dxe:TextEdit IsEnabled="False" NullValue="0" Text="{Binding TradeEntryItem.CounterPartyId}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="CUSIP">
-                            <dxe:TextEdit IsEnabled="False" Text="{Binding TradeEntryItem.CUSIP}" />
+                            <dxe:TextEdit IsEnabled="False"  />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Counter Party">
                             <dxe1:LookUpEdit
@@ -299,14 +299,21 @@
                         <dxe:ListBoxEdit ItemsSource="{Binding Documents}" Name="lbeDocuments">
                             <dxe:ListBoxEdit.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <UniformGrid />
+                                    <WrapPanel Orientation="Horizontal" Width="400" />
                                 </ItemsPanelTemplate>
                             </dxe:ListBoxEdit.ItemsPanel>
                             <dxe:ListBoxEdit.ItemTemplate>
                                 <DataTemplate>
-                                <TextBlock Name="tbDocument">
-                                    <dxe:HyperlinkEdit Name="hleDocumentName"  Text="{Binding Name}" Command="{Binding StartCommand}"></dxe:HyperlinkEdit>
-                                </TextBlock>
+                                    <Border BorderThickness="1" BorderBrush="Wheat">
+                                    <DockPanel>
+                                        <dx:SimpleButton Content="X" HorizontalAlignment="Right" VerticalAlignment="Center" DockPanel.Dock="Right"/>
+                                        <TextBlock Name="tbDocument" DockPanel.Dock="Left">
+                                       
+                                        <dxe:HyperlinkEdit Name="hleDocumentName"  Text="{Binding Name}" Command="{Binding StartCommand}"></dxe:HyperlinkEdit>
+                                        </TextBlock>
+                                    </DockPanel>
+                                    </Border>
+
                                 </DataTemplate>
                             </dxe:ListBoxEdit.ItemTemplate>
                            

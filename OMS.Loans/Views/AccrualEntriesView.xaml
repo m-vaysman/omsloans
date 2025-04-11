@@ -71,7 +71,11 @@
                             EditFormStartNewRow="False"
                             FieldName="ParentAccrualId"
                             IsSmart="True" />
-                        <dxg:GridColumn FieldName="Notional" IsSmart="True" />
+                        <dxg:GridColumn FieldName="Notional" IsSmart="True" >
+                            <dxg:GridColumn.EditSettings>
+                                <dxe:TextEditSettings MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="C"/>
+                            </dxg:GridColumn.EditSettings>
+                        </dxg:GridColumn>
                         <dxg:GridColumn FieldName="FromDate" IsSmart="True" />
                         <dxg:GridColumn FieldName="ToDate" IsSmart="True" />
                         <dxg:GridColumn FieldName="BankRate" IsSmart="True" >
