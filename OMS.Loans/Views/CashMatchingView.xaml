@@ -3,18 +3,30 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:local="clr-namespace:OMS.Loans.Views" xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
+             xmlns:local="clr-namespace:OMS.Loans.Views"
+             xmlns:dxlc="http://schemas.devexpress.com/winfx/2008/xaml/layoutcontrol"
              xmlns:dxg="http://schemas.devexpress.com/winfx/2008/xaml/grid"
              xmlns:dxe="http://schemas.devexpress.com/winfx/2008/xaml/editors"
-             xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core" xmlns:viewmodels="clr-namespace:OMS.Loans.ViewModels" d:DataContext="{d:DesignInstance Type=viewmodels:ExpectedCashFlowItemMergedViewModel}"
+             xmlns:dx="http://schemas.devexpress.com/winfx/2008/xaml/core"
+             xmlns:viewmodels="clr-namespace:OMS.Loans.ViewModels"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="3000">
+             d:DesignHeight="450"
+             d:DesignWidth="3000"
+             d:DataContext="{d:DesignInstance Type=viewmodels:ExpectedCashFlowItemMergedViewModel}">
+
+    <!-- Resources -->
     <UserControl.Resources>
+        <!-- Converter to toggle visibility based on boolean -->
         <dx:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
     </UserControl.Resources>
+
+    <!-- Layout root -->
     <dxlc:LayoutControl MinWidth="2000">
-       
+
+        <!-- Top-level horizontal layout group: Three panels side-by-side -->
         <dxlc:LayoutGroup Name="lgGridsContainer" Orientation="Horizontal">
+
+            <!-- EXPECTED PAYMENTS PANEL -->
             <dxlc:LayoutGroup View="GroupBox" Header="EXPECTED PAYMENTS">
                 <dxlc:LayoutGroup.HeaderTemplate>
                     <DataTemplate>
@@ -23,11 +35,14 @@
                         </DockPanel>
                     </DataTemplate>
                 </dxlc:LayoutGroup.HeaderTemplate>
-            <dxlc:LayoutItem  VerticalAlignment="Stretch">
-                <local:ExpectedCashFlowView Margin="0,25,0,0"/>
-            </dxlc:LayoutItem>
+
+                <dxlc:LayoutItem VerticalAlignment="Stretch">
+                    <local:ExpectedCashFlowView Margin="0,25,0,0"/>
+                </dxlc:LayoutItem>
             </dxlc:LayoutGroup>
-            <dxlc:LayoutGroup   View="GroupBox" Header="PAYMENT MATCHING" Orientation="Vertical">
+
+            <!-- PAYMENT MATCHING PANEL -->
+            <dxlc:LayoutGroup View="GroupBox" Header="PAYMENT MATCHING" Orientation="Vertical">
                 <dxlc:LayoutGroup.HeaderTemplate>
                     <DataTemplate>
                         <DockPanel>
@@ -35,63 +50,101 @@
                         </DockPanel>
                     </DataTemplate>
                 </dxlc:LayoutGroup.HeaderTemplate>
+
+                <!-- Matching Grid -->
                 <dxlc:LayoutItem VerticalAlignment="Stretch">
-                <dxg:GridControl Visibility="{Binding CollectionIsNotEmpty, Converter={StaticResource BoolToVisibilityConverter}}"
-                                 Background="Transparent"
-                                 DesignTimeDataObjectType="{x:Type viewmodels:CashMatchItemViewModel}"
-                                 SelectionMode="Row"
-                                 VerticalAlignment="Stretch"
-                                 Margin="0,35,0,10"
-                                 ItemsSource="{Binding CashMatchingItems}"
-                                 SelectedItem="{Binding SelectedItem}">
-                    <dxg:GridControl.View>
-                        <dxg:TableView ShowGroupPanel="False" AllowHeaderNavigation="True" TotalSummaryPosition="Bottom" AllowEditing="False" AutoWidth="True">
-                            <dxg:TableView.FormatConditions>
-                                <dxg:FormatCondition Expression="[SourceType] = 'externalCash'" FieldName="SourceType" ApplyToRow="True">
-                                    <dx:Format Background="#008080"/>
-                                </dxg:FormatCondition>
-                                <dxg:FormatCondition Expression="[SourceType] = 'expectedCash'" FieldName="SourceType" ApplyToRow="True">
-                                    <dx:Format Background="#FF7F50"/>
-                                </dxg:FormatCondition>
-                            </dxg:TableView.FormatConditions>
+                    <dxg:GridControl 
+                        ItemsSource="{Binding CashMatchingItems}"
+                        SelectedItem="{Binding SelectedItem}"
+                        Background="Transparent"
+                        Margin="0,35,0,10"
+                        VerticalAlignment="Stretch"
+                        SelectionMode="Row"
+                        
+                        Visibility="{Binding CollectionIsNotEmpty, Converter={StaticResource BoolToVisibilityConverter}}"
+                        DesignTimeDataObjectType="{x:Type viewmodels:CashMatchItemViewModel}">
+                        <dxg:GridControl.Resources>
+                            <Style TargetType="dxg:GridRowContent">
+                                <Setter Property="Height" Value="50"/>
+                            </Style>
+                        </dxg:GridControl.Resources>
+
+                        <dxg:GridControl.View>
+                            <dxg:TableView 
+                                ShowGroupPanel="False"
+                                ShowIndicator="False"
+                                AllowHeaderNavigation="True"
+                                AllowEditing="False"
+                                AutoWidth="True"
+                                VerticalScrollbarVisibility="Hidden"
+                                
+                                TotalSummaryPosition="Bottom">
 
 
-                        </dxg:TableView>
-                    </dxg:GridControl.View>
+                                <!-- Conditional formatting based on SourceType -->
+                                <dxg:TableView.FormatConditions>
+                                    <dxg:FormatCondition Expression="[SourceType] = 'externalCash'" FieldName="SourceType" ApplyToRow="true">
+                                        <dx:Format Background="Gray"/>
+                                    </dxg:FormatCondition>
+                                    <dxg:FormatCondition Expression="[SourceType] = 'expectedCash'" FieldName="SourceType" ApplyToRow="true">
+                                        <dx:Format Background="#FFA9A9A9"/>
+                                    </dxg:FormatCondition>
+                                    <dxg:FormatCondition Expression="[SourceType] = 'externalCash'" FieldName="Amount">
+                                        <dx:Format Foreground="#FF932320" FontStyle="Italic" FontWeight="Bold"/>
+                                    </dxg:FormatCondition>
+                                    <dxg:FormatCondition Expression="[SourceType] = 'expectedCash'" FieldName="Amount">
+                                        <dx:Format FontStyle="Italic" FontWeight="Bold"/>
+                                    </dxg:FormatCondition>
+                                </dxg:TableView.FormatConditions>
+                            </dxg:TableView>
+                        </dxg:GridControl.View>
+
+                        <!-- Columns -->
                         <dxg:GridColumn Header="Reject">
                             <dxg:GridColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel>
-                                        <dx:SimpleButton Command="{Binding DataContext.RemoveSelectedItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage GrayScaleImages/Edit/Delete_16x16.png}" />
+                                        <dx:SimpleButton 
+                                            BorderBrush="Transparent"
+                                            Background="Black"
+                                            Opacity="0.5"
+                                            Command="{Binding DataContext.RemoveSelectedItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            Glyph="{dx:DXImage GrayScaleImages/Edit/Delete_16x16.png}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </dxg:GridColumn.CellTemplate>
                         </dxg:GridColumn>
-                    <dxg:GridColumn FieldName="SourceType" IsSmart="True"/>
-                    <dxg:GridColumn FieldName="Date" IsSmart="True"/>
-                    <dxg:GridColumn FieldName="Source" IsSmart="True"/>
-                    <dxg:GridColumn FieldName="CounterParty" IsSmart="True"/>
-                    <dxg:GridColumn FieldName="Code" IsSmart="True"/>
-                    <dxg:GridColumn FieldName="Amount" IsSmart="True"/>
-                    <dxg:GridControl.TotalSummary>
-                        <dxg:GridSummaryItem FieldName="Amount" SummaryType="Sum" DisplayFormat="Total:{0:C}"  />
 
-                    </dxg:GridControl.TotalSummary>
-                </dxg:GridControl>
+                        <dxg:GridColumn FieldName="SourceType" IsSmart="True"/>
+                        <dxg:GridColumn FieldName="Date" IsSmart="True"/>
+                        <dxg:GridColumn FieldName="Source" IsSmart="True"/>
+                        <dxg:GridColumn FieldName="CounterParty" IsSmart="True"/>
+                        <dxg:GridColumn FieldName="Code" IsSmart="True"/>
+                        <dxg:GridColumn FieldName="Amount" IsSmart="True">
+                            <dxg:GridColumn.EditSettings>
+                                <dxe:TextEditSettings  MaskType="Numeric" Mask="c0" MaskUseAsDisplayFormat="True"/>
+                            </dxg:GridColumn.EditSettings>
+                        </dxg:GridColumn>
 
-            </dxlc:LayoutItem>
-               
-                <dxlc:LayoutItem >
+                        <!-- Total summary row -->
+                        <dxg:GridControl.TotalSummary>
+                            <dxg:GridSummaryItem FieldName="Amount" SummaryType="Sum" DisplayFormat="Total: {0:C}"/>
+                        </dxg:GridControl.TotalSummary>
+                    </dxg:GridControl>
+                </dxlc:LayoutItem>
+
+                <!-- APPLY Button -->
+                <dxlc:LayoutItem>
                     <DockPanel>
-                        
-                            <dx:SimpleButton Content="APPLY" Command="{Binding ApplyCashCommand}" Background="LawnGreen"/>
-
-                        
+                        <dx:SimpleButton 
+                            Content="APPLY" 
+                            Command="{Binding ApplyCashCommand}" 
+                            Background="LawnGreen"/>
                     </DockPanel>
-                   
                 </dxlc:LayoutItem>
             </dxlc:LayoutGroup>
 
+            <!-- EXTERNAL PAYMENTS PANEL -->
             <dxlc:LayoutGroup View="GroupBox" Header="EXTERNAL PAYMENTS">
                 <dxlc:LayoutGroup.HeaderTemplate>
                     <DataTemplate>
@@ -100,10 +153,12 @@
                         </DockPanel>
                     </DataTemplate>
                 </dxlc:LayoutGroup.HeaderTemplate>
+
                 <dxlc:LayoutItem VerticalAlignment="Stretch">
-                <local:ExternalCashFlowView/>
-            </dxlc:LayoutItem>
+                    <local:ExternalCashFlowView/>
+                </dxlc:LayoutItem>
             </dxlc:LayoutGroup>
+
         </dxlc:LayoutGroup>
     </dxlc:LayoutControl>
 </UserControl>

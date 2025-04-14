@@ -17,10 +17,12 @@
                 <dxg:GridControl.View>
                     <dxg:TableView ShowGroupPanel="False" 
                                    ShowVerticalLines="False"
+                                   ShowIndicator="False"
                                    AllowHeaderNavigation="True"
                                    AllowDragDrop="True"
                                    TotalSummaryPosition="Bottom"
                                    AutoWidth="True"
+                                   VerticalScrollbarVisibility="Hidden"
                                    DragEnter="TableView_DragEnter"
                                    >
                         <dxg:TableView.RowStyle>

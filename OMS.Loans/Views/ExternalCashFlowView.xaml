@@ -31,11 +31,17 @@
                 DockPanel.Dock="Bottom"
                 DesignTimeDataObjectType="{x:Type viewmodels:ExternalCashFlowItemViewModel}"
                 ItemsSource="{Binding ExternalCashFlowEntries}"
-                
                 SelectedItem="{Binding SelectedItem}">
                 
                 <dxg:GridControl.View>
-                    <dxg:TableView  AllowHeaderNavigation="True" ShowIndicator="False" ShowVerticalLines="False" ShowGroupPanel="False" AllowDragDrop="True" TotalSummaryPosition="Bottom" AutoWidth="True">
+                    <dxg:TableView  AllowHeaderNavigation="True"
+                                    ShowIndicator="False"
+                                    ShowVerticalLines="False"
+                                    ShowGroupPanel="False"
+                                    AllowDragDrop="True"
+                                    TotalSummaryPosition="Bottom"
+                                     VerticalScrollbarVisibility="Hidden"
+                                    AutoWidth="True">
                                 <dxg:TableView.RowStyle>
                                     <Style TargetType="dxg:RowControl">
                                         <Setter Property="Background" Value="#008080"/>
