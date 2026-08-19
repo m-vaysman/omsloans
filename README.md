@@ -197,3 +197,52 @@ MVVM-bound XAML UI components using DevExpress controls.
 
    ```bash
    git clone https://github.com/m-vaysman/omsloans.git
+   ```
+
+2. **Install prerequisites**
+
+   - .NET 8 SDK
+   - Visual Studio 2022 (or any C# IDE)
+   - SQL Server (LocalDB, Express, or full instance)
+   - A DevExpress WPF subscription — see *Third-Party Components* below
+
+3. **Configure the database connection**
+
+   The connection string in `LoanDbModel/LoanDbContext.cs` is a placeholder.
+   Supply the real value via an environment variable, .NET user secrets, or a
+   gitignored local config file. See [SETUP.md](SETUP.md) for the options.
+
+4. **Create the database**
+
+   ```bash
+   dotnet ef database update --project LoanDbModel
+   ```
+
+5. **Build and run**
+
+   ```bash
+   dotnet run --project OMS.Loans
+   ```
+
+---
+
+## 📦 Third-Party Components
+
+This project references **DevExpress WPF 24.2.6**, which is commercial software
+requiring a separate paid license. DevExpress assemblies are **not** included in
+this repository — they are restored from the DevExpress NuGet feed at build time.
+Building the solution therefore requires an active DevExpress subscription and
+access to that feed.
+
+Other dependencies (Entity Framework Core, AutoMapper, CommunityToolkit.Mvvm,
+Microsoft.Extensions.DependencyInjection) are restored from nuget.org under their
+own respective licenses.
+
+The license below applies **only to the original source code in this repository**,
+not to DevExpress or any other third-party package.
+
+---
+
+## 📄 License
+
+Released under the [MIT License](LICENSE). Copyright (c) 2025-2026 Michael Vaysman.
