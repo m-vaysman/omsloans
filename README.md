@@ -19,7 +19,7 @@ protected override void OnConfiguring(DbContextOptionsBuilder options)
 in project dir run 
    dotnet-ef migrations add InitialMigration
    
-![Migrations Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/Migrations.PNG)
+![Migrations Screenshot](Assets/Migrations.PNG)
 
 ## 📸 UI Preview
 
@@ -35,7 +35,7 @@ Here’s a screenshot of the blotter view with DevExpress GridControl and trade 
 The screen is a view composed of two other views a form for trade entry and a grid in a seperate view for blottered trade look up. The form has validation built in. It will not allow user to push trades with missing or wrong fields. 
 The grid is searchable. It also allows user to easily book and replicate a blottered trade. Simply highlight a row and grid fills with trade data. 
 
-![Blotter Screenshot](https://bitbucket.org/frfield/omsloans/raw/main/Assets/Blotter.PNG)
+![Blotter Screenshot](Assets/Blotter.PNG)
 
 ## 🧾 Accrual Entry Flow
 
@@ -50,7 +50,7 @@ The grid is searchable. It also allows user to easily book and replicate a blott
 ⬇️
 
 **Accrual Saved**  
-![AccrualSaved Screenshot](Assets/AccrualsSaved.png)
+![AccrualSaved Screenshot](Assets/AccrualsSaved.PNG)
 
 
 
@@ -196,4 +196,4 @@ MVVM-bound XAML UI components using DevExpress controls.
 1. **Clone the repository**
 
    ```bash
-   git clone <your-bitbucket-repo-url>
+   git clone https://github.com/m-vaysman/omsloans.git
