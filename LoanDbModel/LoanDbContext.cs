@@ -7,10 +7,12 @@ namespace LoanDbModel
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         {
             options.UseSqlServer(
-                @"Data Source=YOUR_SERVER;
+                // NOTE: placeholder only. Do NOT commit real credentials.
+                // See SETUP.md for supplying the real connection string locally.
+                @"Server=YOUR_SERVER;
+                  Database=YOUR_DB;
                   User ID=YOUR_USER;
                   Password=YOUR_PASSWORD;
-                  Initial Catalog=Oms;
                   TrustServerCertificate=true;
                   MultipleActiveResultSets=True;
                   Max Pool Size=100;");

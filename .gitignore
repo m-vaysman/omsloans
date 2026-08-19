@@ -475,3 +475,20 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# ---------------------------------------------------------------------------
+# Local secrets / connection strings — never commit real credentials.
+# See SETUP.md for how to supply these locally.
+# ---------------------------------------------------------------------------
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+*.local.config
+App.Local.config
+secrets.json
+connectionstrings.json
+.env
+.env.*
+!.env.example
+*.pfx
+*.snk
