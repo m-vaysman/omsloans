@@ -2,14 +2,31 @@
 
   <PropertyGroup>
     <UserSecretsId>dotnet-OmsLoan.Worker-9456a660-23ab-4a3c-bd07-879fef24b0fa</UserSecretsId>
+    <!--
+      Windows-only APIs (Event Log, the SCM) are reached through OperatingSystem.IsWindows()
+      guards rather than by retargeting to net8.0-windows, so the project keeps the same
+      target framework as the rest of src/ and the platform analyser stays satisfied.
+    -->
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.EventLog" Version="8.0.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\OmsLoan.Domain\OmsLoan.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      appsettings.Development.json is gitignored, so the tracked file is a template that a
+      developer copies. Copied when present so a local override still reaches the output.
+    -->
+    <None Update="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.Development.json')" />
+    <None Update="appsettings.Production.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

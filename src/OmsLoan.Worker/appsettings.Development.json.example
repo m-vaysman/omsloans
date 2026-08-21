@@ -1,0 +1,11 @@
+{
+  "//": "Copy to appsettings.Development.json — which is gitignored — for local, non-secret overrides. Do NOT put the connection string or an API key here even locally: use dotnet user-secrets, which stores them outside the repository entirely. See docs/windows-service.md.",
+
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.Hosting.Lifetime": "Information",
+      "Microsoft.EntityFrameworkCore.Database.Command": "Information"
+    }
+  }
+}
