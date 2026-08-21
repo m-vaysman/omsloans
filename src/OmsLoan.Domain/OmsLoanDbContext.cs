@@ -14,9 +14,14 @@ public class OmsLoanDbContext : DbContext
     {
     }
 
+    public DbSet<Notice> Notices => Set<Notice>();
+
+    public DbSet<Extraction> Extractions => Set<Extraction>();
+
+    public DbSet<ExtractedField> ExtractedFields => Set<ExtractedField>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Entities and their IEntityTypeConfiguration<T> classes are added by the EF model issue.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(OmsLoanDbContext).Assembly);
     }
 }
