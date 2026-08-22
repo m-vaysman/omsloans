@@ -69,7 +69,38 @@ public static class FakePaymentFactory
 }
 
 // ============================================================
-// 3. Main Generator Method
+// 3. Watermark
+// ============================================================
+
+public const string WatermarkText = "COBBLER HILL DEV (MOCK)";
+
+/// <summary>Large diagonal watermark, applied to every template.</summary>
+/// <remarks>
+/// Drawn on the Background layer, so it sits behind the notice text rather than over it.
+/// The colour is fully opaque — no alpha — but nothing on the page is obscured, which
+/// matters because these PDFs are fed to a vision model: a watermark painted over the rate
+/// or the accrued amount would be testing the model's ability to read through a stamp
+/// rather than its ability to read a notice.
+///
+/// Move the call to page.Foreground() below if you want it printed over the content instead.
+///
+/// Rotate() does not resize the layout box, so the text is laid out at page width and then
+/// turned; the font size is chosen to stay on one line at Letter width.
+/// </remarks>
+static void ApplyWatermark(PageDescriptor page)
+{
+	page.Background()
+		.AlignCenter()
+		.AlignMiddle()
+		.Rotate(-45)
+		.Text(WatermarkText)
+		.FontSize(40)
+		.Bold()
+		.FontColor(Color.FromHex("#BDBDBD"));
+}
+
+// ============================================================
+// 4. Main Generator Method
 // ============================================================
 
 public static byte[] GenerateNotice(AccrualData data, BankDetails bank, int templateNumber)
@@ -86,6 +117,8 @@ public static byte[] GenerateNotice(AccrualData data, BankDetails bank, int temp
 			page.Size(PageSizes.Letter);
 			page.Margin(0.6f, Unit.Inch);
 			page.DefaultTextStyle(x => x.FontSize(9.5f).FontFamily("Arial"));
+
+			ApplyWatermark(page);
 
 			switch (templateNumber)
 			{
