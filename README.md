@@ -6,13 +6,13 @@
 
 Trading and operations tooling for **syndicated loans**, in two parts:
 
-- **A WPF trading and operations desktop application** — blotter, trade entry, allocation,
-  accruals and paydowns, and a cash matching screen that reconciles expected loan cash flows
-  against incoming wires.
 - **A notice extraction pipeline** — agent banks send PDF notices containing rate resets,
   interest and principal payments and fees. This ingests them, extracts the economic data
   using LLM APIs, preserves full provenance, and puts every extraction through human review
   before approval.
+- **A WPF desktop trading and operations application** — blotter, trade entry, allocation,
+  accruals and paydowns, and a cash matching screen that reconciles expected loan cash flows
+  against incoming wires.
 
 Both sit over the same domain: SQL Server via Entity Framework Core, .NET 8 throughout.
 
