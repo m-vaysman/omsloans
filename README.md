@@ -1,248 +1,211 @@
-
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?logo=linkedin)](https://www.linkedin.com/in/michael-v-5961689/)
+[![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-# OMS.Loans – WPF Loan Trade Management System (On-going)
+# OMS.Loans — Syndicated Loan Order Management & Notice Extraction
 
-This is beginning of an OMS which can be used for managing trading/operations around Syndicated Loan product Built using **WPF (.NET 8)** with a modular MVVM architecture with Entity Framework 9 for back-end. It showcases key enterprise design patterns, component separation, and UI responsiveness using **DevExpress**, **AutoMapper**, and **MVVM Toolkit**.
+Trading and operations tooling for **syndicated loans**, in two parts:
 
-This OMS should have Blotter to Trade. Trade Allocation. Events management(paydowns,drawdowns accruals, cash). Lastly it will have a module to match incoming cash with events. 
+- **A WPF trading and operations desktop application** — blotter, trade entry, allocation,
+  accruals and paydowns, and a cash matching screen that reconciles expected loan cash flows
+  against incoming wires.
+- **A notice extraction pipeline** — agent banks send PDF notices containing rate resets,
+  interest and principal payments and fees. This ingests them, extracts the economic data
+  using LLM APIs, preserves full provenance, and puts every extraction through human review
+  before approval.
 
-More updated repository is kept seperately. 
+Both sit over the same domain: SQL Server via Entity Framework Core, .NET 8 throughout.
 
-#BUILD / DEPLOY
-1. Build using csc.exe or any C# IDE.
-2.  Deploy migration: simply change CONNECTION STRING in LoanDBContext.cs
-protected override void OnConfiguring(DbContextOptionsBuilder options)
-=> options.UseSqlServer(@"Data Source=YOUR_SERVER;User ID=YOUR_USER;Password=YOUR_PASSWORD;Initial Catalog=Oms;TrustServerCertificate=true;MultipleActiveResultSets=True;Max Pool Size=100;")
+> **Status:** active development. The desktop application is working software; the extraction
+> pipeline has its foundation in place (domain model, migrations, unit tests, Windows Service
+> host) with ingestion, extraction and the review UI still being built. Progress is tracked in
+> [issues](https://github.com/m-vaysman/omsloans/issues) against five milestones.
 
+---
 
-in project dir run 
-   dotnet-ef migrations add InitialMigration
-   
-![Migrations Screenshot](Assets/Migrations.PNG)
+## Notice extraction pipeline
 
-## 📸 UI Preview
+Agent banks send notices as PDFs. The economic data in them — the reset rate, the accrued
+interest, the payment date — has to reach loan operations accurately, and a misread rate is a
+real operational error. The pipeline is built around that risk.
 
+```
+ watched folder ─┐
+ shared mailbox ─┼─► Notice (PDF stored verbatim, SHA-256 dedup)
+ manual upload ──┘        │
+                          ▼
+                   classify → extract (Claude / OpenAI / Groq)
+                          │
+                          ▼
+                   Extraction (raw model JSON, append-only)
+                          │
+                          ▼
+                   human review → approve / correct
+```
 
+### The decisions that shape it
+
+Recorded as ADRs in [`docs/decisions/`](docs/decisions):
+
+**[Cloud LLM APIs behind an interface](docs/decisions/0001-cloud-llm-over-local.md).** Claude,
+OpenAI and Groq sit behind a single `INoticeExtractor`, so the provider is a configuration
+value rather than a code path. Claude accepts PDFs natively, which matters because these
+documents are tabular — a rate reset table flattened to text loses the association between a
+tranche and its rate.
+
+**[A Windows Service, not a desktop app](docs/decisions/0002-windows-service-over-desktop.md).**
+Notices arrive overnight and at weekends. Ingestion runs unattended so the work is already
+waiting when a reviewer opens the queue.
+
+**[Append-only extractions, corrections stored alongside](docs/decisions/0003-append-only-extractions-and-eav-fields.md).**
+A reviewer's correction never overwrites what the model said — it is written beside it. That
+pairing turns routine review into a labelled dataset, which is what makes model and prompt
+accuracy measurable instead of a matter of impression. Reprocessing inserts a new row rather
+than updating one, so a prompt change can be compared against the same notice.
+
+### Repository layout for this half
+
+| Path | |
+| --- | --- |
+| [`src/OmsLoan.Domain`](src/OmsLoan.Domain) | Entities, EF Core configuration, migrations |
+| [`src/OmsLoan.Worker`](src/OmsLoan.Worker) | Windows Service host — ingestion and extraction |
+| [`src/OmsLoan.Api`](src/OmsLoan.Api) | ASP.NET Core API behind the review UI |
+| [`src/OmsLoan.Web`](src/OmsLoan.Web) | React review UI |
+| [`tests/OmsLoan.Domain.Tests`](tests/OmsLoan.Domain.Tests) | Domain unit tests — no database required |
+| [`scripts/prompts`](scripts/prompts) | Extraction prompts, vision and text variants |
+| [`scripts/Notices`](scripts/Notices) | Generated sample notices for testing extraction |
+| [`tools`](tools) | Development scripts, including the notice generator |
+| [`docs/windows-service.md`](docs/windows-service.md) | Service account, ACLs, SQL login, configuration |
+
+The domain tests build the EF model through the SQL Server provider without opening a
+connection, so the suite runs on a clean clone with no database, no LocalDB and no container.
+
+---
+
+## Desktop application
+
+Built with **WPF (.NET 8)** on a modular MVVM architecture, using **DevExpress**,
+**AutoMapper** and the **MVVM Toolkit**.
 
 ![LoanTraderMainUi_Screenshot](Assets/LoanTraderMainUi.png)
 
+### Trade entry and blotter
 
-![TradeEntry_Screenshot](Assets/TradeEntry.png)   --------> ![TradeEntry_Screenshot](Assets/TradeEntryFilled.png) 
+Trade entry and blotter lookup are two views composed into one screen. The form validates per
+field and will not submit a trade with missing or invalid values. The grid is searchable, and
+selecting a row fills the form — which makes replicating a blottered trade a single click.
 
-Here’s a screenshot of the blotter view with DevExpress GridControl and trade entry fields:
-
-The screen is a view composed of two other views a form for trade entry and a grid in a seperate view for blottered trade look up. The form has validation built in. It will not allow user to push trades with missing or wrong fields. 
-The grid is searchable. It also allows user to easily book and replicate a blottered trade. Simply highlight a row and grid fills with trade data. 
+![TradeEntry_Screenshot](Assets/TradeEntry.png) ➜ ![TradeEntryFilled_Screenshot](Assets/TradeEntryFilled.png)
 
 ![Blotter Screenshot](Assets/Blotter.PNG)
 
-## 🧾 Accrual Entry Flow
+### Accrual entry
 
-**Accrual Entry**  
 ![AccrualEntry Screenshot](Assets/AccrualEntry.png)
 
 ⬇️
 
-**Accrual Entered**  
 ![AccrualEntered Screenshot](Assets/AccrualEntered.png)
 
 ⬇️
 
-**Accrual Saved**  
 ![AccrualSaved Screenshot](Assets/AccrualsSaved.PNG)
 
+### Cash matching
 
-
-
-
-
----
-
-## 💵 Cash Matching Screen
-
-The **Cash Matching** screen is used to reconcile **expected loan cash flows** (left panel) with **incoming external payments** (right panel). This tool allows operations or finance users to match cash movements effectively for audit, reporting, or settlement purposes.
-Mainly Expected cash is generated by trade's settlement date or paydown's expected date, and finally interest accrual's end-date. Once the dates are hit UI will retrieve data from back-end and make it available in this screen. The external cash grid can subscribe
-to a real-time wire service and will present incoming wires/payments. 
-### 🔄 Workflow Overview
-
-- **Left Panel (Expected Cash)**  
-  Displays anticipated loan cash flows from internal systems. Each row includes fields like `Code`, `Counter Party`, `Amount`, and `Expected Date`.
-
-- **Right Panel (External Cash)**  
-  Lists external payments received, including payment `Source`, `Amount`, `Date`, and associated metadata such as `Counter Party` and `Code`.
-
-- **Middle Panel (Matched Records)**  
-  This panel shows groups of matched cash flows. Users can:
-  - Push items from the **Expected** and **External** panels into the middle.
-  - Form matching groups where the **total of expected and received payments nets to zero**.
-  - Visualize all components of a match in one place for easier review and validation.
-
-### ✂️ Split Functionality
-
-Users can **split incoming external payments into custom amounts** before matching. This allows flexibility when:
-
-- A single incoming payment covers multiple expected items
-- Payment amounts do not perfectly align with expected values
-- Partial matches need to be reconciled over time
-
-Split amounts appear as separate line items and can each be independently matched.
-
-### 🎯 Key Features
-
-- Manual and flexible matching using UI buttons or drag-and-drop
-- Ability to split external cash into multiple matchable components
-- Visual confirmation when match totals reach zero
-- Automatic total calculation for matched groups
-- Clear and intuitive three-panel layout
-
----
-
-### 📸 Screenshot
-
-Below is an example of the **Cash Matching** screen in use:
+Reconciles **expected loan cash flows** against **incoming external payments**. Expected cash
+is generated from a trade's settlement date, a paydown's expected date, or an interest
+accrual's end date; once those dates are reached the UI pulls the items from the back end. The
+external grid can subscribe to a real-time wire service to present incoming payments.
 
 ![Cash Matching Screen](Assets/CashMatching.PNG)
 
-> _(Update the image path based on your actual folder structure)_
+Three panels: expected cash on the left, external payments on the right, and matched groups in
+the middle. Users push items into the middle to form a group, and a group is complete when the
+expected and received amounts net to zero.
+
+Incoming payments can be **split into custom amounts** before matching — for when one wire
+covers several expected items, when amounts do not align exactly, or when a partial match has
+to be reconciled over time. Each split appears as its own line and is matched independently.
+
+- Manual matching via buttons or drag-and-drop
+- Visual confirmation when a group's total reaches zero
+- Automatic totals per matched group
 
 ---
 
-Let me know if you'd like to add keyboard shortcuts, backend reconciliation logic, or user role/access details as well.
+## Tech stack
+
+| | |
+| --- | --- |
+| Runtime | .NET 8 |
+| Desktop | WPF, DevExpress WPF, CommunityToolkit.Mvvm, AutoMapper |
+| Services | Worker Service (Windows Service), ASP.NET Core |
+| Web | React, TypeScript, Vite |
+| Data | Entity Framework Core, SQL Server 2019 |
+| Extraction | Claude, OpenAI and Groq APIs behind `INoticeExtractor` |
+| Testing | xUnit |
 
 ---
 
-## 🧰 Tech Stack
+## Getting started
 
-- **WPF (.NET 8)**
-- **MVVM Toolkit** (`CommunityToolkit.Mvvm`)
-- **DevExpress WPF UI Controls**
-- **Entity Framework Core** (with migrations)
-- **AutoMapper** (for ViewModel → Model mapping)
-- **IoC/DI** (via .NET built-in container)
-- **IDataErrorInfo** (validation support)
-- **Message-based communication** (`ObservableRecipient`)
+```bash
+git clone https://github.com/m-vaysman/omsloans.git
+```
 
----
+**Prerequisites**
 
-## 🗂️ Project Structure
+- .NET 8 SDK
+- SQL Server (LocalDB, Express or a full instance)
+- Visual Studio 2022, Rider, or any C# IDE
+- A DevExpress WPF subscription — required for the desktop application only, see
+  *Third-party components* below
 
-### 📦 `LoanDbModel` (Class Library)
-Encapsulates EF Core entities and DB context.
+**Configure the connection string.** Values in the repository are placeholders. Supply the
+real one through an environment variable, .NET user secrets, or a gitignored local config
+file — see [SETUP.md](SETUP.md).
 
-- **Entities:**
-  - `Blotter.cs`
-  - `Trade.cs`
-  - `Cash.cs`
-  - `CounterParty.cs`
-  - `Accrual.cs`
-  - `Paydown.cs`
+**Create the database**
 
-- **EF Core Context & Migrations:**
-  - `LoanDbContext.cs`
-  - `/Migrations` folder contains all schema snapshots and updates
+```bash
+dotnet ef database update --project LoanDbModel
+```
 
----
+**Run the desktop application**
 
-### 🖥️ `OMS.Loans` (WPF UI Project)
+```bash
+dotnet run --project OMS.Loans
+```
 
-#### 🧩 Common
-- Shared interfaces like `IBlotterEntries`, `ICounterParties`
+**Run the extraction domain tests** — needs no database:
 
-#### 🔧 Mapping
-- `MappingProfile.cs` – AutoMapper configuration for entity ↔ ViewModel transformations
+```bash
+dotnet test tests/OmsLoan.Domain.Tests
+```
 
-#### 💬 Message
-- MVVM messaging:
-  - `BlotteredTradeSelected.cs`
-  - `TradeBlotteredMessage.cs`
-
-#### 🧪 Services
-- `BlotterEntriesService.cs` – Service to manage blotter-related logic
-- `CounterPartyService.cs` – Handles lookup and reference data
-
-#### 🧠 ViewModels
-Implements `ObservableRecipient`, validation (`IDataErrorInfo`), and MVVM logic.
-
-- `BlotterEntriesViewModel.cs`
-- `BlotterItem.cs` – Per-row VM
-- `BlotterViewModel.cs`
-- `MainViewModel.cs`
-
-#### 🪟 Views
-MVVM-bound XAML UI components using DevExpress controls.
-
-- `BlotterEntriesView.xaml`
-- `BlotterEntryView.xaml`
-- `BlotterView.xaml`
-- `MainWindow.xaml`
+Deploying the ingestion worker as a Windows Service is covered in
+[`docs/windows-service.md`](docs/windows-service.md), with install, uninstall and lifecycle
+scripts in [`scripts/`](scripts).
 
 ---
 
-## 🚀 Features
+## Third-party components
 
-- **Loan Trade Entry UI** with multi-field validation
-- **Blotter view** showing trades using DevExpress grid
-- **Real-time messaging** between components (selected trade messages, etc.)
-- **Validation** using `IDataErrorInfo` per field
-- **AutoMapper** mappings from DB entities to UI ViewModels
-- **MVVM-first** with testable service and VM layers
-- **Extensible architecture** for adding new trade types or UI modules
+This project references **DevExpress WPF 24.2.6**, commercial software requiring a separate
+paid licence. DevExpress assemblies are **not** included here — they are restored from the
+DevExpress NuGet feed at build time, so building the desktop application requires an active
+subscription and access to that feed. The extraction pipeline under `src/` does not depend on
+DevExpress and builds without it.
 
----
+Other dependencies — Entity Framework Core, AutoMapper, CommunityToolkit.Mvvm, QuestPDF,
+xUnit — are restored from nuget.org under their own licences.
 
-## 🔄 Getting Started
-
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/m-vaysman/omsloans.git
-   ```
-
-2. **Install prerequisites**
-
-   - .NET 8 SDK
-   - Visual Studio 2022 (or any C# IDE)
-   - SQL Server (LocalDB, Express, or full instance)
-   - A DevExpress WPF subscription — see *Third-Party Components* below
-
-3. **Configure the database connection**
-
-   The connection string in `LoanDbModel/LoanDbContext.cs` is a placeholder.
-   Supply the real value via an environment variable, .NET user secrets, or a
-   gitignored local config file. See [SETUP.md](SETUP.md) for the options.
-
-4. **Create the database**
-
-   ```bash
-   dotnet ef database update --project LoanDbModel
-   ```
-
-5. **Build and run**
-
-   ```bash
-   dotnet run --project OMS.Loans
-   ```
+The licence below applies **only to the original source code in this repository**, not to
+DevExpress or any other third-party package.
 
 ---
 
-## 📦 Third-Party Components
+## Licence
 
-This project references **DevExpress WPF 24.2.6**, which is commercial software
-requiring a separate paid license. DevExpress assemblies are **not** included in
-this repository — they are restored from the DevExpress NuGet feed at build time.
-Building the solution therefore requires an active DevExpress subscription and
-access to that feed.
-
-Other dependencies (Entity Framework Core, AutoMapper, CommunityToolkit.Mvvm,
-Microsoft.Extensions.DependencyInjection) are restored from nuget.org under their
-own respective licenses.
-
-The license below applies **only to the original source code in this repository**,
-not to DevExpress or any other third-party package.
-
----
-
-## 📄 License
-
-Released under the [MIT License](LICENSE). Copyright (c) 2025-2026 Michael Vaysman.
+Released under the [MIT License](LICENSE). Copyright © 2025–2026 Michael Vaysman.
