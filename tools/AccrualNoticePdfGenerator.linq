@@ -167,7 +167,20 @@ public static byte[] GenerateNotice(AccrualData data, BankDetails bank, int temp
 		});
 	});
 
-	return document.GeneratePdf();
+	// Set explicitly rather than left to the default. QuestPDF emits empty document
+	// properties, which is harmless but means a generated notice carries no attribution at
+	// all; naming Cobbler Hill LLC keeps the PDF consistent with the mock spreadsheet and
+	// leaves no trace of whatever tooling happened to produce it.
+	return document
+		.WithMetadata(new DocumentMetadata
+		{
+			Title = $"Interest Accrual Notice - {data.FacilityId}",
+			Author = "Cobbler Hill LLC",
+			Creator = "Cobbler Hill LLC",
+			Producer = "Cobbler Hill LLC",
+			Subject = "Mock loan notice - not a real instrument",
+		})
+		.GeneratePdf();
 }
 
 // ============================================================
