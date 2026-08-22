@@ -72,31 +72,67 @@ public static class FakePaymentFactory
 // 3. Watermark
 // ============================================================
 
-public const string WatermarkText = "COBBLER HILL DEV (MOCK)";
+public const string WatermarkLine1 = "COBBLER HILL DEV";
+public const string WatermarkLine2 = "(MOCK)";
 
 /// <summary>Large diagonal watermark, applied to every template.</summary>
 /// <remarks>
-/// Drawn on the Background layer, so it sits behind the notice text rather than over it.
-/// The colour is fully opaque — no alpha — but nothing on the page is obscured, which
-/// matters because these PDFs are fed to a vision model: a watermark painted over the rate
-/// or the accrued amount would be testing the model's ability to read through a stamp
-/// rather than its ability to read a notice.
+/// Three things this layout is working around, all learned the hard way from a first
+/// attempt that rendered as a cropped, fragmented diagonal:
 ///
-/// Move the call to page.Foreground() below if you want it printed over the content instead.
+/// 1. Foreground, not Background. Table cells paint solid fills (white and #D6E3F0), so a
+///    watermark drawn behind the content was hidden everywhere a row covered it and only
+///    survived in whitespace — it read as broken fragments rather than one mark. Drawing on
+///    top keeps it continuous. The alpha is what stops it obscuring anything: at ~13% the
+///    rates and amounts underneath stay legible to a vision model, which is the whole point
+///    of generating these.
 ///
-/// Rotate() does not resize the layout box, so the text is laid out at page width and then
-/// turned; the font size is chosen to stay on one line at Letter width.
+/// 2. Two short lines, not one long one. Rotate() does not resize the layout box, so a
+///    23-character string laid out at page width and then turned 45 degrees ran off the
+///    corner and lost its first five characters. Splitting the text roughly halves the
+///    diagonal it needs.
+///
+/// 3. Rotate() pivots on the top-left corner, not the centre, so the mark drifted up and to
+///    the right. Translating the centre to the origin, rotating, and translating back is
+///    what actually centres it.
 /// </remarks>
 static void ApplyWatermark(PageDescriptor page)
 {
-	page.Background()
+	// Width must clear the longest line at this font size or it wraps, and height must clear
+	// both lines or the second one is silently clipped. Rotated 45 degrees a 470x120 block
+	// occupies about 417pt on each axis, so it still sits well inside Letter (612x792).
+	const float blockWidth = 470f;
+	const float blockHeight = 120f;
+	const float fontSize = 36f;
+
+	// Black at ~13% alpha rather than a light grey: it stays visible on both the white body
+	// and the tinted table rows, where a flat grey washes out against one or the other.
+	var watermarkColor = Color.FromARGB(0x22, 0x00, 0x00, 0x00);
+
+	// Applied outside the rotation, so these are plain page-space points that slide the
+	// finished mark onto the page centre. Measured against the rendered output rather than
+	// derived: the compensation depends on how Rotate() composes with the alignment around
+	// it, and the arithmetic is easier to get wrong than to check.
+	const float centringOffsetX = 263f;
+	const float centringOffsetY = -125f;
+
+	page.Foreground()
 		.AlignCenter()
 		.AlignMiddle()
+		.Width(blockWidth)
+		.Height(blockHeight)
+		.TranslateX(centringOffsetX, Unit.Point)
+		.TranslateY(centringOffsetY, Unit.Point)
 		.Rotate(-45)
-		.Text(WatermarkText)
-		.FontSize(40)
-		.Bold()
-		.FontColor(Color.FromHex("#BDBDBD"));
+		.TranslateX(-blockWidth / 2, Unit.Point)
+		.TranslateY(-blockHeight / 2, Unit.Point)
+		.Column(col =>
+		{
+			col.Item().AlignCenter().Text(WatermarkLine1)
+				.FontSize(fontSize).Bold().FontColor(watermarkColor);
+			col.Item().AlignCenter().Text(WatermarkLine2)
+				.FontSize(fontSize).Bold().FontColor(watermarkColor);
+		});
 }
 
 // ============================================================
@@ -131,7 +167,20 @@ public static byte[] GenerateNotice(AccrualData data, BankDetails bank, int temp
 		});
 	});
 
-	return document.GeneratePdf();
+	// Set explicitly rather than left to the default. QuestPDF emits empty document
+	// properties, which is harmless but means a generated notice carries no attribution at
+	// all; naming Cobbler Hill LLC keeps the PDF consistent with the mock spreadsheet and
+	// leaves no trace of whatever tooling happened to produce it.
+	return document
+		.WithMetadata(new DocumentMetadata
+		{
+			Title = $"Interest Accrual Notice - {data.FacilityId}",
+			Author = "Cobbler Hill LLC",
+			Creator = "Cobbler Hill LLC",
+			Producer = "Cobbler Hill LLC",
+			Subject = "Mock loan notice - not a real instrument",
+		})
+		.GeneratePdf();
 }
 
 // ============================================================
