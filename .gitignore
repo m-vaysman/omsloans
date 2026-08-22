@@ -324,7 +324,10 @@ paket-files/
 .fake/
 
 # CodeRush personal settings
-.cr/personal
+# Leading **/ so this matches at any depth. A pattern containing a slash is anchored to this
+# file's directory, so the stock ".cr/personal" only covered the one at the repo root and
+# missed the folder CodeRush writes inside each project.
+**/.cr/personal/
 
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
