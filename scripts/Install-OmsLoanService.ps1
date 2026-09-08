@@ -28,8 +28,19 @@
     SQL Server connection string. Stored as the ConnectionStrings__OmsLoan service variable.
 
 .PARAMETER ApiKeys
-    Optional hashtable of provider keys, e.g. @{ Claude = 'sk-...'; OpenAi = 'sk-...' }.
-    Each becomes Extraction__<Provider>__ApiKey.
+    Optional hashtable of provider keys, e.g. @{ Claude = '...'; OpenAi = '...' }.
+    Written to the service under the flat names the machines already use — CLAUDE_API_KEY,
+    OPEN_API_KEY, GROQ_API_KEY — not the older Extraction__<Provider>__ApiKey spelling.
+
+    Omit it when the variables are already set at machine scope: a service receives the
+    system environment block, so machine-level variables reach it without being repeated
+    here. Pass them only to pin a value to this service alone.
+
+.PARAMETER GraphCredential
+    Optional hashtable of Microsoft Graph application credentials, e.g.
+    @{ TenantId = '...'; ClientId = '...'; ClientSecret = '...' }. Written as
+    GRAPH_TENANT_ID, GRAPH_CLIENT_ID and GRAPH_CLIENT_SECRET. Configuration only at this
+    point — the Worker reports their presence and does not yet call Graph.
 
 .EXAMPLE
     .\Install-OmsLoanService.ps1 -PublishPath C:\Services\OmsLoan -Environment Production `
@@ -51,6 +62,8 @@ param(
     [string]$ConnectionString,
 
     [hashtable]$ApiKeys = @{},
+
+    [hashtable]$GraphCredential = @{},
 
     [switch]$StartAfterInstall
 )
@@ -135,17 +148,54 @@ if (-not [System.Diagnostics.EventLog]::SourceExists($eventLogSource)) {
 }
 
 # --- Per-service environment variables ---------------------------------------------------
-# A service does not inherit variables set with setx. Its own block lives in the registry as
-# a REG_MULTI_SZ, which is what makes DOTNET_ENVIRONMENT and the secrets visible to it and
-# to nothing else on the machine.
+# The service's own block lives in the registry as a REG_MULTI_SZ and is layered on top of
+# the system environment the SCM hands every service. Two consequences worth knowing:
+# a machine-scope variable (setx /M, or System Properties) already reaches this service
+# without appearing here, while a user-scope one never will. Anything written below is
+# visible to this service and to nothing else on the machine.
+#
+# Secret names are the flat ones the machines already carry. The older
+# Extraction__<Provider>__ApiKey spelling is no longer written; it still resolves if some
+# host has it set, but the flat name wins. See src/OmsLoan.Worker/ConfigurationKeys.cs.
 $environmentEntries = @("DOTNET_ENVIRONMENT=$Environment")
 
 if ($ConnectionString) {
     $environmentEntries += "ConnectionStrings__OmsLoan=$ConnectionString"
 }
 
+# Provider name as written in the hashtable -> the variable the Worker reads. Note
+# OPEN_API_KEY rather than OPENAI_API_KEY: it is what is set on the machines.
+$apiKeyVariables = @{
+    Claude = 'CLAUDE_API_KEY'
+    OpenAi = 'OPEN_API_KEY'
+    Groq   = 'GROQ_API_KEY'
+}
+
 foreach ($provider in $ApiKeys.Keys) {
-    $environmentEntries += "Extraction__${provider}__ApiKey=$($ApiKeys[$provider])"
+    if (-not $apiKeyVariables.ContainsKey($provider)) {
+        throw "Unknown provider '$provider' in -ApiKeys. Expected one of: $($apiKeyVariables.Keys -join ', ')."
+    }
+    $environmentEntries += "$($apiKeyVariables[$provider])=$($ApiKeys[$provider])"
+}
+
+$graphVariables = @{
+    TenantId     = 'GRAPH_TENANT_ID'
+    ClientId     = 'GRAPH_CLIENT_ID'
+    ClientSecret = 'GRAPH_CLIENT_SECRET'
+}
+
+foreach ($setting in $GraphCredential.Keys) {
+    if (-not $graphVariables.ContainsKey($setting)) {
+        throw "Unknown setting '$setting' in -GraphCredential. Expected one of: $($graphVariables.Keys -join ', ')."
+    }
+    $environmentEntries += "$($graphVariables[$setting])=$($GraphCredential[$setting])"
+}
+
+# A tenant without a secret is not a partially working credential; it fails at the first
+# Graph call rather than at install time unless it is said here.
+if ($GraphCredential.Count -gt 0 -and $GraphCredential.Count -lt $graphVariables.Count) {
+    $missing = $graphVariables.Keys | Where-Object { -not $GraphCredential.ContainsKey($_) }
+    Write-Warning "-GraphCredential is incomplete; missing: $($missing -join ', '). Mailbox ingestion needs all three."
 }
 
 $serviceKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName"

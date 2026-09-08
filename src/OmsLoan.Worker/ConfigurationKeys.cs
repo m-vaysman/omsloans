@@ -1,13 +1,50 @@
 namespace OmsLoan.Worker;
 
 /// <summary>
-/// Configuration keys the Worker expects to find, and the environment-variable spellings
-/// that supply them in Production.
+/// One secret the Worker needs: the key it is read from in code, and the environment
+/// variable that supplies it on a machine.
+/// </summary>
+/// <param name="ConfigurationKey">
+/// The hierarchical key the application binds against, e.g. <c>Extraction:Claude:ApiKey</c>.
+/// </param>
+/// <param name="EnvironmentVariable">
+/// The flat variable an operator actually sets, e.g. <c>CLAUDE_API_KEY</c>. This is the
+/// source of truth — the spellings are fixed by what is already deployed on the machines,
+/// not chosen here.
+/// </param>
+/// <param name="Purpose">Short label for the startup banner.</param>
+public sealed record SecretSetting(string ConfigurationKey, string EnvironmentVariable, string Purpose);
+
+/// <summary>
+/// Configuration keys the Worker expects to find, and the environment variables that supply
+/// them.
 /// </summary>
 /// <remarks>
-/// .NET maps a colon-separated key onto a double-underscore environment variable, so
-/// <c>Extraction:Claude:ApiKey</c> is set as <c>Extraction__Claude__ApiKey</c>. Naming both
-/// forms here keeps the deployment runbook and the code reading from the same list.
+/// <para>
+/// There are two spellings in play and it is worth being precise about why.
+/// </para>
+/// <para>
+/// .NET's own convention maps a hierarchical key onto a double-underscore variable, so
+/// <c>Extraction:Claude:ApiKey</c> would be set as <c>Extraction__Claude__ApiKey</c>. That
+/// mapping is built into the environment-variable provider and still works. But the machines
+/// this runs on already carry flat names — <c>CLAUDE_API_KEY</c>, <c>GRAPH_TENANT_ID</c> —
+/// set for other tooling, and nothing auto-maps those onto the nested keys. A deployment
+/// with the secrets already present would have looked, to the Worker, exactly like one with
+/// no secrets at all.
+/// </para>
+/// <para>
+/// So the flat names win. <see cref="FlatEnvironmentSecrets"/> projects them onto the
+/// hierarchical keys below and is registered as the highest-precedence configuration source,
+/// which keeps application code binding against a clean options shape while an operator only
+/// ever has to think about the flat variable. Note the spelling of the OpenAI one:
+/// <c>OPEN_API_KEY</c>, not <c>OPENAI_API_KEY</c>. It is what is set on the machines, so it
+/// is what is read here.
+/// </para>
+/// <para>
+/// The nested <c>Extraction__Claude__ApiKey</c> form is not removed and cannot be — it comes
+/// free with the environment-variable provider. It simply loses to the flat name when both
+/// are set. It is no longer documented or written by the install script.
+/// </para>
 /// </remarks>
 public static class ConfigurationKeys
 {
@@ -21,14 +58,43 @@ public static class ConfigurationKeys
     /// check can report a missing key before any notice is picked up, instead of surfacing
     /// it as a failed extraction hours later.
     /// </summary>
-    public static readonly IReadOnlyList<string> ProviderApiKeys =
+    public static readonly IReadOnlyList<SecretSetting> ProviderApiKeys =
     [
-        "Extraction:Claude:ApiKey",
-        "Extraction:OpenAi:ApiKey",
-        "Extraction:Groq:ApiKey",
+        new("Extraction:Claude:ApiKey", "CLAUDE_API_KEY", "Claude"),
+        new("Extraction:OpenAi:ApiKey", "OPEN_API_KEY", "OpenAI"),
+        new("Extraction:Groq:ApiKey", "GROQ_API_KEY", "Groq"),
     ];
 
-    /// <summary>The environment-variable spelling of a configuration key.</summary>
+    /// <summary>
+    /// Microsoft Graph application credentials, for shared-mailbox ingestion. Configuration
+    /// and presence reporting only at this point — no Graph call is made yet.
+    /// </summary>
+    /// <remarks>
+    /// These three are the credential. <c>GRAPH_USER</c> and <c>GRAPH_TEST_MAILBOX</c> also
+    /// exist on the test machines and hold the same value — the mailbox address — but that
+    /// is an address rather than a secret, and which mailbox to poll is an ingestion setting
+    /// this issue does not cover. See docs/exchange-test-environment.md.
+    /// </remarks>
+    public static readonly IReadOnlyList<SecretSetting> GraphSettings =
+    [
+        new("Graph:TenantId", "GRAPH_TENANT_ID", "Graph tenant"),
+        new("Graph:ClientId", "GRAPH_CLIENT_ID", "Graph application"),
+        new("Graph:ClientSecret", "GRAPH_CLIENT_SECRET", "Graph secret"),
+    ];
+
+    /// <summary>Every flat-named secret, in banner order.</summary>
+    public static readonly IReadOnlyList<SecretSetting> AllSecrets =
+        [.. ProviderApiKeys, .. GraphSettings];
+
+    /// <summary>
+    /// The double-underscore environment-variable spelling of a hierarchical key.
+    /// </summary>
+    /// <remarks>
+    /// Still used for the connection string, which keeps the .NET convention
+    /// (<c>ConnectionStrings__OmsLoan</c>) because that is what is already deployed and the
+    /// Api reads the same variable. Only the secrets in <see cref="AllSecrets"/> moved to
+    /// flat names, and only because flat names already existed on the machines.
+    /// </remarks>
     public static string ToEnvironmentVariable(string configurationKey) =>
         configurationKey.Replace(":", "__", StringComparison.Ordinal);
 }

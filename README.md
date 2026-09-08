@@ -167,6 +167,19 @@ git clone https://github.com/m-vaysman/omsloans.git
 real one through an environment variable, .NET user secrets, or a gitignored local config
 file — see [SETUP.md](SETUP.md).
 
+**Configure the extraction secrets.** The Worker reads flat environment variables, so a
+machine that already has them set needs nothing further. Committed placeholders are always
+empty:
+
+| Purpose | Variable |
+| --- | --- |
+| Claude / OpenAI / Groq | `CLAUDE_API_KEY`, `OPEN_API_KEY`, `GROQ_API_KEY` |
+| Microsoft Graph | `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET` |
+
+`OPEN_API_KEY` is the correct spelling — not `OPENAI_API_KEY`. The Worker's startup banner
+reports which of these it found and from where, never their values. Details in
+[`docs/windows-service.md`](docs/windows-service.md#key-names).
+
 **Create the database**
 
 ```bash

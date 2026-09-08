@@ -30,8 +30,16 @@ builder.Services.Configure<HostOptions>(options =>
 
 // Configuration sources come from Host.CreateApplicationBuilder in this order, lowest
 // precedence first: appsettings.json, appsettings.{Environment}.json, user-secrets
-// (Development only), environment variables, command line. Nothing is added here — the
-// startup banner reports which one actually supplied each setting.
+// (Development only), environment variables, command line. The startup banner reports which
+// one actually supplied each setting.
+//
+// Added last, so it wins: the flat secret variables the machines already carry —
+// CLAUDE_API_KEY, GRAPH_TENANT_ID and the rest — projected onto the hierarchical keys the
+// application binds against. Without this, a host with every secret correctly set looks
+// identical to one with none, because nothing maps a flat name onto Extraction:Claude:ApiKey.
+// See FlatEnvironmentSecrets.cs.
+builder.Configuration.AddOmsLoanFlatEnvironmentSecrets();
+
 var connectionString = builder.Configuration.GetConnectionString(ConfigurationKeys.ConnectionStringName);
 
 if (!string.IsNullOrWhiteSpace(connectionString))

@@ -23,6 +23,11 @@ cd scripts
     -ConnectionString 'Server=sql01;Database=OmsLoan;Integrated Security=true;Encrypt=true'
 ```
 
+No secrets in that command beyond the connection string: when `CLAUDE_API_KEY`,
+`GRAPH_TENANT_ID` and the rest are already set at machine scope, the service inherits them.
+Pass `-ApiKeys` / `-GraphCredential` only to pin values to this service alone —
+see [Configuration](#configuration).
+
 Run elevated. The script prompts for the account password rather than taking it as a
 parameter, so it never reaches a command line, a script file, or PSReadLine history.
 
@@ -103,21 +108,62 @@ sets it on the service; if it is missing the host defaults to `Production`.
 
 ### Key names
 
-A colon in a configuration key becomes a double underscore in an environment variable:
+**Secrets are set as flat variables.** These names are the source of truth — they are what
+the machines already carry, set for other tooling, and the Worker reads them directly:
+
+| Setting | Environment variable | Configuration key in code |
+| --- | --- | --- |
+| Claude key | `CLAUDE_API_KEY` | `Extraction:Claude:ApiKey` |
+| OpenAI key | `OPEN_API_KEY` | `Extraction:OpenAi:ApiKey` |
+| Groq key | `GROQ_API_KEY` | `Extraction:Groq:ApiKey` |
+| Graph tenant | `GRAPH_TENANT_ID` | `Graph:TenantId` |
+| Graph app id | `GRAPH_CLIENT_ID` | `Graph:ClientId` |
+| Graph secret | `GRAPH_CLIENT_SECRET` | `Graph:ClientSecret` |
+
+`OPEN_API_KEY`, not `OPENAI_API_KEY`. It looks like a typo and is not — it is what is set on
+the machines, so it is what is read.
+
+Application code binds against the hierarchical keys in the right-hand column, which keeps
+`appsettings.json` readable and options binding conventional.
+[`FlatEnvironmentSecrets.cs`](../src/OmsLoan.Worker/FlatEnvironmentSecrets.cs) projects the
+flat variables onto them and is registered as the **highest-precedence** configuration
+source. So a flat variable beats appsettings, user-secrets, and anything else.
+
+Why this exists at all: .NET's environment-variable provider only understands its own
+`Section__Key` convention, so `CLAUDE_API_KEY` reached the Worker as *nothing*. A host with
+every secret correctly configured was indistinguishable from a bare one.
+
+**The database keeps the .NET convention**, because it is not one of these pre-existing
+variables and the Api reads the same one:
 
 | Setting | Configuration key | Environment variable |
 | --- | --- | --- |
 | Database | `ConnectionStrings:OmsLoan` | `ConnectionStrings__OmsLoan` |
-| Claude key | `Extraction:Claude:ApiKey` | `Extraction__Claude__ApiKey` |
-| OpenAI key | `Extraction:OpenAi:ApiKey` | `Extraction__OpenAi__ApiKey` |
-| Groq key | `Extraction:Groq:ApiKey` | `Extraction__Groq__ApiKey` |
+
+<details>
+<summary>The old <code>Extraction__Claude__ApiKey</code> spelling</summary>
+
+Still resolves, because the double-underscore mapping is built into the environment-variable
+provider and cannot be switched off. It is no longer written by the install script or
+documented anywhere else, and **it loses to the flat name** when both are set — deliberately,
+so a stale variable left on a host cannot shadow the real one. Treat it as deprecated and
+delete it where you find it.
+
+</details>
 
 ### Development
 
+Machine variables work here too — if `CLAUDE_API_KEY` is already set, `dotnet run` picks it
+up with no further setup. For per-project values, user-secrets take the hierarchical key:
+
 ```powershell
 dotnet user-secrets set "ConnectionStrings:OmsLoan" "Server=(localdb)\MSSQLLocalDB;Database=OmsLoan;Trusted_Connection=true" --project src/OmsLoan.Worker
-dotnet user-secrets set "Extraction:Claude:ApiKey" "sk-ant-..." --project src/OmsLoan.Worker
+dotnet user-secrets set "Extraction:Claude:ApiKey" "..." --project src/OmsLoan.Worker
 ```
+
+Note that a flat variable outranks user-secrets. If a machine-level `CLAUDE_API_KEY` is set
+and you want a different one locally, unset the machine variable for that shell rather than
+wondering why the secret is ignored — the startup banner names which source won.
 
 User-secrets live outside the repository entirely, so there is no file to accidentally
 commit. Copy `appsettings.Development.json.example` to `appsettings.Development.json` for
@@ -125,10 +171,26 @@ non-secret local overrides — that filename is gitignored.
 
 ### Production
 
-The installer writes secrets to the service's own environment block in the registry, at
-`HKLM\SYSTEM\CurrentControlSet\Services\OmsLoanWorker\Environment`. A service does not
-inherit variables set with `setx`, so this per-service block is the mechanism; it is also
-why the secrets are visible to this service and to nothing else on the machine.
+There are two places a secret can live, and they are not alternatives so much as different
+scopes.
+
+**Machine-level variables reach the service already.** The SCM hands every service the
+system environment block, so `CLAUDE_API_KEY` and the rest set with `setx /M` (or System
+Properties → Environment Variables → System variables) are visible to the Worker with
+nothing else to configure. That is the normal case on these hosts. **User-scope variables
+are not** — a plain `setx` sets the current user's environment, which a service running as
+another account never sees. That distinction is the usual reason a variable "is set" and the
+Worker still reports it absent.
+
+The system block is cached by the service control manager, so a newly added machine variable
+is picked up on the next service start, and sometimes only after a reboot.
+
+**The per-service block pins a value to this service alone.** When passed `-ApiKeys` or
+`-GraphCredential`, the installer writes them to
+`HKLM\SYSTEM\CurrentControlSet\Services\OmsLoanWorker\Environment` under the same flat
+names. Use it when the Worker needs a different key from the rest of the machine, or when
+the deployment should be self-describing rather than depending on host state. Otherwise omit
+them and let the machine variables do the work.
 
 **The trade-off, stated plainly:** that registry key is readable by local administrators.
 For most internal deployments that is acceptable — anyone with local admin on the host can
@@ -151,10 +213,29 @@ placeholders in `appsettings.json` are empty strings and are treated as absent.
 ## Startup banner
 
 On every start the Worker logs its environment, content root, whether it is running as a
-service, the configuration sources in precedence order, and — for the connection string and
-each API key — whether it was found and **which source supplied it**.
+service, the configuration sources in precedence order, and — for the connection string,
+each API key and each Graph credential — whether it was found and **which source supplied
+it**.
+
+For the flat-named secrets it names the variable rather than the provider, so the line is
+directly actionable:
+
+```
+  Resolved settings:
+    - ConnectionStrings:OmsLoan : present (from EnvironmentVariablesConfigurationProvider)
+    - Extraction:Claude:ApiKey  : present (from CLAUDE_API_KEY)
+    - Extraction:OpenAi:ApiKey  : absent (set OPEN_API_KEY)
+    - Extraction:Groq:ApiKey    : present (from GROQ_API_KEY)
+    - Graph:TenantId            : present (from GRAPH_TENANT_ID)
+    - Graph:ClientId            : present (from GRAPH_CLIENT_ID)
+    - Graph:ClientSecret        : present (from GRAPH_CLIENT_SECRET)
+```
 
 Values are never logged. Only presence and origin.
+
+Graph credentials are reported all-or-nothing: a tenant with no secret is not a partially
+working credential, it is one somebody stopped halfway through configuring, and it would
+otherwise fail at the first mailbox poll rather than at startup. A partial set is a warning.
 
 That last column is what makes a misconfiguration visible immediately. A service that comes
 up cleanly against the wrong database looks exactly like a correct one until you read which
@@ -194,3 +275,5 @@ back with no ordering between them. Confirm with
 | Wrong database, no error | A machine-wide environment variable is outranking the file. The banner names the winning source |
 | Nothing in the Event Log at all | Source not registered — re-run the installer, which creates it |
 | Extractions never run | No provider API key configured; the banner warns about this at startup |
+| Variable "is set" but reported absent | It is user-scope. A service only sees machine-scope variables — use `setx /M`, then restart the service |
+| Mailbox ingestion fails on first poll | Graph credential partially configured; the banner warns when some of the three are missing |
