@@ -118,15 +118,9 @@ public static class StartupSummary
         IHostEnvironment environment,
         IConfigurationRoot configuration)
     {
-        if (WinningSource(configuration, ConfigurationKeys.ConnectionStringKey) is null)
-        {
-            logger.LogWarning(
-                "No connection string found at {Key}. Set the {Variable} environment variable, "
-                + "or add it to user-secrets in Development. See docs/windows-service.md.",
-                ConfigurationKeys.ConnectionStringKey,
-                ConfigurationKeys.ToEnvironmentVariable(ConfigurationKeys.ConnectionStringKey));
-        }
-
+        // The connection string and the Graph credential are not warned about here: they are
+        // required, and StartupValidation refuses to start without them. Warning and then
+        // failing about the same setting would only obscure which of the two mattered.
         var missingProviders = Missing(configuration, ConfigurationKeys.ProviderApiKeys);
 
         if (missingProviders.Count == ConfigurationKeys.ProviderApiKeys.Count)
@@ -146,25 +140,6 @@ public static class StartupSummary
                 Join(missingProviders));
         }
 
-        var missingGraph = Missing(configuration, ConfigurationKeys.GraphSettings);
-
-        // All three or nothing: a tenant without a secret is not a partially working Graph
-        // client, it is a credential someone stopped halfway through configuring, and it
-        // fails at the first call rather than at startup unless it is said out loud here.
-        if (missingGraph.Count == ConfigurationKeys.GraphSettings.Count)
-        {
-            logger.LogWarning(
-                "Microsoft Graph credentials are not configured, so shared-mailbox ingestion "
-                + "cannot run. Set {Variables}. See docs/exchange-test-environment.md.",
-                Join(missingGraph));
-        }
-        else if (missingGraph.Count > 0)
-        {
-            logger.LogWarning(
-                "Microsoft Graph is partially configured — {Variables} missing. The credential is "
-                + "incomplete and mailbox ingestion will fail at its first call.",
-                Join(missingGraph));
-        }
     }
 
     private static List<SecretSetting> Missing(

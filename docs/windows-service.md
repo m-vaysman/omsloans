@@ -106,6 +106,48 @@ Sources, **lowest precedence first** — a later source overrides an earlier one
 `DOTNET_ENVIRONMENT` selects which `appsettings.{Environment}.json` applies. The installer
 sets it on the service; if it is missing the host defaults to `Production`.
 
+### Required, and what happens when they are not set
+
+The Worker **will not start** without these four:
+
+| Setting | Variable |
+| --- | --- |
+| Database | `ConnectionStrings__OmsLoan` |
+| Graph tenant | `GRAPH_TENANT_ID` |
+| Graph app id | `GRAPH_CLIENT_ID` |
+| Graph secret | `GRAPH_CLIENT_SECRET` |
+
+Graph is all-or-nothing: a tenant with no client secret is a half-finished credential, not a
+partially working one, so a partial set is refused exactly as an empty one is. A blank value
+counts as absent — the committed placeholders are empty strings.
+
+Without a database the Worker cannot record a notice; without the Graph credential it cannot
+collect one. Starting anyway would give you a service the SCM reports as Running, healthy in
+every monitor, silently ingesting nothing — found out when somebody asks why the review
+queue is empty.
+
+**It stops rather than restarting.** The refusal is a clean stop, not a crash, so the failure
+actions in [Recovery](#recovery) do not fire. Retrying a missing environment variable at one,
+two and five minutes fails identically three times and buries the reason. Set the variable
+and start the service again.
+
+The provider API keys are **not** required. Three providers sit behind one interface so that
+any one will do, and a notice ingested but not yet extracted is a state reprocessing fixes.
+A missing key is a warning.
+
+What it looks like:
+
+```
+crit: OmsLoan.Worker.Startup[0]
+      OmsLoan worker is not starting: 1 required setting(s) missing.
+          GRAPH_CLIENT_SECRET  (Graph secret)
+        Set them as machine environment variables, on the service's own environment block,
+        or in user-secrets for Development, then start the service again. ...
+```
+
+Every missing variable is listed at once, so configuring a host takes one pass rather than
+one restart per problem.
+
 ### Key names
 
 **Secrets are set as flat variables.** These names are the source of truth — they are what
@@ -253,6 +295,21 @@ The installer configures the SCM to restart the service after a failure, backing
 The staged back-off matters because the common failure is the database or the network being
 unavailable, and retrying every few seconds neither helps nor leaves a readable log.
 
+**Restarts are for faults, not for misconfiguration.** The two are separated deliberately:
+
+| Situation | Process ends | SCM restarts it? |
+| --- | --- | --- |
+| Database unreachable, network down, unhandled exception while running | unexpectedly | **yes** — 1m, 2m, 5m |
+| A required environment variable is missing | cleanly, exit code 0 | **no** — stays stopped |
+
+A missing variable retried three times fails three times and pushes the one useful log entry
+further up the Application log. So the Worker reports the problem at Critical and stops
+normally, which the SCM reads as an ordinary stop rather than an error termination and
+therefore leaves alone. Set the variable, then start the service again.
+
+From a console the same refusal exits with code **78** instead, because there is no SCM to
+mislead and a developer or CI step wants a failed exit status.
+
 Start type is **Automatic (Delayed Start)**: SQL Server and the network are frequently not
 ready at the moment the machine reaches the desktop, and a failed first connection would
 otherwise burn a restart attempt before anything could work.
@@ -271,6 +328,7 @@ back with no ordering between them. Confirm with
 | --- | --- |
 | Error 1069, nothing in Application log | Account lacks *Log on as a service*; the process never started |
 | Starts, then stops immediately | Read the banner — usually a missing or wrong connection string |
+| Service stops at once and never retries | A required variable is missing. That is by design; the Critical entry names which one |
 | `appsettings.json` seems ignored | Content root wrong. `AddWindowsService()` fixes this; without it the SCM gives the process `C:\Windows\System32` |
 | Wrong database, no error | A machine-wide environment variable is outranking the file. The banner names the winning source |
 | Nothing in the Event Log at all | Source not registered — re-run the installer, which creates it |

@@ -87,6 +87,43 @@ public static class ConfigurationKeys
         [.. ProviderApiKeys, .. GraphSettings];
 
     /// <summary>
+    /// The database, described the same way as a secret so it can sit in
+    /// <see cref="RequiredSettings"/> alongside the Graph credentials.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not in <see cref="AllSecrets"/>: it keeps the .NET double-underscore
+    /// convention rather than a flat name, so the stock environment-variable provider
+    /// already resolves it and <see cref="FlatEnvironmentSecrets"/> has no work to do.
+    /// </remarks>
+    public static readonly SecretSetting ConnectionString =
+        new(ConnectionStringKey, "ConnectionStrings__OmsLoan", "Database");
+
+    /// <summary>
+    /// Settings the Worker refuses to start without.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The database and the Graph credential are the two things without which the Worker
+    /// has no useful work to do: it cannot record a notice and it cannot collect one from
+    /// the shared mailbox. Starting anyway means a service the SCM reports as Running that
+    /// silently ingests nothing — the worst of the failure modes, because it looks healthy
+    /// and the gap only surfaces when somebody asks why the review queue is empty.
+    /// </para>
+    /// <para>
+    /// Graph is all-or-nothing. A tenant with no client secret is not a partially working
+    /// credential, so a partial set fails exactly as a missing one does.
+    /// </para>
+    /// <para>
+    /// The provider API keys in <see cref="ProviderApiKeys"/> are deliberately <em>not</em>
+    /// here. They are individually optional — the point of putting three providers behind
+    /// one interface is that any one of them will do — and a notice ingested but not yet
+    /// extracted is a recoverable state that reprocessing fixes.
+    /// </para>
+    /// </remarks>
+    public static readonly IReadOnlyList<SecretSetting> RequiredSettings =
+        [ConnectionString, .. GraphSettings];
+
+    /// <summary>
     /// The double-underscore environment-variable spelling of a hierarchical key.
     /// </summary>
     /// <remarks>

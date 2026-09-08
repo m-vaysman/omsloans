@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Domain;
 using OmsLoan.Worker;
 
@@ -51,9 +52,30 @@ builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
 
-StartupSummary.Log(
-    host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("OmsLoan.Worker.Startup"),
-    builder.Environment,
-    builder.Configuration);
+var startupLogger = host.Services
+    .GetRequiredService<ILoggerFactory>()
+    .CreateLogger("OmsLoan.Worker.Startup");
+
+StartupSummary.Log(startupLogger, builder.Environment, builder.Configuration);
+
+// After the banner, so the log shows what was resolved before it shows what was missing, and
+// before Run(), so a Worker with no database or no Graph credential never reaches the SCM as
+// Running. See StartupValidation for why these two are fatal where a missing provider API
+// key is only a warning — and for why this reports and returns rather than throwing.
+var missing = StartupValidation.MissingRequiredSettings(builder.Configuration);
+
+if (missing.Count > 0)
+{
+    StartupValidation.LogRefusalToStart(startupLogger, missing);
+
+    // Dispose flushes the logging providers. The console provider batches its writes, and
+    // returning from Main would otherwise be quick enough to discard the message that
+    // explains the whole thing.
+    host.Dispose();
+
+    return StartupValidation.ExitCodeFor(WindowsServiceHelpers.IsWindowsService());
+}
 
 host.Run();
+
+return 0;

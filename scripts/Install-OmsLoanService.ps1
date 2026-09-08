@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Installs the OmsLoan notice-extraction worker as a Windows Service.
 
@@ -135,6 +135,14 @@ New-Service @newServiceArgs | Out-Null
 # --- Restart on failure ------------------------------------------------------------------
 # Not exposed by New-Service, so sc.exe it is. Back off 1m, 2m, then 5m for subsequent
 # failures, and reset the counter after a day of running cleanly.
+#
+# These apply to faults, not to misconfiguration. A Worker missing a required environment
+# variable reports the problem and stops cleanly with exit code 0, which the SCM reads as an
+# ordinary stop rather than an error termination, so none of the actions below fire and the
+# service stays stopped until somebody sets the variable. Retrying that three times would
+# fail three times and bury the one useful log entry. Genuine faults — the database
+# unreachable, an unhandled exception while running — still terminate the process
+# unexpectedly and still earn the backoff. See src/OmsLoan.Worker/StartupValidation.cs.
 Write-Host 'Configuring automatic restart on failure.'
 & sc.exe failure $serviceName reset= 86400 actions= restart/60000/restart/120000/restart/300000 | Out-Null
 & sc.exe failureflag $serviceName 1 | Out-Null

@@ -177,8 +177,14 @@ empty:
 | Microsoft Graph | `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET` |
 
 `OPEN_API_KEY` is the correct spelling — not `OPENAI_API_KEY`. The Worker's startup banner
-reports which of these it found and from where, never their values. Details in
-[`docs/windows-service.md`](docs/windows-service.md#key-names).
+reports which of these it found and from where, never their values.
+
+**The Worker will not start without the database connection string or all three Graph
+variables** — without them it can neither collect a notice nor record one, and a service that
+starts anyway looks healthy while ingesting nothing. It reports which are missing and stops,
+without retrying: a missing variable is not fixed by restarting. The provider API keys stay
+optional. Details in
+[`docs/windows-service.md`](docs/windows-service.md#required-and-what-happens-when-they-are-not-set).
 
 **Create the database**
 
