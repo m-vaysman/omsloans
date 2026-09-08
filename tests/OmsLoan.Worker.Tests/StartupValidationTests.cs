@@ -19,6 +19,10 @@ public class StartupValidationTests
     private static (string, string?)[] Complete() =>
     [
         (ConfigurationKeys.ConnectionStringKey, AnyConnectionString),
+        // A path, not a folder that must exist: this gate only asks whether a value was
+        // configured. Whether it can be created, read and written is WatchedFolder's job,
+        // checked immediately afterwards and covered by WatchedFolderTests.
+        (ConfigurationKeys.WatchedFolder.ConfigurationKey, @"C:\OmsLoan\Notices"),
         ("Graph:TenantId", "tenant"),
         ("Graph:ClientId", "client"),
         ("Graph:ClientSecret", "secret"),
@@ -32,6 +36,7 @@ public class StartupValidationTests
 
     [Theory]
     [InlineData("ConnectionStrings:OmsLoan", "ConnectionStrings__OmsLoan")]
+    [InlineData("Ingestion:WatchedFolder", "Ingestion__WatchedFolder")]
     [InlineData("Graph:TenantId", "GRAPH_TENANT_ID")]
     [InlineData("Graph:ClientId", "GRAPH_CLIENT_ID")]
     [InlineData("Graph:ClientSecret", "GRAPH_CLIENT_SECRET")]
@@ -56,6 +61,7 @@ public class StartupValidationTests
     {
         var configuration = Configuration(
             (ConfigurationKeys.ConnectionStringKey, AnyConnectionString),
+            (ConfigurationKeys.WatchedFolder.ConfigurationKey, @"C:\OmsLoan\Notices"),
             ("Graph:TenantId", "tenant"));
 
         Assert.Equal(
@@ -141,10 +147,17 @@ public class StartupValidationTests
     }
 
     [Fact]
-    public void RequiredSettingsAreTheDatabaseAndTheGraphCredential()
+    public void RequiredSettingsAreTheDatabaseTheWatchedFolderAndTheGraphCredential()
     {
         Assert.Equal(
-            new[] { "ConnectionStrings__OmsLoan", "GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET" },
+            new[]
+            {
+                "ConnectionStrings__OmsLoan",
+                "Ingestion__WatchedFolder",
+                "GRAPH_TENANT_ID",
+                "GRAPH_CLIENT_ID",
+                "GRAPH_CLIENT_SECRET",
+            },
             ConfigurationKeys.RequiredSettings.Select(setting => setting.EnvironmentVariable));
     }
 }

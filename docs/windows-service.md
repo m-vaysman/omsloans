@@ -108,11 +108,12 @@ sets it on the service; if it is missing the host defaults to `Production`.
 
 ### Required, and what happens when they are not set
 
-The Worker **will not start** without these four:
+The Worker **will not start** without these five:
 
 | Setting | Variable |
 | --- | --- |
 | Database | `ConnectionStrings__OmsLoan` |
+| Watched folder | `Ingestion__WatchedFolder` |
 | Graph tenant | `GRAPH_TENANT_ID` |
 | Graph app id | `GRAPH_CLIENT_ID` |
 | Graph secret | `GRAPH_CLIENT_SECRET` |
@@ -133,7 +134,37 @@ and start the service again.
 
 The provider API keys are **not** required. Three providers sit behind one interface so that
 any one will do, and a notice ingested but not yet extracted is a state reprocessing fixes.
-A missing key is a warning.
+A missing key is a warning. The watched folder is not a secret, so it may also be set in
+`appsettings.json`; the environment variable overrides it.
+
+#### The watched folder is created, and its permissions are proved
+
+On every start the Worker creates the watched folder and its `processed\`, `duplicates\` and
+`failed\` subfolders if they are missing, then checks it can **read and write** each one. An
+existing folder is left exactly as it is — no ACL change, no content change.
+
+The permission check is the part that earns its place. `Directory.CreateDirectory` is a no-op
+on a folder that already exists, and returns happily for one the account cannot write a
+single byte into. On a real host the drop folder is normally created by whoever set up the
+share, long before the service account existed — so an existence-only check would pass on
+every host where it mattered. Each folder is therefore enumerated (proving read) and a probe
+file is written and then deleted (proving write *and* delete — ingestion moves files between
+these folders, so it needs all three). The probe is removed, leaving nothing for ingestion to
+mistake for a notice.
+
+A failure names the folder and what specifically could not be done:
+
+```
+crit: OmsLoan worker is not starting: cannot write to 'D:\OmsLoan\Notices':
+      Access to the path '...\omsloan-write-probe-a5f465ac.tmp' is denied.
+```
+
+"could not create", "cannot read" and "cannot write to" are kept distinct because they are
+different fixes. As with a missing variable, the service stops and is not retried.
+
+**This changes the order of the ACL work below.** The folders now come into existence on the
+first start, so either start the service once and then apply the ACLs, or create the folders
+by hand first — applying ACLs to paths that do not exist yet fails.
 
 What it looks like:
 
@@ -175,12 +206,15 @@ Why this exists at all: .NET's environment-variable provider only understands it
 `Section__Key` convention, so `CLAUDE_API_KEY` reached the Worker as *nothing*. A host with
 every secret correctly configured was indistinguishable from a bare one.
 
-**The database keeps the .NET convention**, because it is not one of these pre-existing
-variables and the Api reads the same one:
+**The database and the watched folder keep the .NET convention.** The flat names exist only
+because those particular variables were already set on the machines for other tooling.
+Nothing was already called anything here, so there is no pre-existing spelling to honour —
+and the Api reads the same connection-string variable:
 
 | Setting | Configuration key | Environment variable |
 | --- | --- | --- |
 | Database | `ConnectionStrings:OmsLoan` | `ConnectionStrings__OmsLoan` |
+| Watched folder | `Ingestion:WatchedFolder` | `Ingestion__WatchedFolder` |
 
 <details>
 <summary>The old <code>Extraction__Claude__ApiKey</code> spelling</summary>

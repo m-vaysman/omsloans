@@ -44,10 +44,20 @@ public static class StartupSummary
         var width = ConfigurationKeys.AllSecrets
             .Select(secret => secret.ConfigurationKey.Length)
             .Append(ConfigurationKeys.ConnectionStringKey.Length)
+            .Append(ConfigurationKeys.WatchedFolder.ConfigurationKey.Length)
             .Max();
 
         banner.Append($"    - {ConfigurationKeys.ConnectionStringKey.PadRight(width)} : ")
               .AppendLine(Describe(configuration, ConfigurationKeys.ConnectionStringKey));
+
+        // The one setting whose value is safe to print, and the one most worth printing: a
+        // Worker watching the wrong folder looks identical to a correct one from every other
+        // line in this log.
+        var watchedFolder = configuration[ConfigurationKeys.WatchedFolder.ConfigurationKey];
+        banner.Append($"    - {ConfigurationKeys.WatchedFolder.ConfigurationKey.PadRight(width)} : ")
+              .AppendLine(string.IsNullOrWhiteSpace(watchedFolder)
+                  ? $"absent (set {ConfigurationKeys.WatchedFolder.EnvironmentVariable})"
+                  : watchedFolder);
 
         foreach (var secret in ConfigurationKeys.AllSecrets)
         {
@@ -77,7 +87,7 @@ public static class StartupSummary
     /// — both when the value came from there and, more usefully, when it is missing and the
     /// reader needs to know what to set.
     /// </summary>
-    private static string DescribeSecret(IConfigurationRoot configuration, SecretSetting secret)
+    private static string DescribeSecret(IConfigurationRoot configuration, ConfiguredSetting secret)
     {
         var source = WinningSource(configuration, secret.ConfigurationKey);
 
@@ -142,11 +152,11 @@ public static class StartupSummary
 
     }
 
-    private static List<SecretSetting> Missing(
+    private static List<ConfiguredSetting> Missing(
         IConfigurationRoot configuration,
-        IReadOnlyList<SecretSetting> secrets) =>
+        IReadOnlyList<ConfiguredSetting> secrets) =>
         [.. secrets.Where(secret => WinningSource(configuration, secret.ConfigurationKey) is null)];
 
-    private static string Join(IEnumerable<SecretSetting> secrets) =>
+    private static string Join(IEnumerable<ConfiguredSetting> secrets) =>
         string.Join(", ", secrets.Select(secret => secret.EnvironmentVariable));
 }

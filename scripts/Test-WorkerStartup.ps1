@@ -32,7 +32,7 @@ $exe = Join-Path $PublishPath 'OmsLoan.Worker.exe'
 # Every variable the Worker looks at, cleared. Each case then sets only what it needs, so a
 # case cannot accidentally pass on a value inherited from this machine.
 $allVariables = @(
-    'ConnectionStrings__OmsLoan'
+    'ConnectionStrings__OmsLoan', 'Ingestion__WatchedFolder'
     'GRAPH_TENANT_ID', 'GRAPH_CLIENT_ID', 'GRAPH_CLIENT_SECRET'
     'CLAUDE_API_KEY', 'OPEN_API_KEY', 'GROQ_API_KEY'
 )
@@ -88,6 +88,17 @@ function Invoke-Worker([hashtable]$Variables) {
     }
 }
 
+# A folder that exists and is readable but denies writes. An existence-only check would pass
+# here, which is the point: on a real host the drop folder almost always already exists.
+$lockedFolder = Join-Path $env:TEMP ('OmsLoanLocked-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $lockedFolder -Force | Out-Null
+$lockedAcl = Get-Acl $lockedFolder
+$lockedAcl.SetAccessRuleProtection($true, $false)
+$whoami = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+$lockedAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($whoami,'ReadAndExecute','ContainerInherit,ObjectInherit','None','Allow')))
+$lockedAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($whoami,'Write','ContainerInherit,ObjectInherit','None','Deny')))
+Set-Acl -Path $lockedFolder -AclObject $lockedAcl
+
 $failures = 0
 
 function Test-Case([string]$Name, [hashtable]$Variables, [scriptblock]$Check) {
@@ -105,8 +116,12 @@ function Test-Case([string]$Name, [hashtable]$Variables, [scriptblock]$Check) {
     }
 }
 
+# A fresh folder per run, so the "created when missing" case is genuinely missing.
+$watchRoot = Join-Path $env:TEMP ('OmsLoanWatch-' + [guid]::NewGuid().ToString('N'))
+
 $complete = @{
     ConnectionStrings__OmsLoan = $goodDb
+    Ingestion__WatchedFolder = $watchRoot
     GRAPH_TENANT_ID = 'tenant'; GRAPH_CLIENT_ID = 'client'; GRAPH_CLIENT_SECRET = 'secret'
 }
 
@@ -140,10 +155,10 @@ Test-Case 'blank counts as missing' ($complete.Clone() | ForEach-Object { $_['GR
     $null
 }
 
-Test-Case 'nothing set names all four at once' @{} {
+Test-Case 'nothing set names every required variable at once' @{} {
     param($r)
     if ($r.ExitCode -ne 78) { return "expected exit 78, got $($r.ExitCode)" }
-    foreach ($v in 'ConnectionStrings__OmsLoan', 'GRAPH_TENANT_ID', 'GRAPH_CLIENT_ID', 'GRAPH_CLIENT_SECRET') {
+    foreach ($v in 'ConnectionStrings__OmsLoan', 'Ingestion__WatchedFolder', 'GRAPH_TENANT_ID', 'GRAPH_CLIENT_ID', 'GRAPH_CLIENT_SECRET') {
         if ($r.Log -notmatch $v) { return "did not name $v" }
     }
     $null
@@ -156,11 +171,68 @@ Test-Case 'missing provider API keys still start' $complete {
     $null
 }
 
+Test-Case 'no watched folder refuses, naming the variable' ($complete.Clone() | ForEach-Object { $_.Remove('Ingestion__WatchedFolder'); $_ }) {
+    param($r)
+    if ($r.ExitCode -ne 78) { return "expected exit 78, got $($r.ExitCode)" }
+    if ($r.Log -notmatch 'Ingestion__WatchedFolder') { return 'did not name the missing variable' }
+    $null
+}
+
+Test-Case 'watched folder and subfolders are created when missing' $complete {
+    param($r)
+    foreach ($sub in '', 'processed', 'duplicates', 'failed') {
+        $path = if ($sub) { Join-Path $watchRoot $sub } else { $watchRoot }
+        if (-not (Test-Path -LiteralPath $path)) { return "did not create $path" }
+    }
+    # The write probe must not survive: a stray file in a folder ingestion scans would
+    # eventually be picked up as a notice.
+    $strays = Get-ChildItem -LiteralPath $watchRoot -Recurse -File -ErrorAction SilentlyContinue
+    if ($strays) { return "left files behind: $($strays.Name -join ', ')" }
+    $null
+}
+
+Test-Case 'existing folder and its contents are left alone' $complete {
+    param($r)
+    # $watchRoot exists by now, from the previous case. Seed it and check it survives.
+    $seeded = Join-Path $watchRoot 'already-here.pdf'
+    Set-Content -LiteralPath $seeded -Value 'notice' -Encoding utf8
+    $again = Invoke-Worker $complete
+    if (-not (Test-Path -LiteralPath $seeded)) { return 'an existing file was removed' }
+    if ((Get-Content -LiteralPath $seeded -Raw).Trim() -ne 'notice') { return 'an existing file was modified' }
+    Remove-Item -LiteralPath $seeded -Force
+    $null
+}
+
+Test-Case 'unwritable watched folder refuses, naming it' ($complete.Clone() | ForEach-Object { $_['Ingestion__WatchedFolder'] = $script:lockedFolder; $_ }) {
+    param($r)
+    if ($r.ExitCode -ne 78) { return "expected exit 78, got $($r.ExitCode)" }
+    if ($r.Log -notmatch 'cannot write to') { return 'did not report a write failure' }
+    if ($r.Log -notmatch [regex]::Escape($script:lockedFolder)) { return 'did not name the folder' }
+    $null
+}
+
 Test-Case 'no secret value is ever logged' ($complete.Clone() | ForEach-Object { $_['CLAUDE_API_KEY'] = 'sk-should-never-appear'; $_ }) {
     param($r)
     if ($r.Log -match 'sk-should-never-appear') { return 'a secret value appeared in the log' }
     if ($r.Log -notmatch 'present \(from CLAUDE_API_KEY\)') { return 'did not report the key as present' }
     $null
+}
+
+# Drop the deny rule, then remove. icacls rather than Set-Acl: writing back a descriptor read
+# from a protection-enabled folder asks for SeSecurityPrivilege, which an unelevated session
+# does not hold — and this script has to run unelevated.
+#
+# Wrapped, because cleanup must never turn a passing run into a failure.
+try {
+    # Grant, not just un-deny. Inheritance was switched off when the folder was locked, so
+    # removing the deny leaves only the ReadAndExecute rule — which cannot delete.
+    & icacls $lockedFolder /remove:d $whoami /t /c | Out-Null
+    & icacls $lockedFolder /grant "${whoami}:(OI)(CI)F" /t /c | Out-Null
+    Remove-Item -LiteralPath $lockedFolder -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $watchRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+catch {
+    Write-Host "  (cleanup left $lockedFolder behind: $($_.Exception.Message))"
 }
 
 Write-Host ''

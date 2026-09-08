@@ -43,7 +43,7 @@ public static class StartupValidation
     /// Whitespace counts as absent, matching the committed placeholders in appsettings.json
     /// and the flat-variable source, so "present but blank" cannot pass the gate.
     /// </remarks>
-    public static IReadOnlyList<SecretSetting> MissingRequiredSettings(IConfiguration configuration) =>
+    public static IReadOnlyList<ConfiguredSetting> MissingRequiredSettings(IConfiguration configuration) =>
     [
         .. ConfigurationKeys.RequiredSettings
             .Where(setting => string.IsNullOrWhiteSpace(configuration[setting.ConfigurationKey]))
@@ -58,9 +58,26 @@ public static class StartupValidation
     /// and above, and this is the one message that must never be filtered out. Under the SCM
     /// it is the only record anybody gets.
     /// </remarks>
-    public static void LogRefusalToStart(ILogger logger, IReadOnlyList<SecretSetting> missing)
+    public static void LogRefusalToStart(ILogger logger, IReadOnlyList<ConfiguredSetting> missing)
     {
         logger.LogCritical("{StartupFailure}", BuildMessage(missing));
+    }
+
+    /// <summary>
+    /// The same refusal, for a problem that is not a missing setting — a watched folder that
+    /// cannot be created, read or written. Same level, same wording, same clean stop, because
+    /// from an operator's side it is the same situation: something has to be fixed on the
+    /// host before this service can run, and restarting will not do it.
+    /// </summary>
+    public static void LogRefusalToStart(ILogger logger, string reason)
+    {
+        logger.LogCritical(
+            "{StartupFailure}",
+            "OmsLoan worker is not starting: " + reason + "."
+            + Environment.NewLine
+            + "  Fix it on the host and start the service again. This is a configuration or "
+            + "permissions problem, so the service stops rather than restarting: retrying would "
+            + "fail identically. See docs/windows-service.md.");
     }
 
     /// <summary>
@@ -83,7 +100,7 @@ public static class StartupValidation
     /// Names every missing variable rather than stopping at the first. Somebody configuring
     /// a host wants one list, not three restarts each revealing the next problem.
     /// </summary>
-    public static string BuildMessage(IReadOnlyList<SecretSetting> missing)
+    public static string BuildMessage(IReadOnlyList<ConfiguredSetting> missing)
     {
         var detail = string.Join(
             Environment.NewLine,

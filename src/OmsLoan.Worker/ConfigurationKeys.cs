@@ -8,12 +8,13 @@ namespace OmsLoan.Worker;
 /// The hierarchical key the application binds against, e.g. <c>Extraction:Claude:ApiKey</c>.
 /// </param>
 /// <param name="EnvironmentVariable">
-/// The flat variable an operator actually sets, e.g. <c>CLAUDE_API_KEY</c>. This is the
-/// source of truth — the spellings are fixed by what is already deployed on the machines,
-/// not chosen here.
+/// The variable an operator actually sets, e.g. <c>CLAUDE_API_KEY</c>. For the secrets these
+/// spellings are fixed by what is already deployed on the machines rather than chosen here;
+/// for settings introduced by this repository they follow .NET's own double-underscore
+/// convention.
 /// </param>
 /// <param name="Purpose">Short label for the startup banner.</param>
-public sealed record SecretSetting(string ConfigurationKey, string EnvironmentVariable, string Purpose);
+public sealed record ConfiguredSetting(string ConfigurationKey, string EnvironmentVariable, string Purpose);
 
 /// <summary>
 /// Configuration keys the Worker expects to find, and the environment variables that supply
@@ -58,7 +59,7 @@ public static class ConfigurationKeys
     /// check can report a missing key before any notice is picked up, instead of surfacing
     /// it as a failed extraction hours later.
     /// </summary>
-    public static readonly IReadOnlyList<SecretSetting> ProviderApiKeys =
+    public static readonly IReadOnlyList<ConfiguredSetting> ProviderApiKeys =
     [
         new("Extraction:Claude:ApiKey", "CLAUDE_API_KEY", "Claude"),
         new("Extraction:OpenAi:ApiKey", "OPEN_API_KEY", "OpenAI"),
@@ -75,7 +76,7 @@ public static class ConfigurationKeys
     /// is an address rather than a secret, and which mailbox to poll is an ingestion setting
     /// this issue does not cover. See docs/exchange-test-environment.md.
     /// </remarks>
-    public static readonly IReadOnlyList<SecretSetting> GraphSettings =
+    public static readonly IReadOnlyList<ConfiguredSetting> GraphSettings =
     [
         new("Graph:TenantId", "GRAPH_TENANT_ID", "Graph tenant"),
         new("Graph:ClientId", "GRAPH_CLIENT_ID", "Graph application"),
@@ -83,7 +84,7 @@ public static class ConfigurationKeys
     ];
 
     /// <summary>Every flat-named secret, in banner order.</summary>
-    public static readonly IReadOnlyList<SecretSetting> AllSecrets =
+    public static readonly IReadOnlyList<ConfiguredSetting> AllSecrets =
         [.. ProviderApiKeys, .. GraphSettings];
 
     /// <summary>
@@ -95,7 +96,19 @@ public static class ConfigurationKeys
     /// convention rather than a flat name, so the stock environment-variable provider
     /// already resolves it and <see cref="FlatEnvironmentSecrets"/> has no work to do.
     /// </remarks>
-    public static readonly SecretSetting ConnectionString =
+    /// <summary>
+    /// Folder the Worker watches for notices, and creates on startup if it is missing.
+    /// </summary>
+    /// <remarks>
+    /// Keeps .NET's double-underscore convention rather than a flat name, for the same reason
+    /// the connection string does: the flat names exist only because those particular
+    /// variables were already set on the machines for other tooling. Nothing was already
+    /// called anything here, so there is no pre-existing spelling to honour.
+    /// </remarks>
+    public static readonly ConfiguredSetting WatchedFolder =
+        new("Ingestion:WatchedFolder", "Ingestion__WatchedFolder", "Watched folder");
+
+    public static readonly ConfiguredSetting ConnectionString =
         new(ConnectionStringKey, "ConnectionStrings__OmsLoan", "Database");
 
     /// <summary>
@@ -120,8 +133,8 @@ public static class ConfigurationKeys
     /// extracted is a recoverable state that reprocessing fixes.
     /// </para>
     /// </remarks>
-    public static readonly IReadOnlyList<SecretSetting> RequiredSettings =
-        [ConnectionString, .. GraphSettings];
+    public static readonly IReadOnlyList<ConfiguredSetting> RequiredSettings =
+        [ConnectionString, WatchedFolder, .. GraphSettings];
 
     /// <summary>
     /// The double-underscore environment-variable spelling of a hierarchical key.

@@ -76,6 +76,19 @@ if (missing.Count > 0)
     return StartupValidation.ExitCodeFor(WindowsServiceHelpers.IsWindowsService());
 }
 
+// The watched folder, once we know a path was configured. Created if missing, and read and
+// write are both proved — a folder that exists but cannot be written to is the common case,
+// and it would otherwise fail on the first notice rather than here. See WatchedFolder.
+var folderProblem = WatchedFolder.Prepare(builder.Configuration[ConfigurationKeys.WatchedFolder.ConfigurationKey]);
+
+if (folderProblem is not null)
+{
+    StartupValidation.LogRefusalToStart(startupLogger, folderProblem);
+    host.Dispose();
+
+    return StartupValidation.ExitCodeFor(WindowsServiceHelpers.IsWindowsService());
+}
+
 host.Run();
 
 return 0;
