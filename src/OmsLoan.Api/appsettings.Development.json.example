@@ -1,0 +1,13 @@
+{
+  "//": "Copy to appsettings.Development.json, which is gitignored. Non-secret local overrides only — the connection string belongs in user-secrets, not here. See docs/api-windows-service.md.",
+
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+
+  "//urls": "Uncomment to override the launchSettings profile. Development normally leaves this alone and runs the React UI on the Vite dev server instead.",
+  "//Urls": "http://localhost:5023"
+}

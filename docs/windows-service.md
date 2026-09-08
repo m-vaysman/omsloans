@@ -4,6 +4,12 @@
 notices arrive. It runs unattended, which is why it is a service rather than a desktop
 application — see [ADR 0002](decisions/0002-windows-service-over-desktop.md).
 
+> **There are two services.** `OmsLoan.Api` self-hosts the review API and the React UI on
+> Kestrel and runs as `OmsLoanApi`, installed and recovered the same way —
+> see [`api-windows-service.md`](api-windows-service.md). The two share `OmsLoan.Domain` and
+> the database; neither project references the other, and neither service depends on the
+> other at the SCM level. Everything below is about the Worker.
+
 ## Install
 
 ```powershell
@@ -173,6 +179,10 @@ otherwise burn a restart attempt before anything could work.
 Shutdown timeout is 20 seconds, enough to finish the notice in hand. The SCM logs a service
 that overruns its stop as a crash, which is why `Stop-OmsLoanService.ps1` waits and reports
 the elapsed time.
+
+`OmsLoanApi` is configured identically and starts independently, so a reboot brings both
+back with no ordering between them. Confirm with
+`Get-Service OmsLoanWorker, OmsLoanApi | Format-Table Name, Status, StartType`.
 
 ## Troubleshooting
 
