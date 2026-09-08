@@ -76,7 +76,7 @@ than updating one, so a prompt change can be compared against the same notice.
 | [`scripts/Notices`](scripts/Notices) | Generated sample notices for testing extraction |
 | [`tools`](tools) | Development scripts, including the notice generator |
 | [`docs/windows-service.md`](docs/windows-service.md) | Worker service — account, ACLs, SQL login, configuration |
-| [`docs/api-windows-service.md`](docs/api-windows-service.md) | Api service — Kestrel URLs, URL reservations, serving the React build |
+| [`docs/api-windows-service.md`](docs/api-windows-service.md) | Api service — Kestrel URLs and port binding, serving the React build |
 
 The domain tests build the EF model through the SQL Server provider without opening a
 connection, so the suite runs on a clean clone with no database, no LocalDB and no container.

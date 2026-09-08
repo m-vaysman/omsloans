@@ -87,41 +87,24 @@ Use a *different* account from the Worker's if you want the two services to have
 rights — the Worker needs Modify on the watched folder and the Api does not need it at all.
 One account for both is simpler and is a reasonable choice for a small internal deployment.
 
-Four grants the installer cannot make for you:
+Three grants the installer cannot make for you:
 
 **1. Log on as a service.** `secpol.msc` → Local Policies → User Rights Assignment → *Log on
 as a service* → add the account. Without it the service fails to start with error 1069 and
 nothing appears in the Application log, because the process never runs.
 
-**2. A URL reservation.** This one is specific to the Api and is the most common way a
-correct-looking install ends up unreachable. HTTP.sys will not let a non-administrator bind a
-wildcard host name, so `http://+:5080` from a service account fails at startup with an
-`HttpSysException` — the SCM reports the service as failed and the reason is in the
-Application log rather than anywhere obvious.
-
-```powershell
-netsh http add urlacl url=http://+:5080/ user='CONTOSO\svc_omsloan_api'
-```
-
-The reservation survives an uninstall. `Uninstall-OmsLoanApiService.ps1 -ShowUrlReservations`
-prints the ones the service was configured with before it deletes the environment block, so
-you still know what to clean up:
-
-```powershell
-netsh http delete urlacl url=http://+:5080/
-```
-
-Running as LocalSystem needs no reservation, which is exactly why a first install appears to
-work and the move to a real service account appears to break it.
-
-**3. A firewall rule**, if reviewers are on other machines:
+**2. A firewall rule**, if reviewers are on other machines:
 
 ```powershell
 New-NetFirewallRule -DisplayName 'OmsLoan Review API' -Direction Inbound `
     -Protocol TCP -LocalPort 5080 -Action Allow
 ```
 
-**4. SQL Server login.**
+This is the *only* thing standing between a correctly bound Kestrel and the network. See
+[No URL reservation is needed](#no-url-reservation-is-needed) below, which is the part most
+worth reading if you have deployed an HTTP.sys or IIS-hosted service before.
+
+**3. SQL Server login.**
 
 ```sql
 CREATE LOGIN [CONTOSO\svc_omsloan_api] FROM WINDOWS;
@@ -173,15 +156,56 @@ http://+:5080
 http://+:5080;https://+:5443
 ```
 
-| Form | Binds | Needs a reservation |
+| Form | Socket it actually binds | Reachable from another machine |
 | --- | --- | --- |
-| `http://localhost:5080` | this machine only | no |
-| `http://+:5080` | every interface, any host name | yes |
-| `http://oms-review:5080` | that host name only | yes |
+| `http://localhost:5080` | `127.0.0.1` and `::1` | no — loopback only |
+| `http://127.0.0.1:5080` | `127.0.0.1` | no — loopback only |
+| `http://+:5080` | `::` (all interfaces, dual-stack) | yes, with a firewall rule |
+| `http://*:5080` | `::` — identical to `+` in Kestrel | yes, with a firewall rule |
+| `http://oms-review:5080` | `::` — **not** filtered to that name | yes, with a firewall rule |
+
+Two of those rows surprise people. `*` and `+` are *equivalent under Kestrel* — the
+strong/weak wildcard distinction is an HTTP.sys concept and does not apply here. And a
+literal host name does not restrict anything at the socket level: Kestrel binds all
+interfaces and answers whatever `Host` header arrives. If you want host filtering, that is
+what `AllowedHosts` in `appsettings.json` is for, not the bind address.
 
 **If nothing is configured, Kestrel binds `http://localhost:5000`** — a service that starts
 perfectly and that nobody else can reach. The startup banner calls this out explicitly, and
 `Start-OmsLoanApiService.ps1` warns about it.
+
+### No URL reservation is needed
+
+Kestrel binds sockets directly through .NET. It does **not** go through HTTP.sys, so
+`netsh http add urlacl` is irrelevant to this service — for any of the forms above, at any
+port, under any account. There is nothing to reserve before an install and nothing to clean
+up after an uninstall.
+
+This is worth stating plainly because the opposite is true of the hosting models most people
+have met on Windows: `HttpListener`, IIS and ASP.NET Core's own `UseHttpSys()` all sit on
+HTTP.sys, where a non-administrator binding `+` really does fail with an `HttpSysException`
+and really does need a reservation. Carrying that habit over here produces an install
+checklist step that does nothing, and — worse — a wrong first hypothesis when the service is
+genuinely unreachable.
+
+Verified on Windows 10 as a standard (non-elevated) user with no reservations present: all
+five forms above bound successfully and answered HTTP 200.
+
+The bind failures that *do* happen:
+
+| Cause | Symptom |
+| --- | --- |
+| Port already in use | Service starts, then stops; `SocketException` in the Application log |
+| Port inside a Windows excluded range | Same, and easy to miss — Hyper-V and WSL reserve blocks of ports |
+| Firewall closed | Service runs and answers on the host, nothing from anywhere else |
+
+```powershell
+Get-NetTCPConnection -State Listen -LocalPort 5080          # is something already there?
+netsh interface ipv4 show excludedportrange protocol=tcp    # is the port reserved by Windows?
+```
+
+`Install-OmsLoanApiService.ps1` checks both before it registers the service, and warns rather
+than leaving you with a service that registers cleanly and then fails on its first start.
 
 For anything beyond a URL — a certificate, an HTTP/2 override — use the `Kestrel:Endpoints`
 section in `appsettings.Production.json` instead. Both forms are read, and the banner reports
@@ -344,8 +368,8 @@ ADR 0002 removed.
 | --- | --- |
 | Error 1069, nothing in Application log | Account lacks *Log on as a service*; the process never started |
 | Starts, then stops immediately | Read the banner — a missing connection string, or a bind that failed |
-| Service is Running but nothing answers | No URL reservation for the account, or the port is taken. `Start-OmsLoanApiService.ps1` makes a request and says so |
-| `HttpSysException` / "Access is denied" at startup | `netsh http add urlacl` was never run for this account and URL |
+| Service is Running but nothing answers | The bind failed or the port is taken. `Start-OmsLoanApiService.ps1` makes a request and says so. Not a URL reservation — Kestrel needs none |
+| `SocketException` / "address already in use" at startup | Another process holds the port, or it is inside a Windows excluded range |
 | Reachable from the server, not from anywhere else | Bound to `localhost`, or the firewall rule is missing |
 | `appsettings.json` seems ignored | Content root wrong — the SCM gives a service `C:\Windows\System32`. Program.cs sets it explicitly when running as a service |
 | API works, browser shows a blank page | No `wwwroot\index.html`. The banner says `React UI: not deployed` |
