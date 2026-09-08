@@ -113,8 +113,11 @@ foreach ($url in @($configured -split ';' | Where-Object { $_ })) {
         }
         else {
             Write-Warning ('  {0} -> no response: {1}' -f $probe, $_.Exception.Message)
-            Write-Host '    Running but not listening usually means the URL reservation is missing:'
-            Write-Host "      netsh http add urlacl url=$($url.Trim().TrimEnd('/'))/ user='<service account>'"
+            Write-Host '    Running but nothing on the port. Kestrel needs no URL reservation, so'
+            Write-Host '    the cause is normally the bind failing or the process having stopped:'
+            Write-Host '      Get-NetTCPConnection -State Listen -LocalPort <port>'
+            Write-Host '      netsh interface ipv4 show excludedportrange protocol=tcp'
+            Write-Host '    and read the Application log for the bind exception.'
         }
     }
     catch {

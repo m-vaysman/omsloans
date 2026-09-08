@@ -10,10 +10,10 @@
     history in the Application log, which is usually the first thing you want to read after
     an uninstall. Pass -RemoveEventLogSource to drop it as well.
 
-    Nothing in the database, the published binaries, or the URL reservations is touched. A
-    reservation made with `netsh http add urlacl` outlives the service and has to be removed
-    separately if the port is being retired — pass -ShowUrlReservations to be reminded of
-    which ones this service was configured with before the environment block goes.
+    Nothing in the database, the published binaries, or the firewall is touched. Kestrel
+    binds sockets directly, so there is no `netsh http add urlacl` reservation to clean up —
+    but any firewall rule opened for the port outlives the service. Pass -ShowConfiguredUrls
+    to be reminded which ports this service was using before the environment block goes.
 
     The Worker service is not affected. The two are independent registrations.
 
@@ -27,7 +27,7 @@
 param(
     [switch]$RemoveEventLogSource,
 
-    [switch]$ShowUrlReservations
+    [switch]$ShowConfiguredUrls
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,14 +47,15 @@ function Assert-Administrator {
 Assert-Administrator
 
 # Read before the registration is deleted — afterwards there is nothing left to read it from.
-if ($ShowUrlReservations) {
+if ($ShowConfiguredUrls) {
     $serviceKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName"
     $block = (Get-ItemProperty -Path $serviceKey -Name 'Environment' -ErrorAction SilentlyContinue).Environment
     $configuredUrls = $block | Where-Object { $_ -like 'ASPNETCORE_URLS=*' } | ForEach-Object { ($_ -split '=', 2)[1] }
     if ($configuredUrls) {
         Write-Host "This service was configured to listen on: $configuredUrls"
-        Write-Host 'Any matching URL reservation survives this uninstall. Remove one with:'
-        Write-Host '  netsh http delete urlacl url=<url>/'
+        Write-Host 'No URL reservation to remove — Kestrel does not use HTTP.sys. Any firewall'
+        Write-Host 'rule opened for these ports does survive, and is removed with:'
+        Write-Host "  Remove-NetFirewallRule -DisplayName 'OmsLoan Review API'"
         Write-Host ''
     }
 }

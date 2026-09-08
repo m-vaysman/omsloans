@@ -33,8 +33,13 @@
 
 .PARAMETER Urls
     Semicolon-separated addresses for Kestrel, stored as ASPNETCORE_URLS. Defaults to
-    http://+:5080, which listens on every interface and therefore needs a URL reservation
-    unless the service runs as LocalSystem — see the reminders this script prints.
+    http://+:5080, which listens on every interface.
+
+    Kestrel binds sockets directly and does not use HTTP.sys, so none of these forms needs a
+    `netsh http add urlacl` reservation and none of them needs an elevated service account —
+    verified on Windows 10 as a standard user with no reservations present. A URL ACL would
+    only matter if this host were switched to UseHttpSys(). What does still gate reachability
+    from another machine is the firewall.
 
 .PARAMETER ConnectionString
     SQL Server connection string. Stored as the ConnectionStrings__OmsLoan service variable —
@@ -97,6 +102,28 @@ $spaIndex = Join-Path $PublishPath 'wwwroot\index.html'
 $spaPresent = Test-Path -LiteralPath $spaIndex
 if (-not $spaPresent) {
     Write-Warning "No wwwroot\index.html under '$PublishPath'. The API will run, but this process will not serve the React review UI. Publish with the OmsLoan.Web build included — see docs/api-windows-service.md."
+}
+
+# The bind failures that actually happen with Kestrel are a port already in use and a port
+# inside a Windows excluded range (Hyper-V and WSL reserve blocks of them). Both surface as a
+# service that registers fine and then stops on its first start, so they are worth catching
+# while there is still a console to print to. A URL reservation is not among the failure
+# modes: Kestrel does not go through HTTP.sys.
+foreach ($url in @($Urls -split ';' | Where-Object { $_ })) {
+    $port = [int](($url.Trim().TrimEnd('/') -split ':')[-1])
+
+    if (Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue) {
+        Write-Warning "Port $port is already in use. The service will register but fail to start until whatever holds it is stopped."
+    }
+
+    $excluded = (netsh interface ipv4 show excludedportrange protocol=tcp) |
+        Select-String -Pattern '^\s*(\d+)\s+(\d+)' |
+        ForEach-Object { [pscustomobject]@{ Start = [int]$_.Matches[0].Groups[1].Value; End = [int]$_.Matches[0].Groups[2].Value } } |
+        Where-Object { $port -ge $_.Start -and $port -le $_.End }
+
+    if ($excluded) {
+        Write-Warning "Port $port falls inside a Windows excluded port range ($($excluded[0].Start)-$($excluded[0].End)). Kestrel cannot bind it. Pick a port outside that range."
+    }
 }
 
 # --- Remove any existing installation so the script is re-runnable -----------------------
@@ -178,8 +205,8 @@ Set-ItemProperty -Path $serviceKey -Name 'Environment' -Value $environmentEntrie
 Write-Host "Set $($environmentEntries.Count) service environment variable(s): $((($environmentEntries | ForEach-Object { ($_ -split '=', 2)[0] }) -join ', '))"
 
 # --- Done ---------------------------------------------------------------------------------
-$urlAclAccount = if ($ServiceAccount) { $ServiceAccount } else { 'NT AUTHORITY\SYSTEM' }
 $spaStatus = if ($spaPresent) { 'served from wwwroot by this process' } else { 'NOT deployed' }
+$ports = @($Urls -split ';' | Where-Object { $_ } | ForEach-Object { ($_.Trim().TrimEnd('/') -split ':')[-1] })
 
 Write-Host ''
 Write-Host "Installed '$displayName' ($serviceName)." -ForegroundColor Green
@@ -188,16 +215,15 @@ Write-Host "  Review UI    : $spaStatus"
 Write-Host ''
 Write-Host 'Still to do by hand — see docs/api-windows-service.md:' -ForegroundColor Yellow
 Write-Host '  1. Grant the service account the "Log on as a service" right.'
-Write-Host '  2. Reserve the URL for that account. A non-administrator cannot bind a wildcard'
-Write-Host '     host name, and the failure is an HttpSysException at startup, not a warning:'
-foreach ($url in @($Urls -split ';' | Where-Object { $_ })) {
-    $reservation = $url.Trim().TrimEnd('/')
-    Write-Host "       netsh http add urlacl url=$reservation/ user='$urlAclAccount'"
+Write-Host '  2. Open the port on the firewall if reviewers are on other machines. Kestrel'
+Write-Host '     needs no netsh URL reservation — it binds sockets directly, not through'
+Write-Host '     HTTP.sys — so the firewall is the only thing between it and the network:'
+foreach ($port in $ports) {
+    Write-Host "       New-NetFirewallRule -DisplayName 'OmsLoan Review API' -Direction Inbound -Protocol TCP -LocalPort $port -Action Allow"
 }
-Write-Host '  3. Open the port on the firewall if reviewers are on other machines.'
-Write-Host '  4. Create its SQL Server login and map it to db_datareader, db_datawriter on the'
+Write-Host '  3. Create its SQL Server login and map it to db_datareader, db_datawriter on the'
 Write-Host '     OmsLoan database.'
-Write-Host '  5. If any URL is https, bind a certificate — see docs/api-windows-service.md.'
+Write-Host '  4. If any URL is https, bind a certificate — see docs/api-windows-service.md.'
 Write-Host ''
 
 if ($StartAfterInstall) {
