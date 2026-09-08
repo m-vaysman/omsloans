@@ -29,4 +29,13 @@
     <None Update="appsettings.Production.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      FlatEnvironmentSecrets is internal: it is wiring, not API. The tests still need it,
+      because the flat variable spellings are a contract with already-configured machines
+      and a rename must fail in CI rather than at runtime.
+    -->
+    <InternalsVisibleTo Include="OmsLoan.Worker.Tests" />
+  </ItemGroup>
+
 </Project>

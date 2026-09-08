@@ -15,6 +15,10 @@ namespace OmsLoan.Worker;
 /// DOTNET_ENVIRONMENT was not set on the service. Naming the winning source for each
 /// setting turns that from an afternoon of guessing into the first line of the log.
 ///
+/// For the flat-named secrets the banner goes one better and names the variable itself, so a
+/// missing key reads as "set GROQ_API_KEY" rather than leaving the reader to work out which
+/// of two spellings the Worker wanted.
+///
 /// Sources and presence only. Values are never written, and the secret checks report
 /// nothing beyond whether something was found.
 /// </remarks>
@@ -36,10 +40,29 @@ public static class StartupSummary
         }
 
         banner.AppendLine("  Resolved settings:");
-        banner.AppendLine($"    - Connection string : {Describe(configuration, ConfigurationKeys.ConnectionStringKey)}");
-        foreach (var key in ConfigurationKeys.ProviderApiKeys)
+
+        var width = ConfigurationKeys.AllSecrets
+            .Select(secret => secret.ConfigurationKey.Length)
+            .Append(ConfigurationKeys.ConnectionStringKey.Length)
+            .Append(ConfigurationKeys.WatchedFolder.ConfigurationKey.Length)
+            .Max();
+
+        banner.Append($"    - {ConfigurationKeys.ConnectionStringKey.PadRight(width)} : ")
+              .AppendLine(Describe(configuration, ConfigurationKeys.ConnectionStringKey));
+
+        // The one setting whose value is safe to print, and the one most worth printing: a
+        // Worker watching the wrong folder looks identical to a correct one from every other
+        // line in this log.
+        var watchedFolder = configuration[ConfigurationKeys.WatchedFolder.ConfigurationKey];
+        banner.Append($"    - {ConfigurationKeys.WatchedFolder.ConfigurationKey.PadRight(width)} : ")
+              .AppendLine(string.IsNullOrWhiteSpace(watchedFolder)
+                  ? $"absent (set {ConfigurationKeys.WatchedFolder.EnvironmentVariable})"
+                  : watchedFolder);
+
+        foreach (var secret in ConfigurationKeys.AllSecrets)
         {
-            banner.Append($"    - {key,-26}: ").AppendLine(Describe(configuration, key));
+            banner.Append($"    - {secret.ConfigurationKey.PadRight(width)} : ")
+                  .AppendLine(DescribeSecret(configuration, secret));
         }
 
         logger.LogInformation("{StartupBanner}", banner.ToString().TrimEnd());
@@ -56,6 +79,25 @@ public static class StartupSummary
         var source = WinningSource(configuration, key);
         return source is null
             ? "absent"
+            : $"present (from {source})";
+    }
+
+    /// <summary>
+    /// As <see cref="Describe"/>, but reports the flat variable name rather than the provider
+    /// — both when the value came from there and, more usefully, when it is missing and the
+    /// reader needs to know what to set.
+    /// </summary>
+    private static string DescribeSecret(IConfigurationRoot configuration, ConfiguredSetting secret)
+    {
+        var source = WinningSource(configuration, secret.ConfigurationKey);
+
+        if (source is null)
+        {
+            return $"absent (set {secret.EnvironmentVariable})";
+        }
+
+        return source.StartsWith("Flat environment secrets", StringComparison.Ordinal)
+            ? $"present (from {secret.EnvironmentVariable})"
             : $"present (from {source})";
     }
 
@@ -86,32 +128,35 @@ public static class StartupSummary
         IHostEnvironment environment,
         IConfigurationRoot configuration)
     {
-        if (WinningSource(configuration, ConfigurationKeys.ConnectionStringKey) is null)
-        {
-            logger.LogWarning(
-                "No connection string found at {Key}. Set the {Variable} environment variable, "
-                + "or add it to user-secrets in Development. See docs/windows-service.md.",
-                ConfigurationKeys.ConnectionStringKey,
-                ConfigurationKeys.ToEnvironmentVariable(ConfigurationKeys.ConnectionStringKey));
-        }
+        // The connection string and the Graph credential are not warned about here: they are
+        // required, and StartupValidation refuses to start without them. Warning and then
+        // failing about the same setting would only obscure which of the two mattered.
+        var missingProviders = Missing(configuration, ConfigurationKeys.ProviderApiKeys);
 
-        var missing = ConfigurationKeys.ProviderApiKeys
-            .Where(key => WinningSource(configuration, key) is null)
-            .ToList();
-
-        if (missing.Count == ConfigurationKeys.ProviderApiKeys.Count)
+        if (missingProviders.Count == ConfigurationKeys.ProviderApiKeys.Count)
         {
             logger.LogWarning(
                 "No extraction provider API keys are configured. Notices will be ingested but "
-                + "not extracted. In {Environment}, supply them via {Mechanism}.",
-                environment.EnvironmentName,
-                environment.IsDevelopment() ? "dotnet user-secrets" : "environment variables");
+                + "not extracted. Set {Variables} as machine environment variables, or in {Mechanism} "
+                + "for {Environment}. See docs/windows-service.md.",
+                Join(missingProviders),
+                environment.IsDevelopment() ? "dotnet user-secrets" : "the service environment block",
+                environment.EnvironmentName);
         }
-        else if (missing.Count > 0)
+        else if (missingProviders.Count > 0)
         {
             logger.LogInformation(
-                "Extraction providers without a configured key: {Missing}. Those providers are disabled.",
-                string.Join(", ", missing));
+                "Extraction providers without a configured key: {Variables}. Those providers are disabled.",
+                Join(missingProviders));
         }
+
     }
+
+    private static List<ConfiguredSetting> Missing(
+        IConfigurationRoot configuration,
+        IReadOnlyList<ConfiguredSetting> secrets) =>
+        [.. secrets.Where(secret => WinningSource(configuration, secret.ConfigurationKey) is null)];
+
+    private static string Join(IEnumerable<ConfiguredSetting> secrets) =>
+        string.Join(", ", secrets.Select(secret => secret.EnvironmentVariable));
 }

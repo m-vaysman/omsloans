@@ -27,6 +27,14 @@ Credentials are NEVER committed. They come from environment variables / user sec
 > **Note:** `GRAPH_USER` and `GRAPH_TEST_MAILBOX` are the same value — the test mailbox.
 > `GraphDaemonSmokeTest.linq` reads it as `GRAPH_USER`.
 
+The Worker reads the same three variables. They map onto `Graph:TenantId`, `Graph:ClientId`
+and `Graph:ClientSecret` in configuration, and the startup banner reports whether each was
+found — see [windows-service.md](windows-service.md#key-names). Configuration and presence
+reporting only at this point; the Worker does not call Graph yet.
+
+The mailbox address is not part of that set. It is a setting rather than a secret, and which
+mailbox to poll belongs with mailbox ingestion rather than with credentials.
+
 A working smoke test exists in LINQPad (`GraphDaemonSmokeTest.linq`) proving
 send + read work end-to-end with these credentials.
 
