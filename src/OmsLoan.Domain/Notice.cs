@@ -15,9 +15,11 @@ public class Notice
     public byte[] Content { get; set; } = [];
 
     /// <summary>
-    /// Lowercase hex SHA-256 of <see cref="Content"/>. Uniquely indexed, so the same
-    /// document arriving twice — by email and again from the watched folder — is caught
-    /// on content rather than on filename or message id.
+    /// Lowercase hex SHA-256 of <see cref="Content"/>. Indexed but <em>not</em> unique: the
+    /// same document may legitimately appear more than once, and identifying those arrivals
+    /// as the same document is review's job rather than ingestion's. The index is what makes
+    /// that grouping cheap, and what lets extraction accuracy be compared across identical
+    /// input.
     /// </summary>
     public string Sha256 { get; set; } = string.Empty;
 

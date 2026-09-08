@@ -108,6 +108,12 @@ public static class ConfigurationKeys
     public static readonly ConfiguredSetting WatchedFolder =
         new("Ingestion:WatchedFolder", "Ingestion__WatchedFolder", "Watched folder");
 
+    /// <summary>
+    /// Optional. Where <c>processed/</c> and <c>failed/</c> live; blank means under the
+    /// watched folder. Not required, because the default is right nearly always.
+    /// </summary>
+    public const string ArchiveFolderKey = "Ingestion:ArchiveFolder";
+
     public static readonly ConfiguredSetting ConnectionString =
         new(ConnectionStringKey, "ConnectionStrings__OmsLoan", "Database");
 

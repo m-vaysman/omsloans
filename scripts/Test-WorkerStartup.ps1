@@ -180,7 +180,7 @@ Test-Case 'no watched folder refuses, naming the variable' ($complete.Clone() | 
 
 Test-Case 'watched folder and subfolders are created when missing' $complete {
     param($r)
-    foreach ($sub in '', 'processed', 'duplicates', 'failed') {
+    foreach ($sub in '', 'processed', 'failed') {
         $path = if ($sub) { Join-Path $watchRoot $sub } else { $watchRoot }
         if (-not (Test-Path -LiteralPath $path)) { return "did not create $path" }
     }
@@ -193,8 +193,10 @@ Test-Case 'watched folder and subfolders are created when missing' $complete {
 
 Test-Case 'existing folder and its contents are left alone' $complete {
     param($r)
-    # $watchRoot exists by now, from the previous case. Seed it and check it survives.
-    $seeded = Join-Path $watchRoot 'already-here.pdf'
+    # Seeded in processed\ rather than the watch root: startup must not disturb existing
+    # content, but a file left in the root is a notice, and ingestion is supposed to consume
+    # it. Only the archive folder can distinguish "left alone" from "ingested".
+    $seeded = Join-Path $watchRoot 'processed\already-here.pdf'
     Set-Content -LiteralPath $seeded -Value 'notice' -Encoding utf8
     $again = Invoke-Worker $complete
     if (-not (Test-Path -LiteralPath $seeded)) { return 'an existing file was removed' }

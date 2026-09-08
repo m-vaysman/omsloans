@@ -219,7 +219,7 @@ Write-Host "Installed '$displayName' ($serviceName)." -ForegroundColor Green
 Write-Host ''
 Write-Host 'Still to do by hand — see docs/windows-service.md:' -ForegroundColor Yellow
 Write-Host '  1. Grant the service account the "Log on as a service" right.'
-Write-Host '  2. Grant it Modify on the watched folder and its processed/duplicates/failed subfolders.'
+Write-Host '  2. Grant it Modify on the watched folder and its processed/failed subfolders.'
 Write-Host '  3. Create its SQL Server login and map it to db_datareader, db_datawriter on the OmsLoan database.'
 Write-Host ''
 

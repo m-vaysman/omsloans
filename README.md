@@ -183,7 +183,7 @@ reports which of these it found and from where, never their values.
 all three Graph variables** — without them it can neither collect a notice nor record one, and a service that
 starts anyway looks healthy while ingesting nothing. It reports which are missing and stops,
 without retrying: a missing variable is not fixed by restarting. The provider API keys stay
-optional. The watched folder and its `processed\` / `duplicates\` / `failed\` subfolders are
+optional. The watched folder and its `processed\` / `failed\` subfolders are
 created on startup if missing, and the service refuses to start unless it can read and write
 there — an existing folder is left untouched. Details in
 [`docs/windows-service.md`](docs/windows-service.md#required-and-what-happens-when-they-are-not-set).

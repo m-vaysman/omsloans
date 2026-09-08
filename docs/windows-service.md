@@ -63,12 +63,11 @@ enough:
 | --- | --- |
 | the watched folder | Modify |
 | `processed\` | Modify |
-| `duplicates\` | Modify |
 | `failed\` | Modify |
 
 ```powershell
 $account = 'CONTOSO\svc_omsloan'
-foreach ($path in @('C:\OmsLoan\Notices', 'C:\OmsLoan\Notices\processed', 'C:\OmsLoan\Notices\duplicates', 'C:\OmsLoan\Notices\failed')) {
+foreach ($path in @('C:\OmsLoan\Notices', 'C:\OmsLoan\Notices\processed', 'C:\OmsLoan\Notices\failed')) {
     $acl = Get-Acl $path
     $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
         $account, 'Modify', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
@@ -139,8 +138,8 @@ A missing key is a warning. The watched folder is not a secret, so it may also b
 
 #### The watched folder is created, and its permissions are proved
 
-On every start the Worker creates the watched folder and its `processed\`, `duplicates\` and
-`failed\` subfolders if they are missing, then checks it can **read and write** each one. An
+On every start the Worker creates the watched folder and its `processed\` and `failed\`
+subfolders if they are missing, then checks it can **read and write** each one. An
 existing folder is left exactly as it is — no ACL change, no content change.
 
 The permission check is the part that earns its place. `Directory.CreateDirectory` is a no-op
@@ -285,6 +284,75 @@ change — a real operational cost, which is why environment variables are the d
 
 Either way: **no API key or connection string ever belongs in a committed file.** The
 placeholders in `appsettings.json` are empty strings and are treated as absent.
+
+## Ingestion
+
+The Worker scans the watched folder every `Ingestion:PollIntervalSeconds` (default 30) and,
+for each file: reads it, records a `Notice`, and only then moves it.
+
+### One rule: nothing moves until it is recorded
+
+The order is **read → insert → commit → move**, and never any other way round.
+
+That makes the database the commit point and the watched folder the queue. If the database is
+unavailable, files simply accumulate where they were dropped and are picked up when it comes
+back — no manual replay, and an outage shows up as a folder filling rather than as notices
+that quietly never existed. It is also why the Worker does not refuse to start when the
+database is unreachable: refusing would not protect anything that this does not already
+protect.
+
+The cost is that recording and moving are not atomic. If the process dies, or the move fails,
+after the row is committed, the file is read again next poll and recorded a second time. That
+is at-least-once, and it is the right way round: **a duplicate row is recoverable, a lost
+notice is not.**
+
+It is also why `Notices.Sha256` is indexed but **not unique**. With a unique index the retry
+would throw on insert, the file would never move, and it would be retried for ever — a
+permanent stuck loop over a notice that was in fact ingested successfully.
+
+No deduplication happens during ingestion. Deciding that two arrivals are the same document is
+review's work.
+
+### What happens to each file
+
+| Outcome | Where the file goes |
+| --- | --- |
+| Recorded | `processed\` |
+| Recorded, but the move failed | stays — re-ingested next poll, producing a second row |
+| Could not be recorded (database down) | stays, indefinitely, retried every poll |
+| Could not be read | stays and is retried, up to `Ingestion:MaxReadAttempts` (default 10) |
+| Still unreadable after that many attempts | `failed\` |
+| Read fine but is not a PDF | `failed\` immediately — permanent, so no retries |
+
+Files are opened with no sharing, so one still being copied fails to open rather than being
+read half-written and stored truncated. That is the common read failure, and why the attempt
+limit is generous: ten attempts at the default interval is five minutes, enough for a slow
+copy of a large PDF.
+
+**The attempt limit deliberately does not apply to database failures.** A file that read fine
+but could not be recorded stays for ever if need be — moving those aside would turn an outage
+into notices filed under `failed\`.
+
+`SentAtUtc` is left null. The filesystem timestamp is when the file was dropped here, not when
+the agent bank sent it, and inventing a value would be worse than admitting we do not know.
+
+An archived file is never overwritten by a later one of the same name — agent banks reuse
+filenames, and overwriting would destroy the evidence for a notice already recorded. The
+second gets a timestamp suffix.
+
+### Settings
+
+| Key | Default | |
+| --- | --- | --- |
+| `Ingestion:WatchedFolder` | — | Required. The service will not start without it |
+| `Ingestion:ArchiveFolder` | the watched folder | Where `processed\` and `failed\` live |
+| `Ingestion:PollIntervalSeconds` | 30 | |
+| `Ingestion:MaxReadAttempts` | 10 | Consecutive read failures before a file goes to `failed\` |
+
+Polling rather than `FileSystemWatcher`: the watcher misses events when its buffer overflows
+during a bulk drop, does not fire reliably on network shares — which is where these folders
+usually live — and offers no way to retry a file that was locked when the event arrived. A
+scan re-examines whatever is still present, so a missed notice is self-correcting.
 
 ## Startup banner
 
