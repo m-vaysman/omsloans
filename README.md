@@ -69,14 +69,13 @@ than updating one, so a prompt change can be compared against the same notice.
 | --- | --- |
 | [`src/OmsLoan.Domain`](src/OmsLoan.Domain) | Entities, EF Core configuration, migrations |
 | [`src/OmsLoan.Worker`](src/OmsLoan.Worker) | Windows Service host — ingestion and extraction |
-| [`src/OmsLoan.Api`](src/OmsLoan.Api) | Self-hosted Kestrel Windows Service — review API, and the React UI in production |
+| [`src/OmsLoan.Api`](src/OmsLoan.Api) | ASP.NET Core API behind the review UI |
 | [`src/OmsLoan.Web`](src/OmsLoan.Web) | React review UI |
 | [`tests/OmsLoan.Domain.Tests`](tests/OmsLoan.Domain.Tests) | Domain unit tests — no database required |
 | [`scripts/prompts`](scripts/prompts) | Extraction prompts, vision and text variants |
 | [`scripts/Notices`](scripts/Notices) | Generated sample notices for testing extraction |
 | [`tools`](tools) | Development scripts, including the notice generator |
-| [`docs/windows-service.md`](docs/windows-service.md) | Worker service — account, ACLs, SQL login, configuration |
-| [`docs/api-windows-service.md`](docs/api-windows-service.md) | Api service — Kestrel URLs and port binding, serving the React build |
+| [`docs/windows-service.md`](docs/windows-service.md) | Service account, ACLs, SQL login, configuration |
 
 The domain tests build the EF model through the SQL Server provider without opening a
 connection, so the suite runs on a clean clone with no database, no LocalDB and no container.
@@ -185,28 +184,9 @@ dotnet run --project OMS.Loans
 dotnet test tests/OmsLoan.Domain.Tests
 ```
 
-**Run the review API and UI** — two processes in development, one in production:
-
-```bash
-dotnet run --project src/OmsLoan.Api          # Kestrel on :5023, Swagger at /swagger
-npm --prefix src/OmsLoan.Web run dev          # Vite on :5173, proxying /api to the above
-```
-
-### Deployment
-
-The pipeline deploys as **two Windows Services over one database**, neither depending on the
-other — see [ADR 0002](docs/decisions/0002-windows-service-over-desktop.md).
-
-| Service | Project | Covered by |
-| --- | --- | --- |
-| `OmsLoanWorker` | `src/OmsLoan.Worker` | [`docs/windows-service.md`](docs/windows-service.md) |
-| `OmsLoanApi` | `src/OmsLoan.Api` | [`docs/api-windows-service.md`](docs/api-windows-service.md) |
-
-Both self-host — no IIS — and both are registered Automatic (Delayed Start) with restart-on-
-failure backoff, so a reboot or a crash brings each back without anyone logging on. The Api
-publishes the React build into its own `wwwroot` and serves it from the same process, so
-production is one port and one URL. Install, uninstall and lifecycle scripts for both are in
-[`scripts/`](scripts).
+Deploying the ingestion worker as a Windows Service is covered in
+[`docs/windows-service.md`](docs/windows-service.md), with install, uninstall and lifecycle
+scripts in [`scripts/`](scripts).
 
 ---
 

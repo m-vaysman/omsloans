@@ -1,86 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <UserSecretsId>dotnet-OmsLoan.Api-56ba73e3-eb36-44fd-8c9a-8a1f233e5645</UserSecretsId>
-    <!--
-      Windows-only APIs (Event Log, the SCM) are reached through OperatingSystem.IsWindows()
-      guards rather than by retargeting to net8.0-windows, so the project keeps the same
-      target framework as the rest of src/ and the platform analyser stays satisfied.
-    -->
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <!--
-      The React review UI. Published into this project's wwwroot so one process serves both
-      the API and the UI in Production — see SpaHosting.cs for why, and
-      docs/api-windows-service.md for the Development story, which does not involve any of
-      this.
-    -->
-    <SpaRoot>..\OmsLoan.Web\</SpaRoot>
-    <SpaDist>$(SpaRoot)dist\</SpaDist>
-    <!--
-      Set to false to publish the API without running a web build: -p:BuildSpaOnPublish=false.
-      Whatever is already in dist/ is still published, so a pipeline that builds the UI in its
-      own step can hand the output over rather than pay for it twice.
-    -->
-    <BuildSpaOnPublish Condition="'$(BuildSpaOnPublish)' == ''">true</BuildSpaOnPublish>
-  </PropertyGroup>
-
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.EventLog" Version="8.0.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\OmsLoan.Domain\OmsLoan.Domain.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <!--
-      appsettings.Development.json is gitignored, so the tracked file is a template that a
-      developer copies. Copied when present so a local override still reaches the output.
-    -->
-    <None Update="appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.Development.json')" />
-    <None Update="appsettings.Production.json" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <!--
-    Deliberately hung off the publish pipeline and nothing else. Attaching it to Build would
-    put a Node toolchain in the way of `dotnet build` and `dotnet test` on a clean clone,
-    which is a cost paid on every commit for something only a deployment needs.
-  -->
-  <Target Name="PublishOmsLoanWeb" AfterTargets="ComputeFilesToPublish">
-    <Exec Command="npm ci"
-          WorkingDirectory="$(SpaRoot)"
-          Condition="'$(BuildSpaOnPublish)' == 'true' And !Exists('$(SpaRoot)node_modules')" />
-    <Exec Command="npm run build"
-          WorkingDirectory="$(SpaRoot)"
-          Condition="'$(BuildSpaOnPublish)' == 'true'" />
-
-    <ItemGroup>
-      <SpaDistFiles Include="$(SpaDist)**" />
-      <!--
-        Exclude anything already resolved so a file that exists in both places keeps the one
-        the SDK chose, rather than producing a duplicate-item error at copy time.
-      -->
-      <ResolvedFileToPublish Include="@(SpaDistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
-        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
-        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      </ResolvedFileToPublish>
-    </ItemGroup>
-
-    <!--
-      A Message rather than a Warning: the API-only publish is a supported deployment, and the
-      running service says the same thing in its startup banner where an operator will see it.
-    -->
-    <Message Importance="high"
-             Condition="'@(SpaDistFiles)' == ''"
-             Text="No React build found at $(SpaDist) — publishing the API without the review UI." />
-    <Message Importance="high"
-             Condition="'@(SpaDistFiles)' != ''"
-             Text="Publishing @(SpaDistFiles->Count()) React build file(s) into wwwroot." />
-  </Target>
 
 </Project>
