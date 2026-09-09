@@ -435,9 +435,19 @@ machine, and a Windows Service never sees a user-scope variable — use `setx /M
 running the service, or the Worker will report it missing and refuse to start.
 
 Auth is client credentials, not delegated: the Worker runs unattended and a delegated token
-tied to somebody's account stops working the moment their password rotates. `Mail.Read`
-should be scoped to this one mailbox with an application access policy, since the grant is
-otherwise tenant-wide. See [exchange-test-environment.md](exchange-test-environment.md).
+tied to somebody's account stops working the moment their password rotates.
+
+**The registration needs `Mail.ReadWrite`, not `Mail.Read`.** Reading the mailbox is only
+half the job — taking a message out of the queue means setting `isRead`, which is a write.
+With `Mail.Read` alone every poll ingests successfully and every mark-read is denied, so the
+same notices are recorded again and again. That was found by running it against a real
+mailbox; no unit test could have. The Worker now records such a message once and then only
+retries the flag, and logs at Error naming the permission, but the mailbox still does not
+drain until the grant is fixed.
+
+Scope it to this one mailbox with an application access policy — the grant is tenant-wide
+otherwise, and this application has no business writing to anybody else's mail. See
+[exchange-test-environment.md](exchange-test-environment.md).
 
 Graph throttling is handled by the SDK's own retry handler, which honours `Retry-After` on
 `429` and `503`. Nothing here second-guesses it: a hand-rolled backoff on top would multiply

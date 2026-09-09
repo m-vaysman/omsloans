@@ -14,7 +14,7 @@ API surface we intend to use is **Microsoft Graph** (`graph.microsoft.com`) with
 | App registration | loan_notices |
 | Client ID | see `GRAPH_CLIENT_ID` env var |
 | Auth | ClientSecretCredential (client secret, 90-day expiry — test only) |
-| Granted Graph permissions | Mail.Read, Mail.Send — **Application** type, admin-consented |
+| Granted Graph permissions | Mail.Read, Mail.Send — **Application** type, admin-consented. **Mail.ReadWrite is required and not yet granted**: ingestion marks messages read, which Mail.Read cannot do. Verified against the live mailbox — every mark-read returns *Access is denied*. |
 | Test mailbox | see `GRAPH_TEST_MAILBOX` env var |
 | License | Exchange Online Plan 1 (mail only — no Teams/SharePoint/OneDrive endpoints available) |
 

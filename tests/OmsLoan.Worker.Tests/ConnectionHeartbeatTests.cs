@@ -57,7 +57,7 @@ public class ConnectionHeartbeatTests
         var entry = Assert.Single(log.Entries);
         Assert.Equal(LogLevel.Information, entry.Level);
         Assert.Contains("is reachable", entry.Message, StringComparison.Ordinal);
-        Assert.True(heartbeat.IsUp);
+        Assert.Equal(ConnectionState.Up, heartbeat.State);
     }
 
     /// <summary>
@@ -76,7 +76,7 @@ public class ConnectionHeartbeatTests
         var entry = Assert.Single(log.Entries);
         Assert.Equal(LogLevel.Warning, entry.Level);
         Assert.Contains("unreachable", entry.Message, StringComparison.Ordinal);
-        Assert.False(heartbeat.IsUp);
+        Assert.Equal(ConnectionState.Down, heartbeat.State);
     }
 
     /// <summary>
@@ -137,7 +137,7 @@ public class ConnectionHeartbeatTests
         Assert.Equal(LogLevel.Information, entry.Level);
         Assert.Contains("reachable again", entry.Message, StringComparison.Ordinal);
         Assert.Contains("9.0 hours", entry.Message, StringComparison.Ordinal);
-        Assert.True(heartbeat.IsUp);
+        Assert.Equal(ConnectionState.Up, heartbeat.State);
     }
 
     /// <summary>
@@ -192,5 +192,32 @@ public class ConnectionHeartbeatTests
         clock.Advance(TimeSpan.FromMinutes(7));
 
         Assert.Equal(TimeSpan.FromMinutes(7), heartbeat.DownFor);
+    }
+
+    /// <summary>
+    /// The state before anything has been tried is Unknown, not Up. A probe answered "fine"
+    /// from a cold start is answered with something nobody checked — the one thing a
+    /// connectivity signal must never do.
+    /// </summary>
+    [Fact]
+    public void StateIsUnknownUntilSomethingHasActuallyBeenTried()
+    {
+        var (heartbeat, log, _) = Build();
+
+        Assert.Equal(ConnectionState.Unknown, heartbeat.State);
+        Assert.Null(heartbeat.DownFor);
+        Assert.Empty(log.Entries);
+    }
+
+    [Fact]
+    public void StateBecomesUpOnTheFirstSuccessAndDownOnTheFirstFailure()
+    {
+        var (up, _, _) = Build();
+        up.RecordSuccess();
+        Assert.Equal(ConnectionState.Up, up.State);
+
+        var (down, _, _) = Build();
+        down.RecordFailure(Unreachable);
+        Assert.Equal(ConnectionState.Down, down.State);
     }
 }

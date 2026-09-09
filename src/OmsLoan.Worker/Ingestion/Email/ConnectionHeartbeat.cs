@@ -1,5 +1,18 @@
 namespace OmsLoan.Worker.Ingestion.Email;
 
+/// <summary>What is known about a connection.</summary>
+public enum ConnectionState
+{
+    /// <summary>Nothing has been tried yet. Not the same as healthy.</summary>
+    Unknown,
+
+    /// <summary>The last attempt succeeded.</summary>
+    Up,
+
+    /// <summary>The last attempt failed.</summary>
+    Down,
+}
+
 /// <summary>
 /// Reports the moment a connection is lost and the moment it comes back — and says nothing
 /// in between.
@@ -40,10 +53,18 @@ public sealed class ConnectionHeartbeat(
 
     private DateTimeOffset? _downSince;
     private DateTimeOffset _lastReminder;
-    private bool _reportedUpOnce;
 
-    /// <summary>Whether the last attempt succeeded. Starts true so a clean run says nothing.</summary>
-    public bool IsUp => _downSince is null;
+    /// <summary>
+    /// What is currently known. <see cref="ConnectionState.Unknown"/> until something has
+    /// actually been tried.
+    /// </summary>
+    /// <remarks>
+    /// Three states rather than a boolean, because a boolean has to lie at startup. Before
+    /// the first poll nothing is known, and a health probe told "up" in that moment is told
+    /// something nobody checked — from a signal whose only job is to be truthful about
+    /// connectivity, "fine" from a cold start is the one answer it must never give.
+    /// </remarks>
+    public ConnectionState State { get; private set; } = ConnectionState.Unknown;
 
     /// <summary>How long it has been down, or null if it is up.</summary>
     public TimeSpan? DownFor => _downSince is null ? null : _time.GetUtcNow() - _downSince.Value;
@@ -57,6 +78,7 @@ public sealed class ConnectionHeartbeat(
         {
             var outage = _time.GetUtcNow() - _downSince.Value;
             _downSince = null;
+            State = ConnectionState.Up;
 
             logger.LogInformation(
                 "{What} is reachable again after {Outage}.", what, Describe(outage));
@@ -64,12 +86,12 @@ public sealed class ConnectionHeartbeat(
             return;
         }
 
-        if (!_reportedUpOnce)
+        if (State == ConnectionState.Unknown)
         {
             // Said once, at startup, so the log records that contact was established at all.
             // Without it a mailbox that is reachable is indistinguishable from one nobody
             // ever tried.
-            _reportedUpOnce = true;
+            State = ConnectionState.Up;
             logger.LogInformation("{What} is reachable.", what);
         }
     }
@@ -85,7 +107,7 @@ public sealed class ConnectionHeartbeat(
         {
             _downSince = now;
             _lastReminder = now;
-            _reportedUpOnce = true;
+            State = ConnectionState.Down;
 
             logger.LogWarning(
                 exception, "{What} is unreachable. Ingestion is paused until it returns.", what);

@@ -75,6 +75,26 @@ public sealed class EmailIngestion
     /// </summary>
     public ConnectionHeartbeat Heartbeat { get; }
 
+    /// <summary>
+    /// Messages whose notices are committed but which could not be marked read.
+    /// </summary>
+    /// <remarks>
+    /// Without this, a mark-read that fails <em>permanently</em> — the app registration
+    /// holding Mail.Read rather than Mail.ReadWrite is the way that happens — re-records the
+    /// same notices on every poll, for ever. Not an outage: a silent flood. At a one-minute
+    /// interval a single stuck message is fourteen hundred duplicate notices a day, and the
+    /// only sign is a warning nobody is reading.
+    ///
+    /// So a message recorded but not marked is remembered, and on later polls it is only
+    /// retried for the mark, never recorded again. Duplicates are bounded to the one already
+    /// accepted by at-least-once rather than growing without limit.
+    ///
+    /// In memory, so a restart re-records once. That is the same bound as any other crash
+    /// between committing and marking, and the alternative — persisting it — would be a
+    /// second queue to keep correct.
+    /// </remarks>
+    private readonly HashSet<string> _recordedButUnmarked = new(StringComparer.Ordinal);
+
     public async Task RunOnceAsync(CancellationToken cancellationToken)
     {
         IReadOnlyList<MailboxMessage> messages;
@@ -84,7 +104,7 @@ public sealed class EmailIngestion
         // all working, and a poll that throws is the moment that stopped being true.
         try
         {
-            messages = await _mailbox.GetUnreadWithPdfAttachmentsAsync(
+            messages = await _mailbox.GetUnreadMessagesAsync(
                 _options.MessagesPerPoll, cancellationToken);
 
             Heartbeat.RecordSuccess();
@@ -115,6 +135,44 @@ public sealed class EmailIngestion
 
     private async Task IngestAsync(MailboxMessage message, CancellationToken cancellationToken)
     {
+        if (_recordedButUnmarked.Contains(message.Id))
+        {
+            // Already committed on an earlier poll; only the mark failed. Recording it again
+            // would multiply notices for as long as whatever blocks the mark persists.
+            _logger.LogInformation(
+                "Message {MessageId} is already recorded; retrying only the read flag.", message.Id);
+
+            await MarkReadAsync(message, recorded: 0, cancellationToken);
+            return;
+        }
+
+        if (message.Attachments.Count == 0)
+        {
+            // Nothing to record. Whether the message can leave the queue turns entirely on
+            // *why* there is nothing — and getting this wrong is how a notice disappears.
+            if (message.AttachmentsIncomplete)
+            {
+                // We could not read what it carried. Leaving it unread keeps it where a human
+                // can see it; marking it read would file a notice we never got as handled,
+                // with nothing anywhere to say it existed.
+                _logger.LogWarning(
+                    "Message {MessageId} from {Sender} has attachments that could not be read. "
+                    + "Leaving it unread rather than treating it as having none.",
+                    message.Id,
+                    message.Sender ?? "(unknown sender)");
+
+                return;
+            }
+
+            // Genuinely no PDF — a plain reply, or a signature image. Marked read so it is not
+            // re-examined on every poll for ever.
+            _logger.LogInformation(
+                "Message {MessageId} carries no PDF attachment. Marking it read.", message.Id);
+
+            await MarkReadAsync(message, 0, cancellationToken);
+            return;
+        }
+
         var recorded = 0;
 
         foreach (var attachment in message.Attachments)
@@ -162,12 +220,42 @@ public sealed class EmailIngestion
                 notice.NoticeId);
         }
 
+        if (message.AttachmentsIncomplete)
+        {
+            // Some attachments were read and recorded, others could not be fetched. The
+            // message stays unread so the rest are retried; the ones already recorded will
+            // arrive a second time, which is the accepted duplicate rather than a lost notice.
+            _logger.LogWarning(
+                "Message {MessageId} was recorded as {Count} notice(s) but some attachments "
+                + "could not be read. Leaving it unread to retry the rest.",
+                message.Id,
+                recorded);
+
+            return;
+        }
+
         // Every attachment is committed, so the message can leave the queue. A partial
         // failure above returned already, deliberately: marking read after recording only
         // some of the attachments would lose the rest with no trace.
+        await MarkReadAsync(message, recorded, cancellationToken);
+    }
+
+    /// <summary>
+    /// Takes the message out of the queue.
+    /// </summary>
+    /// <remarks>
+    /// A failure here is not a connectivity failure and must not be reported as one — the
+    /// fetch already succeeded, so the mailbox is plainly reachable. It is logged and the
+    /// message is left unread, which means it is ingested again next poll and its notices
+    /// recorded a second time. At-least-once, and the reason EmailMessageId is not unique.
+    /// </remarks>
+    private async Task MarkReadAsync(MailboxMessage message, int recorded, CancellationToken cancellationToken)
+    {
         try
         {
             await _mailbox.MarkReadAsync(message.Id, cancellationToken);
+
+            _recordedButUnmarked.Remove(message.Id);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -175,12 +263,23 @@ public sealed class EmailIngestion
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(
-                ex,
-                "Message {MessageId} was recorded as {Count} notice(s) but could not be marked "
-                + "read. It will be ingested again on the next poll, producing duplicates.",
-                message.Id,
-                recorded);
+            // Error, not Warning. A mark that cannot be made is not a hiccup: the message
+            // stays in the queue for ever and needs somebody to fix a permission. The usual
+            // cause is the app registration holding Mail.Read where marking read requires
+            // Mail.ReadWrite, which no amount of retrying will resolve.
+            var first = _recordedButUnmarked.Add(message.Id);
+
+            if (first)
+            {
+                _logger.LogError(
+                    ex,
+                    "Message {MessageId} was recorded as {Count} notice(s) but could not be marked "
+                    + "read, so it stays in the mailbox. Its notices will not be recorded again, "
+                    + "but nothing else will leave the queue behind it until this is fixed. "
+                    + "Mail.ReadWrite is required to mark a message read; Mail.Read is not enough.",
+                    message.Id,
+                    recorded);
+            }
         }
     }
 }
