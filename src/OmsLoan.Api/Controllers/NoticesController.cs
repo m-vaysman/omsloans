@@ -41,17 +41,16 @@ public class NoticesController(
     /// </param>
     /// <remarks>
     /// <para>
-    /// Three checks, cheapest first, and each one is a reason to stop:
+    /// Two cheap checks first, each one a reason to stop before anything is read:
     /// </para>
     /// <list type="number">
     /// <item>the filename ends in <c>.pdf</c> — costs nothing, needs no bytes read</item>
     /// <item>the size is within the limit — a number already on the request</item>
-    /// <item>the declared content type is a PDF — still just a header</item>
     /// </list>
     /// <para>
     /// Only then are the bytes read and checked for the <c>%PDF</c> marker, which is the check
-    /// that actually decides — a filename and a content type are both supplied by whoever sent
-    /// the file, and the magic number is not.
+    /// that actually decides — a filename is supplied by whoever sent the file, and the magic
+    /// number is not.
     /// </para>
     /// <para>
     /// No duplicate check. Every upload is recorded, exactly as every file dropped in the
@@ -118,13 +117,11 @@ public class NoticesController(
                 statusCode: StatusCodes.Status413PayloadTooLarge);
         }
 
-        // The declared content type: still only a header, and a browser usually gets it right.
-        // Not trusted on its own — the bytes are checked below — but it costs nothing.
-        if (!string.IsNullOrEmpty(file.ContentType)
-            && !file.ContentType.StartsWith("application/pdf", StringComparison.OrdinalIgnoreCase))
-        {
-            return UnsupportedPdf(file.FileName, $"the declared content type was '{file.ContentType}'");
-        }
+        // No check on the declared content type. It was tried and removed: it rejected genuine
+        // PDFs. A client that sends application/octet-stream — which is what fetch does for an
+        // untyped Blob — or the legacy application/x-pdf was refused despite the filename and
+        // the bytes both being right. It never caught anything the magic-byte check below does
+        // not catch, so it was pure false-rejection risk.
 
         byte[] content;
 

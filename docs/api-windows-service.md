@@ -337,7 +337,7 @@ and is already recorded as `ReceivedAtUtc`.
 | `201` | Recorded. Body carries the notice id, the SHA-256 and the received timestamp |
 | `400` | No file, an empty one, or an upload that could not be read in full |
 | `413` | Larger than `Upload:MaxBytes` |
-| `415` | Not a PDF — by filename, declared content type, or bytes |
+| `415` | Not a PDF — by filename or by bytes |
 | `503` | The database is unavailable. Nothing was stored; try again |
 
 **Validation happens in the controller, first, and in order of cost.** There is no point
@@ -348,13 +348,15 @@ measuring, reading, hashing or storing a file that was never going to be accepte
    is a rejection too: absence is not a pass.
 2. **The size is within the limit** — a number already on the request, so an oversized upload
    is never buffered.
-3. **The declared content type is a PDF** — still just a header, and a browser usually gets it
-   right.
 
 Only then are the bytes read and checked for the `%PDF` marker, which is the check that
-actually decides. A filename and a content type are both supplied by whoever sent the file;
-the magic number is not, so a spreadsheet renamed `.pdf` and declared `application/pdf` is
-still refused.
+actually decides. A filename is supplied by whoever sent the file; the magic number is not,
+so a spreadsheet renamed `.pdf` is still refused.
+
+**The declared content type is not checked**, deliberately. It was, and it rejected genuine
+notices: `application/octet-stream` — what `fetch` sends for an untyped `Blob` — and the
+legacy `application/x-pdf` were both refused despite the filename and the bytes being right.
+It never caught anything the magic-byte check does not, so it was pure false-rejection risk.
 
 **Failures below the gate do not escape as 500s.** An upload that cannot be read in full is
 the request's fault and answers `400`. A database that is down, timing out or refusing the

@@ -126,11 +126,37 @@ public class NoticesControllerTests : IDisposable
         Assert.Empty(_db.Notices);
     }
 
-    [Fact]
-    public async Task AWrongContentTypeIsRefusedAsUnsupportedMedia()
+    /// <summary>
+    /// The declared content type is ignored entirely. Checking it rejected genuine PDFs:
+    /// application/octet-stream is what fetch sends for an untyped Blob, and application/x-pdf
+    /// is a real legacy variant. It never caught anything the magic-byte check does not, so it
+    /// was pure false-rejection risk.
+    /// </summary>
+    [Theory]
+    [InlineData("application/octet-stream")]
+    [InlineData("application/x-pdf")]
+    [InlineData("application/vnd.ms-excel")]
+    [InlineData("")]
+    public async Task TheDeclaredContentTypeIsIgnored(string contentType)
     {
         var result = await Controller().Upload(
-            File(Pdf(), "notice.xlsx", "application/vnd.ms-excel"), sender: null, sentAtUtc: null, default);
+            File(Pdf(), "notice.pdf", contentType), sender: null, sentAtUtc: null, default);
+
+        Assert.Equal(StatusCodes.Status201Created, StatusOf(result));
+        Assert.Single(_db.Notices);
+    }
+
+    /// <summary>
+    /// And dropping it loses nothing: the bytes still decide, whatever the header claimed.
+    /// </summary>
+    [Fact]
+    public async Task ANonPdfIsStillRefusedNoMatterWhatItDeclares()
+    {
+        var result = await Controller().Upload(
+            File(System.Text.Encoding.UTF8.GetBytes("PK this is a zip"), "notice.pdf", "application/pdf"),
+            sender: null,
+            sentAtUtc: null,
+            default);
 
         Assert.Equal(StatusCodes.Status415UnsupportedMediaType, StatusOf(result));
         Assert.Empty(_db.Notices);
@@ -246,19 +272,6 @@ public class NoticesControllerTests : IDisposable
             File(Pdf("well over eight bytes"), "notice.txt"), sender: null, sentAtUtc: null, default);
 
         Assert.Equal(StatusCodes.Status415UnsupportedMediaType, StatusOf(result));
-    }
-
-    /// <summary>And before the content type, which is also only a header.</summary>
-    [Fact]
-    public async Task TheExtensionIsCheckedBeforeTheContentType()
-    {
-        var result = await Controller().Upload(
-            File(Pdf(), "notice.txt", "application/pdf"), sender: null, sentAtUtc: null, default);
-
-        var problem = Assert.IsType<ObjectResult>(result).Value as Microsoft.AspNetCore.Mvc.ProblemDetails;
-
-        Assert.Equal(StatusCodes.Status415UnsupportedMediaType, StatusOf(result));
-        Assert.Contains("extension", problem!.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The extension is checked without reading a byte.</summary>
