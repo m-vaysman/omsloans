@@ -1,0 +1,327 @@
+{
+  "seed": 20260909,
+  "promptVersion": "extraction.v1",
+  "generatedNotices": 40,
+  "notices": [
+    {
+      "pdf": "001-interest-payment-t1.pdf",
+      "expected": "001-interest-payment-t1.expected.json",
+      "scenario": "interest-payment",
+      "template": 1,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "002-rate-reset-t2.pdf",
+      "expected": "002-rate-reset-t2.expected.json",
+      "scenario": "rate-reset",
+      "template": 2,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "003-rate-reset-no-all-in-t3.pdf",
+      "expected": "003-rate-reset-no-all-in-t3.expected.json",
+      "scenario": "rate-reset-no-all-in",
+      "template": 3,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "004-principal-payment-t4.pdf",
+      "expected": "004-principal-payment-t4.expected.json",
+      "scenario": "principal-payment",
+      "template": 4,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "005-combined-paydown-and-rate-reset-t5.pdf",
+      "expected": "005-combined-paydown-and-rate-reset-t5.expected.json",
+      "scenario": "combined-paydown-and-rate-reset",
+      "template": 5,
+      "events": 2,
+      "currency": "USD"
+    },
+    {
+      "pdf": "006-fee-t1.pdf",
+      "expected": "006-fee-t1.expected.json",
+      "scenario": "fee",
+      "template": 1,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "007-rollover-t2.pdf",
+      "expected": "007-rollover-t2.expected.json",
+      "scenario": "rollover",
+      "template": 2,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "008-revolver-draw-and-commitment-change-t3.pdf",
+      "expected": "008-revolver-draw-and-commitment-change-t3.expected.json",
+      "scenario": "revolver-draw-and-commitment-change",
+      "template": 3,
+      "events": 2,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "009-interest-payment-t4.pdf",
+      "expected": "009-interest-payment-t4.expected.json",
+      "scenario": "interest-payment",
+      "template": 4,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "010-rate-reset-t5.pdf",
+      "expected": "010-rate-reset-t5.expected.json",
+      "scenario": "rate-reset",
+      "template": 5,
+      "events": 1,
+      "currency": "GBP"
+    },
+    {
+      "pdf": "011-rate-reset-no-all-in-t1.pdf",
+      "expected": "011-rate-reset-no-all-in-t1.expected.json",
+      "scenario": "rate-reset-no-all-in",
+      "template": 1,
+      "events": 1,
+      "currency": "GBP"
+    },
+    {
+      "pdf": "012-principal-payment-t2.pdf",
+      "expected": "012-principal-payment-t2.expected.json",
+      "scenario": "principal-payment",
+      "template": 2,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "013-combined-paydown-and-rate-reset-t3.pdf",
+      "expected": "013-combined-paydown-and-rate-reset-t3.expected.json",
+      "scenario": "combined-paydown-and-rate-reset",
+      "template": 3,
+      "events": 2,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "014-fee-t4.pdf",
+      "expected": "014-fee-t4.expected.json",
+      "scenario": "fee",
+      "template": 4,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "015-rollover-t5.pdf",
+      "expected": "015-rollover-t5.expected.json",
+      "scenario": "rollover",
+      "template": 5,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "016-revolver-draw-and-commitment-change-t1.pdf",
+      "expected": "016-revolver-draw-and-commitment-change-t1.expected.json",
+      "scenario": "revolver-draw-and-commitment-change",
+      "template": 1,
+      "events": 2,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "017-interest-payment-t2.pdf",
+      "expected": "017-interest-payment-t2.expected.json",
+      "scenario": "interest-payment",
+      "template": 2,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "018-rate-reset-t3.pdf",
+      "expected": "018-rate-reset-t3.expected.json",
+      "scenario": "rate-reset",
+      "template": 3,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "019-rate-reset-no-all-in-t4.pdf",
+      "expected": "019-rate-reset-no-all-in-t4.expected.json",
+      "scenario": "rate-reset-no-all-in",
+      "template": 4,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "020-principal-payment-t5.pdf",
+      "expected": "020-principal-payment-t5.expected.json",
+      "scenario": "principal-payment",
+      "template": 5,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "021-combined-paydown-and-rate-reset-t1.pdf",
+      "expected": "021-combined-paydown-and-rate-reset-t1.expected.json",
+      "scenario": "combined-paydown-and-rate-reset",
+      "template": 1,
+      "events": 2,
+      "currency": "USD"
+    },
+    {
+      "pdf": "022-fee-t2.pdf",
+      "expected": "022-fee-t2.expected.json",
+      "scenario": "fee",
+      "template": 2,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "023-rollover-t3.pdf",
+      "expected": "023-rollover-t3.expected.json",
+      "scenario": "rollover",
+      "template": 3,
+      "events": 1,
+      "currency": "GBP"
+    },
+    {
+      "pdf": "024-revolver-draw-and-commitment-change-t4.pdf",
+      "expected": "024-revolver-draw-and-commitment-change-t4.expected.json",
+      "scenario": "revolver-draw-and-commitment-change",
+      "template": 4,
+      "events": 2,
+      "currency": "USD"
+    },
+    {
+      "pdf": "025-interest-payment-t5.pdf",
+      "expected": "025-interest-payment-t5.expected.json",
+      "scenario": "interest-payment",
+      "template": 5,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "026-rate-reset-t1.pdf",
+      "expected": "026-rate-reset-t1.expected.json",
+      "scenario": "rate-reset",
+      "template": 1,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "027-rate-reset-no-all-in-t2.pdf",
+      "expected": "027-rate-reset-no-all-in-t2.expected.json",
+      "scenario": "rate-reset-no-all-in",
+      "template": 2,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "028-principal-payment-t3.pdf",
+      "expected": "028-principal-payment-t3.expected.json",
+      "scenario": "principal-payment",
+      "template": 3,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "029-combined-paydown-and-rate-reset-t4.pdf",
+      "expected": "029-combined-paydown-and-rate-reset-t4.expected.json",
+      "scenario": "combined-paydown-and-rate-reset",
+      "template": 4,
+      "events": 2,
+      "currency": "USD"
+    },
+    {
+      "pdf": "030-fee-t5.pdf",
+      "expected": "030-fee-t5.expected.json",
+      "scenario": "fee",
+      "template": 5,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "031-rollover-t1.pdf",
+      "expected": "031-rollover-t1.expected.json",
+      "scenario": "rollover",
+      "template": 1,
+      "events": 1,
+      "currency": "GBP"
+    },
+    {
+      "pdf": "032-revolver-draw-and-commitment-change-t2.pdf",
+      "expected": "032-revolver-draw-and-commitment-change-t2.expected.json",
+      "scenario": "revolver-draw-and-commitment-change",
+      "template": 2,
+      "events": 2,
+      "currency": "USD"
+    },
+    {
+      "pdf": "033-interest-payment-t3.pdf",
+      "expected": "033-interest-payment-t3.expected.json",
+      "scenario": "interest-payment",
+      "template": 3,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "034-rate-reset-t4.pdf",
+      "expected": "034-rate-reset-t4.expected.json",
+      "scenario": "rate-reset",
+      "template": 4,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "035-rate-reset-no-all-in-t5.pdf",
+      "expected": "035-rate-reset-no-all-in-t5.expected.json",
+      "scenario": "rate-reset-no-all-in",
+      "template": 5,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "036-principal-payment-t1.pdf",
+      "expected": "036-principal-payment-t1.expected.json",
+      "scenario": "principal-payment",
+      "template": 1,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "037-combined-paydown-and-rate-reset-t2.pdf",
+      "expected": "037-combined-paydown-and-rate-reset-t2.expected.json",
+      "scenario": "combined-paydown-and-rate-reset",
+      "template": 2,
+      "events": 2,
+      "currency": "USD"
+    },
+    {
+      "pdf": "038-fee-t3.pdf",
+      "expected": "038-fee-t3.expected.json",
+      "scenario": "fee",
+      "template": 3,
+      "events": 1,
+      "currency": "EUR"
+    },
+    {
+      "pdf": "039-rollover-t4.pdf",
+      "expected": "039-rollover-t4.expected.json",
+      "scenario": "rollover",
+      "template": 4,
+      "events": 1,
+      "currency": "USD"
+    },
+    {
+      "pdf": "040-revolver-draw-and-commitment-change-t5.pdf",
+      "expected": "040-revolver-draw-and-commitment-change-t5.expected.json",
+      "scenario": "revolver-draw-and-commitment-change",
+      "template": 5,
+      "events": 2,
+      "currency": "USD"
+    }
+  ]
+}
