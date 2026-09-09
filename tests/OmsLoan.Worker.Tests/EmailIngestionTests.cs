@@ -276,4 +276,39 @@ public class EmailIngestionTests
         Assert.True(ingestion.Heartbeat.IsUp);
         Assert.Empty(_store.Added);
     }
+
+    // --- composition guards --------------------------------------------------------------
+
+    [Fact]
+    public void ADependencyThatIsNullIsRejectedAtConstruction()
+    {
+        var options = Options.Create(new MailboxOptions { Mailbox = "notices@example.test" });
+
+        Assert.Throws<ArgumentNullException>(() =>
+            new EmailIngestion(null!, _store, options, NullLogger<EmailIngestion>.Instance));
+
+        Assert.Throws<ArgumentNullException>(() =>
+            new EmailIngestion(_mailbox, null!, options, NullLogger<EmailIngestion>.Instance));
+
+        Assert.Throws<ArgumentNullException>(() =>
+            new EmailIngestion(_mailbox, _store, null!, NullLogger<EmailIngestion>.Instance));
+    }
+
+    /// <summary>
+    /// No mailbox means every poll would ask Graph for the messages of an empty address and
+    /// fail in a way that reads like a connectivity problem. Failing at construction makes it
+    /// a composition error instead, thrown once, where the mistake actually is.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void AnEmptyMailboxAddressIsRejectedAtConstruction(string mailbox)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new EmailIngestion(
+                _mailbox,
+                _store,
+                Options.Create(new MailboxOptions { Mailbox = mailbox }),
+                NullLogger<EmailIngestion>.Instance));
+    }
 }

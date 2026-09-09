@@ -425,7 +425,10 @@ unreachable mailbox stall folder ingestion, which has nothing to do with it.
 | `Graph:Mailbox` | `GRAPH_USER` | — | **required**; the shared mailbox address |
 | `Graph:PollIntervalSeconds` | | 60 | |
 | `Graph:MessagesPerPoll` | | 25 | unread is the queue, so the rest waits |
-| `Graph:Enabled` | | true | turns mailbox ingestion off without removing credentials |
+
+There is no switch to run the Worker without mailbox ingestion. The four Graph settings are
+required, so a host that cannot poll a mailbox is one the Worker refuses to start on — a flag
+to disable it would only contradict that.
 
 **Watch the scope on `GRAPH_USER`.** It is commonly set at *user* scope on a development
 machine, and a Windows Service never sees a user-scope variable — use `setx /M` on any host

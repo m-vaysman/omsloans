@@ -14,41 +14,65 @@ namespace OmsLoan.Worker;
 /// event arrived. A scan re-examines everything still present, so a missed notice is
 /// self-correcting: anything not yet recorded is still sitting there next time.
 /// </remarks>
-public class Worker(
-    FolderIngestion folderIngestion,
-    EmailIngestion emailIngestion,
-    IOptions<IngestionOptions> options,
-    IOptions<MailboxOptions> mailboxOptions,
-    ILogger<Worker> logger) : BackgroundService
+public class Worker : BackgroundService
 {
+    private readonly FolderIngestion _folderIngestion;
+    private readonly EmailIngestion _emailIngestion;
+    private readonly IngestionOptions _options;
+    private readonly MailboxOptions _mailboxOptions;
+    private readonly ILogger<Worker> _logger;
+
+    /// <summary>
+    /// Guards rather than a primary constructor. Both ingestion paths are required — the
+    /// Worker has nothing to do without either — so a null here is a composition mistake, and
+    /// it is worth failing at the point the service is built rather than on the first poll,
+    /// where it would surface as a NullReferenceException inside a caught-and-logged pass and
+    /// look like an ingestion fault.
+    /// </summary>
+    public Worker(
+        FolderIngestion folderIngestion,
+        EmailIngestion emailIngestion,
+        IOptions<IngestionOptions> options,
+        IOptions<MailboxOptions> mailboxOptions,
+        ILogger<Worker> logger)
+    {
+        ArgumentNullException.ThrowIfNull(folderIngestion);
+        ArgumentNullException.ThrowIfNull(emailIngestion);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(mailboxOptions);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _folderIngestion = folderIngestion;
+        _emailIngestion = emailIngestion;
+        _options = options.Value;
+        _mailboxOptions = mailboxOptions.Value;
+        _logger = logger;
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var mailbox = mailboxOptions.Value;
-
-        logger.LogInformation(
-            "OmsLoan ingestion worker started. Watching {Folder} every {Interval}. "
-            + "Mailbox {Mailbox} {MailboxState}.",
-            options.Value.WatchedFolder,
-            options.Value.PollInterval,
-            mailbox.Mailbox,
-            mailbox.Enabled ? $"every {mailbox.PollInterval}" : "disabled");
+        _logger.LogInformation(
+            "OmsLoan ingestion worker started. Watching {Folder} every {FolderInterval}. "
+            + "Polling {Mailbox} every {MailboxInterval}.",
+            _options.WatchedFolder,
+            _options.PollInterval,
+            _mailboxOptions.Mailbox,
+            _mailboxOptions.PollInterval);
 
         // Two loops rather than one. The folder is local and cheap to scan; the mailbox is a
         // network round trip that can hang or be throttled. Sharing a timer would let a slow
         // or unreachable mailbox stall folder ingestion, which has nothing to do with it.
         var folder = PollAsync(
-            options.Value.PollInterval,
-            () => folderIngestion.RunOnceAsync(stoppingToken),
+            _options.PollInterval,
+            () => _folderIngestion.RunOnceAsync(stoppingToken),
             "folder",
             stoppingToken);
 
-        var email = mailbox.Enabled
-            ? PollAsync(
-                mailbox.PollInterval,
-                () => emailIngestion.RunOnceAsync(stoppingToken),
-                "mailbox",
-                stoppingToken)
-            : Task.CompletedTask;
+        var email = PollAsync(
+            _mailboxOptions.PollInterval,
+            () => _emailIngestion.RunOnceAsync(stoppingToken),
+            "mailbox",
+            stoppingToken);
 
         await Task.WhenAll(folder, email);
     }
@@ -93,7 +117,7 @@ public class Worker(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "The {What} ingestion pass failed. Retrying on the next poll.", what);
+            _logger.LogError(ex, "The {What} ingestion pass failed. Retrying on the next poll.", what);
         }
     }
 }

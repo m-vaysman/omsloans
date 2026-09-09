@@ -3,18 +3,25 @@ namespace OmsLoan.Worker.Ingestion.Email;
 /// <summary>
 /// Everything mailbox ingestion needs, read from the <c>Graph</c> configuration section.
 /// </summary>
+/// <remarks>
+/// <c>init</c> rather than <c>set</c>. Configuration binding still works — <c>init</c> is a
+/// compile-time restriction and the binder sets properties by reflection — but nothing can
+/// reassign a value after the options are built. These are read on every poll by a singleton;
+/// a mutable options object is one where a stray assignment changes the mailbox being polled
+/// for the lifetime of the process, and nothing would say so.
+/// </remarks>
 public sealed class MailboxOptions
 {
     public const string SectionName = "Graph";
 
     /// <summary>Directory the app registration lives in.</summary>
-    public string TenantId { get; set; } = string.Empty;
+    public string TenantId { get; init; } = string.Empty;
 
     /// <summary>Application id of the registration.</summary>
-    public string ClientId { get; set; } = string.Empty;
+    public string ClientId { get; init; } = string.Empty;
 
     /// <summary>Client secret. Never logged, never committed.</summary>
-    public string ClientSecret { get; set; } = string.Empty;
+    public string ClientSecret { get; init; } = string.Empty;
 
     /// <summary>
     /// The shared mailbox agent banks send to. An address, not a secret.
@@ -26,10 +33,10 @@ public sealed class MailboxOptions
     /// set it with <c>setx /M</c> on any host running the service. See
     /// docs/exchange-test-environment.md.
     /// </remarks>
-    public string Mailbox { get; set; } = string.Empty;
+    public string Mailbox { get; init; } = string.Empty;
 
     /// <summary>How often the mailbox is polled, in seconds.</summary>
-    public int PollIntervalSeconds { get; set; } = 60;
+    public int PollIntervalSeconds { get; init; } = 60;
 
     /// <summary>Messages fetched per poll.</summary>
     /// <remarks>
@@ -37,10 +44,7 @@ public sealed class MailboxOptions
     /// not be drained in one request that times out halfway; unread messages that do not fit
     /// are simply picked up on the next poll, because unread is the queue.
     /// </remarks>
-    public int MessagesPerPoll { get; set; } = 25;
-
-    /// <summary>Turns mailbox ingestion off without removing the credentials.</summary>
-    public bool Enabled { get; set; } = true;
+    public int MessagesPerPoll { get; init; } = 25;
 
     public TimeSpan PollInterval => TimeSpan.FromSeconds(PollIntervalSeconds);
 }

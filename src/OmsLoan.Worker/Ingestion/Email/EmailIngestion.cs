@@ -44,9 +44,25 @@ public sealed class EmailIngestion
         ILogger<EmailIngestion> logger,
         TimeProvider? timeProvider = null)
     {
+        ArgumentNullException.ThrowIfNull(mailbox);
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _options = options.Value;
+
+        // There is no point building this at all without a mailbox: every poll would ask
+        // Graph for the messages of an empty address and fail in a way that reads like a
+        // connectivity problem. Failing here instead makes it a composition error, thrown
+        // once, at the point the mistake actually is.
+        //
+        // Startup validation already refuses to run without Graph:Mailbox, so in the host
+        // this is unreachable. It is here for everything that is not the host — a test, a
+        // future tool, a second registration — where nothing has checked.
+        ArgumentException.ThrowIfNullOrWhiteSpace(_options.Mailbox, "options.Value.Mailbox");
+
         _mailbox = mailbox;
         _store = store;
-        _options = options.Value;
         _logger = logger;
         _time = timeProvider ?? TimeProvider.System;
 
