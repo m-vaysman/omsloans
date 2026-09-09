@@ -8,4 +8,14 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      Prompts and schemas ship inside the assembly, so the version recorded on a row can
+      always be loaded back - a reprocess run comparing against an old extraction needs the
+      prompt that produced it, not the one on disk today.
+    -->
+    <EmbeddedResource Include="Extractors\Prompts\*.md" />
+    <EmbeddedResource Include="Extractors\Prompts\*.json" />
+  </ItemGroup>
+
 </Project>

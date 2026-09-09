@@ -35,7 +35,7 @@ milestones. A closed issue is the unit of done — not a README adjective.
 | --- | --- | --- |
 | [Foundation](https://github.com/m-vaysman/omsloans/milestone/1) | Domain, migrations, tests, service host | Deal/Facility master data |
 | [Ingestion](https://github.com/m-vaysman/omsloans/milestone/2) | Watched folder → `Notice` row, fail-closed startup | `.pdf` extension rule, mailbox, manual upload |
-| [Extraction](https://github.com/m-vaysman/omsloans/milestone/3) | Schema + ADRs only | `INoticeExtractor`, classify, per-type prompts |
+| [Extraction](https://github.com/m-vaysman/omsloans/milestone/3) | `INoticeExtractor` seam, prompt + schema | A provider implementation, the writer that persists `Extraction` rows |
 | [Review UI](https://github.com/m-vaysman/omsloans/milestone/4) | API host can serve a SPA; UI not built | App shell, queue, side-by-side review |
 | [Ops](https://github.com/m-vaysman/omsloans/milestone/5) | Not started | Reprocess, accuracy report, logging/alerting |
 
@@ -54,7 +54,7 @@ real operational error. The pipeline is built around that risk.
  shared mailbox [NOT YET] ─┼─► Notice (PDF stored verbatim, SHA-256 dedup)
  manual upload  [NOT YET] ─┘        │
                                     ▼
-                        classify → extract (Claude / OpenAI / Groq)   [NOT YET]
+                        extract → events[] (Claude / OpenAI / Groq)   [PROMPT + SEAM, NO PROVIDER]
                                     │
                                     ▼
                         Extraction (raw model JSON, append-only)   [TABLES EXIST, NO WRITER]
@@ -97,6 +97,7 @@ than updating one, so a prompt change can be compared against the same notice.
 | [`tools`](tools) | Development scripts, including the notice generator |
 | [`docs/windows-service.md`](docs/windows-service.md) | Worker service — account, ACLs, SQL login, configuration |
 | [`docs/api-windows-service.md`](docs/api-windows-service.md) | Api service — Kestrel URLs and port binding, serving the React build |
+| [`docs/extraction-fields.md`](docs/extraction-fields.md) | The extraction prompt, the field-name convention, and what is never extracted |
 
 The domain tests build the EF model through the SQL Server provider without opening a
 connection, so the suite runs on a clean clone with no database, no LocalDB and no container.
