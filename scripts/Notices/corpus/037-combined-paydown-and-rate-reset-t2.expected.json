@@ -1,0 +1,76 @@
+{
+  "identifiers": {
+    "borrower_name": "Kestrel Marine Terminals LLC",
+    "facility_name": "Incremental Term Loan A",
+    "facility_id": "LN322435",
+    "tranche_name": "Term B-2",
+    "cusip": "S4ZAGGGU1",
+    "lin": null,
+    "currency": "USD"
+  },
+  "notice_date": "2026-09-22",
+  "events": [
+    {
+      "type": "principal_payment",
+      "dates": {
+        "effective_date": "2026-10-09",
+        "period_start": null,
+        "period_end": null,
+        "payment_due_date": "2026-10-09",
+        "rate_set_date": null
+      },
+      "economics": {
+        "base_rate_index": null,
+        "base_rate": null,
+        "margin": null,
+        "all_in_rate": null,
+        "day_count_convention": null,
+        "days_in_period": null,
+        "outstanding_principal_before": 51000000,
+        "principal_amount": 3652733.22,
+        "outstanding_principal_after": 47347266.78,
+        "accrued_interest": null,
+        "fee_amount": null,
+        "fee_type": null,
+        "drawdown_amount": null,
+        "commitment_reduction_amount": null,
+        "unfunded_commitment": null,
+        "lender_share_amount": null,
+        "global_amount": null
+      },
+      "warnings": []
+    },
+    {
+      "type": "rate_reset",
+      "dates": {
+        "effective_date": "2026-10-09",
+        "period_start": "2026-10-09",
+        "period_end": "2026-12-16",
+        "payment_due_date": null,
+        "rate_set_date": "2026-09-22"
+      },
+      "economics": {
+        "base_rate_index": "Term SOFR",
+        "base_rate": 0.049164,
+        "margin": 0.011855,
+        "all_in_rate": 0.061019,
+        "day_count_convention": "Actual/360",
+        "days_in_period": null,
+        "outstanding_principal_before": null,
+        "principal_amount": null,
+        "outstanding_principal_after": null,
+        "accrued_interest": null,
+        "fee_amount": null,
+        "fee_type": null,
+        "drawdown_amount": null,
+        "commitment_reduction_amount": null,
+        "unfunded_commitment": null,
+        "lender_share_amount": null,
+        "global_amount": null
+      },
+      "warnings": []
+    }
+  ],
+  "field_confidence": {},
+  "warnings": []
+}

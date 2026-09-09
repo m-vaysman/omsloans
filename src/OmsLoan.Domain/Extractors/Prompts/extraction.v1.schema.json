@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OmsLoan notice extraction v1",
+  "description": "One agent-bank notice, as one or more economic events. Deliberately contains no payment instructions: bank names, routing numbers, account numbers and SWIFT codes are not economic data and are not stored by this system.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["identifiers", "notice_date", "events", "field_confidence", "warnings"],
+  "properties": {
+    "identifiers": {
+      "description": "Document-level. Repeated on an event only where that event's tranche differs.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "borrower_name": { "type": ["string", "null"] },
+        "facility_name": { "type": ["string", "null"] },
+        "facility_id": { "type": ["string", "null"] },
+        "tranche_name": { "type": ["string", "null"] },
+        "cusip": { "type": ["string", "null"] },
+        "lin": { "type": ["string", "null"] },
+        "currency": { "type": ["string", "null"], "description": "ISO 4217 where stated." }
+      }
+    },
+    "notice_date": { "type": ["string", "null"], "format": "date" },
+    "events": {
+      "description": "One element per distinct economic event. An empty array means the document states none, which is itself a finding.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "dates", "economics", "warnings"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["unknown", "rate_reset", "interest_payment", "principal_payment", "fee", "rollover", "drawdown", "commitment_reduction"]
+          },
+          "identifiers": {
+            "description": "Present only where this event's tranche differs from the document-level identifiers.",
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "properties": {
+              "facility_id": { "type": ["string", "null"] },
+              "tranche_name": { "type": ["string", "null"] },
+              "cusip": { "type": ["string", "null"] },
+              "lin": { "type": ["string", "null"] },
+              "currency": { "type": ["string", "null"] }
+            }
+          },
+          "dates": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "effective_date": { "type": ["string", "null"], "format": "date" },
+              "period_start": { "type": ["string", "null"], "format": "date" },
+              "period_end": { "type": ["string", "null"], "format": "date" },
+              "payment_due_date": { "type": ["string", "null"], "format": "date" },
+              "rate_set_date": { "type": ["string", "null"], "format": "date" }
+            }
+          },
+          "economics": {
+            "description": "Rates as decimals (5.32% is 0.0532). Amounts plain, no symbols or separators. Null where the notice does not state it, including where it could be derived.",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "base_rate_index": { "type": ["string", "null"] },
+              "base_rate": { "type": ["number", "null"] },
+              "margin": { "type": ["number", "null"] },
+              "all_in_rate": { "type": ["number", "null"] },
+              "day_count_convention": { "type": ["string", "null"] },
+              "days_in_period": { "type": ["integer", "null"] },
+              "outstanding_principal_before": { "type": ["number", "null"] },
+              "principal_amount": { "type": ["number", "null"], "description": "The payment this notice effects, not the remaining balance." },
+              "outstanding_principal_after": { "type": ["number", "null"] },
+              "accrued_interest": { "type": ["number", "null"] },
+              "fee_amount": { "type": ["number", "null"] },
+              "fee_type": { "type": ["string", "null"] },
+              "drawdown_amount": { "type": ["number", "null"] },
+              "commitment_reduction_amount": { "type": ["number", "null"] },
+              "unfunded_commitment": { "type": ["number", "null"] },
+              "lender_share_amount": { "type": ["number", "null"] },
+              "global_amount": { "type": ["number", "null"] }
+            }
+          },
+          "warnings": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "field_confidence": {
+      "description": "Field path to confidence, 0 to 1. Keys match the stored field-name convention, e.g. events[0].economics.principal_amount.",
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  }
+}

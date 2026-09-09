@@ -1,11 +1,58 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    The extraction providers (#65).
+
+    One implementation of INoticeExtractor over Microsoft.Extensions.AI's IChatClient rather
+    than one per provider, because the providers implement that interface themselves:
+
+      Anthropic 12.46.0            depends on Microsoft.Extensions.AI.Abstractions
+      Microsoft.Extensions.AI.OpenAI   brings the official OpenAI package with it
+
+    That is what makes the abstraction free rather than lossy. A cross-provider wrapper
+    usually costs the provider-native features, and here that would have meant Claude's
+    native PDF input - which is the reason ADR 0001 chose Claude, because a rate reset table
+    flattened to text loses which tranche owns which rate. Anthropic implementing IChatClient
+    means the abstraction and the native path are the same path.
+
+    Groq needs no package of its own: it speaks the OpenAI API, so it is the same
+    Microsoft.Extensions.AI.OpenAI client pointed at a different base address.
+  -->
   <ItemGroup>
+    <PackageReference Include="Anthropic" Version="12.46.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      JsonFlatten does the walk in ExtractedFieldFlattener. Its path form is exactly the
+      convention this system stores field names in - events[0].economics.principal_amount -
+      so the format is the library's rather than ours to maintain.
+
+      Newtonsoft comes in under it and is referenced explicitly only to pin the patch line:
+      JsonFlatten asks for [13.0.1, ) and would otherwise resolve to the floor. It is an
+      implementation detail of that one class and does not belong anywhere else - the rest
+      of the codebase is System.Text.Json, and the flattener converts at its own boundary so
+      no caller has to know which library parsed the body.
+    -->
+    <PackageReference Include="JsonFlatten" Version="1.0.4" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Prompts and schemas ship inside the assembly, so the version recorded on a row can
+      always be loaded back - a reprocess run comparing against an old extraction needs the
+      prompt that produced it, not the one on disk today.
+    -->
+    <EmbeddedResource Include="Extractors\Prompts\*.md" />
+    <EmbeddedResource Include="Extractors\Prompts\*.json" />
   </ItemGroup>
 
 </Project>

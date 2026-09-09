@@ -34,3 +34,37 @@ address. The connection string is the exception: design-time tooling reads
 **Write to a scratch folder, not into the repo.** Mock PDFs and other generated output
 should land somewhere temporary or in a gitignored path, so a stray run does not show up in
 `git status`.
+
+## `NoticeCorpusGenerator.linq`
+
+Generates mock agent-bank notices as PDFs, each paired with a `.expected.json` holding the
+extraction that notice should produce. Both halves are built from the same spec, so the
+ground truth is right by construction rather than by somebody reading a PDF and typing out
+what they saw.
+
+Output goes to `scripts/Notices/corpus/`, which is gitignored. Knobs are at the top of
+`Main()`: `Seed`, `NoticeCount`, and the output path. Eight scenarios cycle across five
+layouts — interest payment, rate reset, rate reset with the all-in rate withheld, principal
+payment, a combined paydown and reset in one document, fee, rollover, and a revolver draw with
+its commitment reduction.
+
+Run it headless rather than opening LINQPad:
+
+```bash
+"/c/Program Files/LINQPad8/LPRun8.exe" tools/NoticeCorpusGenerator.linq
+```
+
+Two things to know before changing it:
+
+- **Every notice carries payment instructions on the page and none in the expected JSON.**
+  That is the test. A corpus with no bank details in it proves nothing about a rule whose
+  job is to refuse bank details that are present.
+- **A template may only render what the spec holds.** Both the page and the expected JSON
+  are projections of the same `NoticeSpec`, which is what stops them disagreeing. Hardcoding
+  a value into a template breaks the guarantee silently — the fixture would then claim an
+  answer the notice does not state.
+
+A frozen eight-notice subset is committed under
+[`tests/OmsLoan.Domain.Tests/Extractors/Fixtures/corpus`](../tests/OmsLoan.Domain.Tests/Extractors/Fixtures/corpus)
+as the regression baseline. Editing this generator changes what a given seed produces, so
+those bytes are deliberately not regenerated on every run — see the README there.

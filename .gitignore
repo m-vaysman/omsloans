@@ -495,3 +495,8 @@ connectionstrings.json
 !.env.example
 *.pfx
 *.snk
+
+# Generated notice corpus. The generator is committed and the corpus is not: it is
+# regenerated on demand and would otherwise add several megabytes of binaries to history
+# on every run. The frozen regression baseline lives under tests/ instead.
+scripts/Notices/corpus/
