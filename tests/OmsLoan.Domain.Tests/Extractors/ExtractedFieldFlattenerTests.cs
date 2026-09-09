@@ -119,6 +119,66 @@ public class ExtractedFieldFlattenerTests
 
     // --- typing ---------------------------------------------------------------------------
 
+    // --- the two parse settings, locked -----------------------------------------------------
+
+    /// <summary>
+    /// Locks <c>FloatParseHandling.Decimal</c>. Newtonsoft reads any number with a decimal
+    /// point as a <c>double</c> by default, and <c>NumericValue</c> is <c>decimal(18,6)</c>.
+    /// </summary>
+    /// <remarks>
+    /// The value below is the one that separates the two: it survives a decimal exactly and
+    /// comes back as 12345678901234.6 through a double. Every amount in our own corpus
+    /// round-trips fine under the default, which is precisely why this needs a test rather
+    /// than a comment — the setting could be removed as tidying and nothing else here would
+    /// notice.
+    ///
+    /// Without it the failure is two-sided: <c>RawValue</c> holds the rounded text, and
+    /// <c>NumericValue</c> is null outright, because a double matches no arm of the switch in
+    /// ToField. So the stored amount is wrong and the column a report sums is empty.
+    /// </remarks>
+    [Fact]
+    public void ANumberTooLargeForADoubleSurvivesExactly()
+    {
+        var field = Flatten("""{ "outstanding_principal_before": 12345678901234.56 }""")["outstanding_principal_before"];
+
+        Assert.Equal(12345678901234.56m, field.NumericValue);
+        Assert.Equal("12345678901234.56", field.RawValue);
+    }
+
+    /// <summary>
+    /// And the scale the model stated survives with it, so a rate given to five places is not
+    /// quietly recorded to four.
+    /// </summary>
+    [Fact]
+    public void AStatedScaleIsPreserved()
+    {
+        Assert.Equal("0.05320", Flatten("""{ "all_in_rate": 0.05320 }""")["all_in_rate"].RawValue);
+    }
+
+    /// <summary>
+    /// Locks <c>DateParseHandling.None</c>. Left on, Newtonsoft converts anything date-shaped
+    /// on the way in, under its own rules — which would take the decision below out of this
+    /// class's hands and hand it to a library and the ambient culture.
+    /// </summary>
+    /// <remarks>
+    /// An ISO date must arrive here as text so that <c>RawValue</c> is what the model said
+    /// rather than a round-tripped <c>DateTime</c>, and a non-ISO one must arrive as text so
+    /// it can be left unparsed rather than guessed at.
+    /// </remarks>
+    [Theory]
+    [InlineData("2026-09-30")]
+    [InlineData("2026-09-30T00:00:00Z")]
+    [InlineData("09/30/2026")]
+    public void ADateIsNotConvertedOnTheWayIn(string stated)
+    {
+        var field = Flatten($$"""{ "payment_due_date": "{{stated}}" }""")["payment_due_date"];
+
+        Assert.Equal(stated, field.RawValue);
+        Assert.Null(field.NumericValue);
+    }
+
+    // --- typing -----------------------------------------------------------------------------
+
     [Fact]
     public void ANumberIsKeptAsTextAndAsANumber()
     {

@@ -13,11 +13,24 @@ at seed `20260909`.
 | `005-combined-paydown-and-rate-reset-t5` | **Two events in one document.** Neither may carry the other's figures |
 | `006-fee-t1` | A fee with a type and an unfunded commitment |
 | `007-rollover-t2` | Rollover, the type that was missing from `NoticeType` |
-| `008-revolver-draw-and-commitment-change-t3` | Drawdown, commitment reduction, lender share — the fields nothing else exercises |
+| `008-revolver-draw-and-commitment-change-t3` | **Two events again, and a different pair.** A drawdown and a commitment reduction, with the fields nothing else exercises — `drawdown_amount`, `commitment_reduction_amount`, `lender_share_amount` |
 
 Every one of them prints a full set of payment instructions on the page — bank name, ABA,
 account number, SWIFT — and no expected file contains any of it. That is deliberate. A rule
 that refuses bank details is only tested by a document that has bank details in it.
+
+## The answer key is tested too
+
+`NoticeCorpusTests` asserts that each event's type agrees with the economics under it — a
+`drawdown` carries `drawdown_amount` and never `principal_amount`, a `principal_payment` the
+reverse. That exists because 008 was originally typed `principal_payment` while carrying a
+drawdown: money borrowed, filed as money repaid. There was no `drawdown` in the vocabulary to
+put it under, so the answer key asserted something untrue.
+
+It is worth the test rather than just the fix. A wrong answer key is the most expensive defect
+this folder can hold: once a scorer exists, a model that reads the notice correctly fails
+against our mistake, and the obvious response to a failing accuracy run is to change a prompt
+that was right.
 
 ## These bytes are the point
 

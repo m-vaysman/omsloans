@@ -41,6 +41,8 @@ public enum EventKind
 	PrincipalPayment,
 	Fee,
 	Rollover,
+	Drawdown,
+	CommitmentReduction,
 }
 
 /// <summary>
@@ -178,6 +180,8 @@ public static class Printed
 			case EventKind.PrincipalPayment: return "PRINCIPAL PAYMENT";
 			case EventKind.Fee: return "FEE";
 			case EventKind.Rollover: return "ROLLOVER";
+			case EventKind.Drawdown: return "DRAWDOWN";
+			case EventKind.CommitmentReduction: return "COMMITMENT REDUCTION";
 			default: return "NOTICE";
 		}
 	}
@@ -195,6 +199,8 @@ public static class Wire
 			case EventKind.PrincipalPayment: return "principal_payment";
 			case EventKind.Fee: return "fee";
 			case EventKind.Rollover: return "rollover";
+			case EventKind.Drawdown: return "drawdown";
+			case EventKind.CommitmentReduction: return "commitment_reduction";
 			default: return "unknown";
 		}
 	}
@@ -1131,15 +1137,24 @@ static NoticeSpec RevolverDrawAndCommitmentChange(Random rng)
 	var draw = Math.Round(commitment * (decimal)(rng.NextDouble() * 0.3 + 0.05), 2);
 	var reduction = rng.Next(1, 20) * 1_000_000m;
 
+	// Two events, not one. A draw and a commitment reduction are separate economic facts that
+	// happen to share a notice, and merging them here would have put the exact mistake that
+	// 005 exists to catch into the answer key of another fixture.
 	s.Events.Add(new NoticeEvent
 	{
-		Kind = EventKind.PrincipalPayment,
+		Kind = EventKind.Drawdown,
 		EffectiveDate = effective,
 		DrawdownAmount = draw,
-		CommitmentReductionAmount = reduction,
-		UnfundedCommitment = commitment - draw - reduction,
 		LenderShareAmount = Math.Round(draw * 0.125m, 2),
 		GlobalAmount = draw,
+	});
+
+	s.Events.Add(new NoticeEvent
+	{
+		Kind = EventKind.CommitmentReduction,
+		EffectiveDate = effective,
+		CommitmentReductionAmount = reduction,
+		UnfundedCommitment = commitment - draw - reduction,
 	});
 
 	return s;

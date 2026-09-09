@@ -45,7 +45,8 @@ what they saw.
 Output goes to `scripts/Notices/corpus/`, which is gitignored. Knobs are at the top of
 `Main()`: `Seed`, `NoticeCount`, and the output path. Eight scenarios cycle across five
 layouts — interest payment, rate reset, rate reset with the all-in rate withheld, principal
-payment, a combined paydown and reset in one document, fee, rollover, and a revolver draw.
+payment, a combined paydown and reset in one document, fee, rollover, and a revolver draw with
+its commitment reduction.
 
 Run it headless rather than opening LINQPad:
 

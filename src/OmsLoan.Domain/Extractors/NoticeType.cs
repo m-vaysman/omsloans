@@ -34,6 +34,20 @@ public enum NoticeType
     Fee,
 
     Rollover,
+
+    /// <summary>Money drawn under a facility.</summary>
+    /// <remarks>
+    /// Not a principal payment with the sign reversed. A paydown reduces the outstanding
+    /// balance and a drawdown increases it; typing one as the other puts a borrower on the
+    /// review screen repaying money they were in fact borrowing.
+    /// </remarks>
+    Drawdown,
+
+    /// <summary>
+    /// A commitment reduced, which happens with or without anything being drawn or repaid and
+    /// is therefore its own event rather than a detail of one.
+    /// </summary>
+    CommitmentReduction,
 }
 
 /// <summary>Conversions between <see cref="NoticeType"/> and the strings in the schema.</summary>
@@ -47,6 +61,8 @@ public static class NoticeTypes
         [NoticeType.PrincipalPayment] = "principal_payment",
         [NoticeType.Fee] = "fee",
         [NoticeType.Rollover] = "rollover",
+        [NoticeType.Drawdown] = "drawdown",
+        [NoticeType.CommitmentReduction] = "commitment_reduction",
     };
 
     private static readonly Dictionary<string, NoticeType> ByName =

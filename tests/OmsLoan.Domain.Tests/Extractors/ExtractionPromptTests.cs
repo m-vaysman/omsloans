@@ -62,6 +62,8 @@ public class ExtractionPromptTests
     [InlineData(NoticeType.PrincipalPayment, "principal_payment")]
     [InlineData(NoticeType.Fee, "fee")]
     [InlineData(NoticeType.Rollover, "rollover")]
+    [InlineData(NoticeType.Drawdown, "drawdown")]
+    [InlineData(NoticeType.CommitmentReduction, "commitment_reduction")]
     public void EveryTypeRoundTripsThroughItsWireName(NoticeType type, string wireName)
     {
         Assert.Equal(wireName, type.WireName());

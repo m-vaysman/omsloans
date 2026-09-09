@@ -31,7 +31,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["unknown", "rate_reset", "interest_payment", "principal_payment", "fee", "rollover"]
+            "enum": ["unknown", "rate_reset", "interest_payment", "principal_payment", "fee", "rollover", "drawdown", "commitment_reduction"]
           },
           "identifiers": {
             "description": "Present only where this event's tranche differs from the document-level identifiers.",

@@ -80,6 +80,10 @@ Return ONLY JSON matching the schema. No prose, no markdown fence.
 - A rate reset event carries rates and `rate_set_date` / `effective_date`. A paydown event
   carries `principal_amount` and `payment_due_date`. Do not copy the new rate onto the paydown
   event unless the notice applies that rate to that payment.
+- `principal_payment` is money repaid and `drawdown` is money borrowed. They are not the same
+  event with the sign reversed — use `drawdown_amount` on a `drawdown`, never
+  `principal_amount`. A commitment being reduced is a `commitment_reduction` event of its own,
+  even when the same notice also states a draw.
 - `field_confidence` maps a field path to your confidence in it, 0 to 1 — for example
   `"events[0].economics.principal_amount": 0.94`. Include an entry for every non-null field.
 - Do not extract payment instructions, bank names, routing numbers, account numbers or SWIFT

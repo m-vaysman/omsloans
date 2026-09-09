@@ -30,6 +30,13 @@ whole document to the wrong prompt.
 An event the model cannot type is emitted as `unknown` with the warning `untyped_event`.
 Surfacing it to a reviewer is strictly better than dropping it or guessing a type.
 
+The vocabulary is `NoticeTypes.AllowedNames`, and it has to cover every amount `economics`
+offers. It did not at first: `drawdown_amount` and `commitment_reduction_amount` existed as
+fields with no type that could carry them, which forced a revolver draw to be filed as a
+`principal_payment` — money borrowed recorded as money repaid. `drawdown` and
+`commitment_reduction` close that. A field the vocabulary cannot account for will be mistyped
+by something, eventually, and the mistyping is silent.
+
 ## The field-name convention
 
 `ExtractedField` is flat — one row per `FieldName` — and the response is nested. The bridge is
