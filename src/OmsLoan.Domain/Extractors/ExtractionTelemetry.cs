@@ -12,20 +12,18 @@ namespace OmsLoan.Domain.Extractors;
 /// </remarks>
 /// <param name="PromptTokens">Tokens billed for the request, when the provider reports them.</param>
 /// <param name="CompletionTokens">Tokens billed for the response, when the provider reports them.</param>
-/// <param name="Latency">Wall clock for the attempt, including retries.</param>
+/// <param name="Latency">Wall clock for the call, measured by the guard rather than the provider.</param>
 /// <param name="FinishReason">
 /// The provider's own word for why it stopped — <c>stop</c>, <c>length</c>, <c>content_filter</c>
 /// and so on. Kept verbatim rather than mapped to an enum: the vendors do not agree on the
 /// vocabulary, and a value nobody anticipated is worth more in the log than one flattened to
 /// "other".
 /// </param>
-/// <param name="Attempts">How many times the provider was called, including the one that worked.</param>
 public sealed record ExtractionTelemetry(
     int? PromptTokens = null,
     int? CompletionTokens = null,
     TimeSpan Latency = default,
-    string? FinishReason = null,
-    int Attempts = 1)
+    string? FinishReason = null)
 {
     /// <summary>Total billed tokens, when both halves are known.</summary>
     public int? TotalTokens =>

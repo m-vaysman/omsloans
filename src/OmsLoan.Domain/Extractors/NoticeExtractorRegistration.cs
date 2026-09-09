@@ -37,7 +37,15 @@ public sealed class NoticeExtractorSelector(
 {
     private readonly ExtractionOptions _options = options.Value;
 
-    public IReadOnlyList<string> Available => _options.ConfiguredProviders;
+    /// <remarks>
+    /// Asked of the container, not of configuration. A provider can be configured and never
+    /// registered — nobody called <c>AddNoticeExtractor</c> for it, because its implementation
+    /// has not been written yet. Reporting it as available would make a reprocess loop skip it
+    /// silently, or a caller resolve nothing and be told the provider is unknown when
+    /// configuration plainly names it.
+    /// </remarks>
+    public IReadOnlyList<string> Available =>
+        [.. _options.ConfiguredProviders.Where(name => TryGet(name) is not null)];
 
     public INoticeExtractor Get(string? providerName = null)
     {
@@ -61,13 +69,13 @@ public static class NoticeExtractorRegistration
 {
     /// <summary>
     /// Registers one provider under its name, wrapped in
-    /// <see cref="ResilientNoticeExtractor"/>.
+    /// <see cref="GuardedNoticeExtractor"/>.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Keyed, so a caller asks for a provider by the name it has in configuration. Every
-    /// registration is wrapped, so no implementation has to remember to handle a 429 and none
-    /// of them can get the policy subtly different from the others.
+    /// registration is wrapped, so no implementation has to remember to bound its own call or
+    /// to turn its own exceptions into a recorded failure.
     /// </para>
     /// <para>
     /// An unconfigured provider — no key, or no model id — is <em>not</em> registered at all.
@@ -95,7 +103,7 @@ public static class NoticeExtractorRegistration
 
         services.AddKeyedSingleton<INoticeExtractor>(
             providerName,
-            (serviceProvider, _) => new ResilientNoticeExtractor(
+            (serviceProvider, _) => new GuardedNoticeExtractor(
                 factory(serviceProvider, provider),
                 provider,
                 serviceProvider.GetService<TimeProvider>()));

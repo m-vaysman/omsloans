@@ -218,13 +218,18 @@ and the Api reads the same connection-string variable:
 | Watched folder | `Ingestion:WatchedFolder` | `Ingestion__WatchedFolder` |
 
 <details>
-<summary>The old <code>Extraction__Providers__Claude__ApiKey</code> spelling</summary>
+<summary>Double-underscore spellings, and one that has stopped working</summary>
 
-Still resolves, because the double-underscore mapping is built into the environment-variable
-provider and cannot be switched off. It is no longer written by the install script or
-documented anywhere else, and **it loses to the flat name** when both are set — deliberately,
-so a stale variable left on a host cannot shadow the real one. Treat it as deprecated and
-delete it where you find it.
+**`Extraction__Providers__Claude__ApiKey` still resolves.** The double-underscore mapping is
+built into the environment-variable provider and cannot be switched off. It is not written by
+the install script or documented elsewhere, and **it loses to the flat name** when both are
+set — deliberately, so a stale variable left on a host cannot shadow the real one.
+
+**`Extraction__Claude__ApiKey` no longer binds to anything.** That was the spelling before the
+provider settings moved under `Extraction:Providers`, and it now points at a key nothing reads.
+A host still carrying it will not error: the variable simply has no effect, and the Worker
+reports the key as absent unless the flat `CLAUDE_API_KEY` is also set. Delete it where you
+find it.
 
 </details>
 
@@ -370,9 +375,7 @@ at all: running the same notice through two providers has to be a loop over name
 | `Extraction:Providers:{name}:ApiKey` | — | from the flat machine variable |
 | `Extraction:Providers:{name}:ModelId` | — | **pinned**, never a floating alias |
 | `Extraction:Providers:{name}:MaxTokens` | 4096 | |
-| `Extraction:Providers:{name}:TimeoutSeconds` | 120 | |
-| `Extraction:Providers:{name}:MaxAttempts` | 3 | total, not retries after the first |
-| `Extraction:Providers:{name}:RetryBaseDelayMilliseconds` | 1000 | doubles each attempt, with jitter |
+| `Extraction:Providers:{name}:TimeoutSeconds` | 120 | the whole budget for one call |
 
 **A provider with no key or no model id is not registered at all.** Registering it would let
 something resolve an extractor certain to fail on its first call, and the failure would read
@@ -382,22 +385,28 @@ as a provider outage rather than a deployment nobody finished.
 behaviour, and nothing afterwards can separate them — which makes the accuracy report
 meaningless.
 
-### What the plumbing guarantees
+### One attempt. No retries.
 
-Every provider is wrapped, so none of them has to remember to handle a 429 and none can get
-the policy subtly different from the others:
+A provider is a black box. If it does not answer, that is the answer: the extraction is
+recorded as failed, naming the provider and the reason, and a reviewer decides what to do —
+run it again, use a different provider, or type the values in. That decision belongs to a
+person looking at the notice, not to a backoff schedule guessing on their behalf.
 
-- **A timeout**, so a hung provider cannot wedge the ingestion loop. The notice is still on
-  disk or in the mailbox; coming back to it costs nothing next to a Worker stuck on one
-  document.
-- **Retries only where they can work.** `408`, `429` and `5xx` are weather. Other `4xx` are
-  facts about the request — retrying a bad key three times turns a five-second failure into a
-  thirty-second one and delays the log entry that says what is wrong.
-- **Exponential backoff with full jitter.** Without jitter a batch of notices failing together
-  retries together and re-creates the burst that rate-limited them.
-- **A result, not an exception.** Every attempt produces something worth storing, and the
-  failures most of all — an unparseable response is exactly the case somebody needs to look at
-  later. Token counts, latency and finish reason are recorded even when the call failed.
+Nothing is lost while nobody retries. The notice sits in the queue with a visible failed
+extraction against it, which is a state somebody can act on. Retries would buy little against
+a schedule to reason about, a worst case several times the timeout, and a class of failure
+that gets quietly absorbed instead of reported.
+
+Every provider is still wrapped, for two things it should not have to remember:
+
+- **A deadline**, so a hung provider cannot wedge the ingestion loop. The notice is still on
+  disk or in the mailbox; giving up costs nothing.
+- **A result, not an exception.** Every call leaves a row — the failures most of all, since
+  those are what a reviewer needs to see. *Any* exception becomes a recorded failure, including
+  one a provider never meant to throw: a bug in a provider must not produce a notice with no
+  row against it. Token counts, latency and finish reason are recorded on failures too.
+
+Only genuine shutdown propagates.
 
 ## Mailbox ingestion
 

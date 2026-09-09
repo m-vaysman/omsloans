@@ -112,7 +112,7 @@ public class NoticeExtractorSelectorTests
     }
 
     [Fact]
-    public void AvailableListsOnlyTheConfiguredProviders()
+    public void AvailableListsOnlyProvidersThatAreBothConfiguredAndRegistered()
     {
         var options = Options();
         options.Providers["OpenAi"] = new ProviderOptions { ApiKey = string.Empty, ModelId = string.Empty };
@@ -121,23 +121,16 @@ public class NoticeExtractorSelectorTests
     }
 
     /// <summary>
-    /// Every registration is wrapped, so no provider has to remember to handle a 429 and none
-    /// of them can get the policy subtly different from the others.
+    /// Every registration is wrapped, so no provider has to remember to bound its own call or
+    /// to turn its own exceptions into a recorded failure.
     /// </summary>
     [Fact]
-    public async Task EveryRegisteredProviderIsWrappedInTheResiliencePolicy()
+    public async Task EveryRegisteredProviderIsWrappedInTheGuard()
     {
         var options = new ExtractionOptions { DefaultProvider = "Claude" };
-        options.Providers["Claude"] = new ProviderOptions
-        {
-            ApiKey = "k",
-            ModelId = "claude-1",
-            MaxAttempts = 2,
-            RetryBaseDelayMilliseconds = 1,
-        };
+        options.Providers["Claude"] = new ProviderOptions { ApiKey = "k", ModelId = "claude-1" };
 
-        var inner = new FakeNoticeExtractor("claude-1")
-            .Throws(ExtractionProviderException.FromStatusCode(429, "slow down"));
+        var inner = new FakeNoticeExtractor("claude-1").Throws(new InvalidOperationException("boom"));
 
         var services = new ServiceCollection();
         services.AddSingleton(Microsoft.Extensions.Options.Options.Create(options));
@@ -146,11 +139,36 @@ public class NoticeExtractorSelectorTests
 
         var selector = services.BuildServiceProvider().GetRequiredService<INoticeExtractorSelector>();
 
+        // The bare fake would have thrown straight out; the guard turns it into a row.
         var result = await selector.Get().ExtractAsync([1], NoticeType.Unknown, default);
 
-        // Retried, which only the decorator does — the fake would have thrown straight out.
-        Assert.Equal(2, inner.Calls);
-        Assert.True(result.IsSuccess);
+        Assert.Equal(ExtractionOutcome.ProviderFailed, result.Outcome);
+        Assert.Equal(1, inner.Calls);
+    }
+
+    /// <summary>
+    /// Available is asked of the container, not of configuration. A provider can be configured
+    /// and never registered — its implementation is not written yet — and reporting it as
+    /// available would make a reprocess loop skip it silently.
+    /// </summary>
+    [Fact]
+    public void AConfiguredProviderWithNoImplementationIsNotReportedAsAvailable()
+    {
+        var options = new ExtractionOptions { DefaultProvider = "Claude" };
+        options.Providers["Claude"] = new ProviderOptions { ApiKey = "k", ModelId = "claude-1" };
+        options.Providers["OpenAi"] = new ProviderOptions { ApiKey = "k", ModelId = "gpt-x" };
+
+        var services = new ServiceCollection();
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(options));
+        services.AddNoticeExtraction();
+
+        // Only Claude gets an implementation; OpenAi is configured and unwritten.
+        services.AddNoticeExtractor(options, "Claude", (_, _) => new FakeNoticeExtractor("claude-1"));
+
+        var selector = services.BuildServiceProvider().GetRequiredService<INoticeExtractorSelector>();
+
+        Assert.Equal(["Claude"], selector.Available);
+        Assert.Contains("OpenAi", options.ConfiguredProviders);
     }
 
     /// <summary>

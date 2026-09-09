@@ -30,24 +30,17 @@ public sealed class ProviderOptions
     public int MaxTokens { get; init; } = 4096;
 
     /// <summary>
-    /// How long one call may take before it is abandoned.
+    /// How long the call may take before it is abandoned.
     /// </summary>
     /// <remarks>
-    /// Bounded deliberately and not generously. A provider that hangs must not hold an
-    /// ingestion pass open behind it: the notice is still on disk or in the mailbox, and
-    /// coming back to it in a minute costs nothing next to a Worker stuck on one document.
+    /// The whole budget for one extraction, because there is only ever one attempt. A
+    /// provider that hangs must not hold an ingestion pass open behind it: the notice is
+    /// still on disk or in the mailbox, and a failed extraction a reviewer can see is a far
+    /// better state than a Worker stuck on one document.
     /// </remarks>
     public int TimeoutSeconds { get; init; } = 120;
 
-    /// <summary>Attempts in total, not retries after the first.</summary>
-    public int MaxAttempts { get; init; } = 3;
-
-    /// <summary>First backoff step. Doubles each attempt, with jitter.</summary>
-    public int RetryBaseDelayMilliseconds { get; init; } = 1000;
-
     public TimeSpan Timeout => TimeSpan.FromSeconds(TimeoutSeconds);
-
-    public TimeSpan RetryBaseDelay => TimeSpan.FromMilliseconds(RetryBaseDelayMilliseconds);
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(ModelId);
 }
