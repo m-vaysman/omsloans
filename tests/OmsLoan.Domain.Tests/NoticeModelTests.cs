@@ -50,15 +50,21 @@ public class NoticeModelTests
     }
 
     [Fact]
-    public void EmailMessageId_UniqueIndex_IsFilteredToNonNull()
+    public void EmailMessageId_IsFilteredToNonNull_AndNotUnique()
     {
         var index = DomainModel.Index<Notice>(nameof(Notice.EmailMessageId));
 
-        Assert.True(index.IsUnique);
+        // Not unique, and for two independent reasons. One message can carry several PDF
+        // attachments, and each is its own notice under the same message id. And mailbox
+        // ingestion records a notice before marking the message read — not atomically — so a
+        // crash between the two means the message is read and recorded again. A unique index
+        // would turn that retry into an insert that always throws and a message that can
+        // never leave the mailbox, which is the same trap Sha256 had.
+        Assert.False(index.IsUnique);
 
-        // Without the filter, SQL Server treats NULLs as equal for uniqueness and the
-        // second folder-ingested notice would collide with the first. The filter is what
-        // lets folder and upload ingestion leave the column null instead of inventing one.
+        // The filter keeps the many notices with no message id out of the index entirely,
+        // which is what lets folder and upload ingestion leave the column null rather than
+        // invent one.
         var filter = index.GetFilter();
         Assert.False(string.IsNullOrWhiteSpace(filter));
         Assert.Contains("EmailMessageId", filter!, StringComparison.Ordinal);

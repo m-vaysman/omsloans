@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OmsLoan.Domain;
 
@@ -11,9 +12,11 @@ using OmsLoan.Domain;
 namespace OmsLoan.Domain.Migrations
 {
     [DbContext(typeof(OmsLoanDbContext))]
-    partial class OmsLoanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260909151111_NoticeEmailMessageIdNotUnique")]
+    partial class NoticeEmailMessageIdNotUnique
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

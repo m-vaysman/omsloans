@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using OmsLoan.Worker.Ingestion;
+using OmsLoan.Worker.Ingestion.Email;
 
 namespace OmsLoan.Worker;
 
@@ -14,28 +15,64 @@ namespace OmsLoan.Worker;
 /// self-correcting: anything not yet recorded is still sitting there next time.
 /// </remarks>
 public class Worker(
-    FolderIngestion ingestion,
+    FolderIngestion folderIngestion,
+    EmailIngestion emailIngestion,
     IOptions<IngestionOptions> options,
+    IOptions<MailboxOptions> mailboxOptions,
     ILogger<Worker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var interval = options.Value.PollInterval;
+        var mailbox = mailboxOptions.Value;
 
         logger.LogInformation(
-            "OmsLoan ingestion worker started. Watching {Folder} every {Interval}.",
+            "OmsLoan ingestion worker started. Watching {Folder} every {Interval}. "
+            + "Mailbox {Mailbox} {MailboxState}.",
             options.Value.WatchedFolder,
-            interval);
+            options.Value.PollInterval,
+            mailbox.Mailbox,
+            mailbox.Enabled ? $"every {mailbox.PollInterval}" : "disabled");
 
-        // Once before the first tick, so a restart picks up a backlog immediately rather than
-        // after an interval of looking idle.
-        await RunSafelyAsync(stoppingToken);
+        // Two loops rather than one. The folder is local and cheap to scan; the mailbox is a
+        // network round trip that can hang or be throttled. Sharing a timer would let a slow
+        // or unreachable mailbox stall folder ingestion, which has nothing to do with it.
+        var folder = PollAsync(
+            options.Value.PollInterval,
+            () => folderIngestion.RunOnceAsync(stoppingToken),
+            "folder",
+            stoppingToken);
+
+        var email = mailbox.Enabled
+            ? PollAsync(
+                mailbox.PollInterval,
+                () => emailIngestion.RunOnceAsync(stoppingToken),
+                "mailbox",
+                stoppingToken)
+            : Task.CompletedTask;
+
+        await Task.WhenAll(folder, email);
+    }
+
+    /// <summary>
+    /// Runs one ingestion pass immediately, then on an interval until shutdown.
+    /// </summary>
+    /// <remarks>
+    /// Immediately first, so a restart picks up a backlog rather than looking idle for an
+    /// interval — which after a deployment is exactly when somebody is watching.
+    /// </remarks>
+    private async Task PollAsync(
+        TimeSpan interval,
+        Func<Task> pass,
+        string what,
+        CancellationToken stoppingToken)
+    {
+        await RunSafelyAsync(pass, what, stoppingToken);
 
         using var timer = new PeriodicTimer(interval);
 
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
         {
-            await RunSafelyAsync(stoppingToken);
+            await RunSafelyAsync(pass, what, stoppingToken);
         }
     }
 
@@ -44,11 +81,11 @@ public class Worker(
     /// in the folder and the next tick will try again; stopping would turn a transient fault
     /// into an outage that needs somebody to notice.
     /// </summary>
-    private async Task RunSafelyAsync(CancellationToken stoppingToken)
+    private async Task RunSafelyAsync(Func<Task> pass, string what, CancellationToken stoppingToken)
     {
         try
         {
-            await ingestion.RunOnceAsync(stoppingToken);
+            await pass();
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -56,7 +93,7 @@ public class Worker(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Ingestion pass failed. Retrying on the next poll.");
+            logger.LogError(ex, "The {What} ingestion pass failed. Retrying on the next poll.", what);
         }
     }
 }

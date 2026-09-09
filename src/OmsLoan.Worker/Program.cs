@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Domain;
 using OmsLoan.Worker;
 using OmsLoan.Worker.Ingestion;
+using OmsLoan.Worker.Ingestion.Email;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -52,8 +53,13 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 builder.Services.Configure<IngestionOptions>(
     builder.Configuration.GetSection(IngestionOptions.SectionName));
 
+builder.Services.Configure<MailboxOptions>(
+    builder.Configuration.GetSection(MailboxOptions.SectionName));
+
 builder.Services.AddSingleton<INoticeStore, EfNoticeStore>();
 builder.Services.AddSingleton<FolderIngestion>();
+builder.Services.AddSingleton<IMailboxClient, GraphMailboxClient>();
+builder.Services.AddSingleton<EmailIngestion>();
 
 builder.Services.AddHostedService<Worker>();
 

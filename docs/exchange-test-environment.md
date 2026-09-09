@@ -27,7 +27,12 @@ Credentials are NEVER committed. They come from environment variables / user sec
 > **Note:** `GRAPH_USER` and `GRAPH_TEST_MAILBOX` are the same value — the test mailbox.
 > `GraphDaemonSmokeTest.linq` reads it as `GRAPH_USER`.
 
-The Worker reads the same three variables. They map onto `Graph:TenantId`, `Graph:ClientId`
+`GRAPH_USER` is now read by the Worker as the mailbox to poll — see
+[windows-service.md](windows-service.md#mailbox-ingestion). **Set it at machine scope**
+(`setx /M`) on any host running the service: a Windows Service never sees a user-scope
+variable, and the Worker refuses to start without this one.
+
+The Worker reads the same three credential variables. They map onto `Graph:TenantId`, `Graph:ClientId`
 and `Graph:ClientSecret` in configuration, and the startup banner reports whether each was
 found — see [windows-service.md](windows-service.md#key-names). Configuration and presence
 reporting only at this point; the Worker does not call Graph yet.
