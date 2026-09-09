@@ -37,8 +37,13 @@ public class NoticeConfiguration : IEntityTypeConfiguration<Notice>
         builder.Property(n => n.ReceivedAtUtc)
             .IsRequired();
 
-        builder.HasIndex(n => n.Sha256)
-            .IsUnique();
+        // Not unique. Ingestion records every arrival and only then moves the file, so the
+        // same document can legitimately produce more than one row: a crash or a failed move
+        // between the commit and the move leaves the file to be picked up again next poll.
+        // That is the intended trade — a duplicate row is recoverable, a lost notice is not —
+        // and a unique index here would turn it into a file that can never be moved and is
+        // retried forever. Deciding two arrivals are the same document is review's job.
+        builder.HasIndex(n => n.Sha256);
 
         // Filtered, so the many notices with no message id do not collide with each other.
         builder.HasIndex(n => n.EmailMessageId)

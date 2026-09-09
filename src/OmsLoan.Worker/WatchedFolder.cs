@@ -28,11 +28,17 @@ namespace OmsLoan.Worker;
 public static class WatchedFolder
 {
     /// <summary>
-    /// Where ingestion files each notice once it has been handled. Created alongside the
-    /// root: the root is usually made by whoever set up the drop location, while these are
-    /// an implementation detail nobody outside the project would know to create.
+    /// Where ingestion files each notice once it has been handled. Created under the archive
+    /// root: that root is usually the watched folder itself, made by whoever set up the drop
+    /// location, while these two are an implementation detail nobody outside the project
+    /// would know to create.
     /// </summary>
-    public static readonly IReadOnlyList<string> Subfolders = ["processed", "duplicates", "failed"];
+    /// <remarks>
+    /// No <c>duplicates</c>. Ingestion does not branch on whether it has seen a document
+    /// before — every arrival is recorded, and identifying two of them as the same document
+    /// is review's job — so nothing would ever be put in it.
+    /// </remarks>
+    public static readonly IReadOnlyList<string> Subfolders = ["processed", "failed"];
 
     /// <summary>
     /// Creates whatever is missing and checks read and write on each folder.
@@ -44,7 +50,12 @@ public static class WatchedFolder
     /// these failures cascade: if the root cannot be created, nothing below it can either,
     /// and three more messages saying so would bury the one that matters.
     /// </remarks>
-    public static string? Prepare(string? root)
+    /// <param name="root">The watched folder.</param>
+    /// <param name="archiveRoot">
+    /// Where the subfolders live. Blank means under <paramref name="root"/>, which is the
+    /// usual arrangement.
+    /// </param>
+    public static string? Prepare(string? root, string? archiveRoot = null)
     {
         if (string.IsNullOrWhiteSpace(root))
         {
@@ -72,9 +83,30 @@ public static class WatchedFolder
             return problem;
         }
 
+        var fullArchive = fullRoot;
+
+        if (!string.IsNullOrWhiteSpace(archiveRoot))
+        {
+            try
+            {
+                fullArchive = Path.GetFullPath(archiveRoot);
+            }
+            catch (Exception ex)
+            {
+                return $"'{archiveRoot}' is not a usable archive path: {ex.Message}";
+            }
+
+            problem = PrepareOne(fullArchive);
+
+            if (problem is not null)
+            {
+                return problem;
+            }
+        }
+
         foreach (var name in Subfolders)
         {
-            problem = PrepareOne(Path.Combine(fullRoot, name));
+            problem = PrepareOne(Path.Combine(fullArchive, name));
 
             if (problem is not null)
             {

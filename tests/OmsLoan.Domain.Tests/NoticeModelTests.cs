@@ -37,13 +37,16 @@ public class NoticeModelTests
     }
 
     [Fact]
-    public void Sha256_IsUniquelyIndexed_SoTheSameDocumentCannotBeIngestedTwice()
+    public void Sha256_IsIndexed_ButNotUniquely_SoTheSameDocumentCanArriveTwice()
     {
         var index = DomainModel.Index<Notice>(nameof(Notice.Sha256));
 
-        // Dedup is on content, so a notice arriving by email and again from the watched
-        // folder is caught even though filename and message id differ.
-        Assert.True(index.IsUnique);
+        // Not unique, deliberately. Ingestion records a notice and only then moves the file,
+        // so a crash or a failed move between the two leaves the file to be picked up and
+        // recorded again. A duplicate row is recoverable; a file that can never be moved
+        // because its insert always throws is not. Identifying two arrivals as the same
+        // document is review's work, and this index is what makes that grouping cheap.
+        Assert.False(index.IsUnique);
     }
 
     [Fact]
