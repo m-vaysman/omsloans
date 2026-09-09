@@ -125,6 +125,16 @@ public class ChatClientExtractorRegistrationTests
         Assert.IsType<PdfPigTextExtractor>(provider.GetRequiredService<IPdfTextExtractor>());
     }
 
+    // An "unexpected failure becomes a row" test belongs here in principle, and there is
+    // deliberately not one, because the only way to reach the guard through a real
+    // registration is to let a real client actually try — which means an outbound call to a
+    // vendor with a bogus key on every test run. That is a slow, flaky, network-dependent
+    // unit test that spends somebody's rate limit to prove something already proved twice:
+    // EveryProviderIsWrappedInTheGuard above asserts every registration is wrapped, and
+    // GuardedNoticeExtractorTests in Domain asserts the wrapper converts everything —
+    // including NullReferenceException — into a recorded outcome. The two together are the
+    // guarantee; a third test that dials out adds cost and no coverage.
+
     [Fact]
     public void NothingIsRegisteredWhenNothingIsConfigured()
     {

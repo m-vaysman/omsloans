@@ -17,4 +17,13 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    ExtractionRequest.Build is internal because it is an assembly detail rather than API, and
+    it is the single most valuable thing to test: every check in it is a way a call could go
+    out looking valid and come back useless having been paid for.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="OmsLoan.Infrastructure.Tests" />
+  </ItemGroup>
+
 </Project>

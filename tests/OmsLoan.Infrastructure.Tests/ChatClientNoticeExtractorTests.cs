@@ -149,15 +149,21 @@ public class ChatClientNoticeExtractorTests
     /// rather than sending an empty document and getting back a confident extraction of a
     /// notice nobody read.
     /// </summary>
+    /// <remarks>
+    /// A recorded failure rather than a thrown exception: it is a misconfiguration, and the
+    /// row saying so is what a reviewer sees. Preflight catches it before anything is built or
+    /// sent, so it costs nothing.
+    /// </remarks>
     [Fact]
     public async Task AProviderNeedingTextWithNoExtractorFailsClearly()
     {
         var client = new FakeChatClient().Returns(ValidResponse);
 
-        var ex = await Assert.ThrowsAsync<ExtractionProviderException>(
-            () => Build(client, Options(native: false), text: null).ExtractAsync(Pdf, NoticeType.Unknown, default));
+        var result = await Build(client, Options(native: false), text: null)
+            .ExtractAsync(Pdf, NoticeType.Unknown, default);
 
-        Assert.Contains("no text extractor", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ExtractionOutcome.ProviderFailed, result.Outcome);
+        Assert.Contains("no text extractor", result.Error, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, client.Calls);
     }
 
@@ -256,6 +262,72 @@ public class ChatClientNoticeExtractorTests
         Assert.Equal(0, client.Calls);
     }
 
+    // --- what is recorded about how the notice was sent -------------------------------------
+
+    /// <summary>
+    /// The path is stamped on the extraction, not merely configured on the provider.
+    /// </summary>
+    /// <remarks>
+    /// Configuration says what a provider does now; the accuracy report asks what a particular
+    /// run did, possibly months later and after the setting changed. Comparing a native read
+    /// against a flattened one without knowing which was which blames the model for a
+    /// preprocessing loss that belongs to the text extractor.
+    /// </remarks>
+    [Fact]
+    public async Task ANativeReadIsRecordedAsOne()
+    {
+        var client = new FakeChatClient().Returns(ValidResponse);
+
+        var result = await Build(client).ExtractAsync(Pdf, NoticeType.Unknown, default);
+
+        Assert.Equal(DocumentMode.Native, result.Telemetry.DocumentMode);
+    }
+
+    [Fact]
+    public async Task ATextReadIsRecordedAsOne()
+    {
+        var client = new FakeChatClient().Returns(ValidResponse);
+        var text = new StubTextExtractor("NOTICE ...");
+
+        var result = await Build(client, Options(native: false), text)
+            .ExtractAsync(Pdf, NoticeType.Unknown, default);
+
+        Assert.Equal(DocumentMode.ExtractedText, result.Telemetry.DocumentMode);
+    }
+
+    /// <summary>
+    /// And on failures too, because a failed run is still a run whose provenance the accuracy
+    /// report has to be able to read.
+    /// </summary>
+    [Fact]
+    public async Task ThePathIsRecordedOnFailuresAsWell()
+    {
+        var client = new FakeChatClient().Returns("{ truncated");
+        var text = new StubTextExtractor("NOTICE ...");
+
+        var result = await Build(client, Options(native: false), text)
+            .ExtractAsync(Pdf, NoticeType.Unknown, default);
+
+        Assert.Equal(ExtractionOutcome.ParseFailed, result.Outcome);
+        Assert.Equal(DocumentMode.ExtractedText, result.Telemetry.DocumentMode);
+    }
+
+    /// <summary>
+    /// A provider reporting an impossible token count has its count dropped rather than
+    /// saturated. Null reads as "not reported", which is true; int.MaxValue would read as a
+    /// measurement and quietly wreck any cost total it was summed into.
+    /// </summary>
+    [Fact]
+    public async Task AnImpossibleTokenCountIsDroppedRatherThanSaturated()
+    {
+        var client = new FakeChatClient().Returns(ValidResponse, ChatFinishReason.Stop, input: long.MaxValue, output: 5);
+
+        var result = await Build(client).ExtractAsync(Pdf, NoticeType.Unknown, default);
+
+        Assert.Null(result.Telemetry.PromptTokens);
+        Assert.Equal(5, result.Telemetry.CompletionTokens);
+    }
+
     /// <summary>
     /// The extractor asks once. Retries and the deadline belong to GuardedNoticeExtractor,
     /// which wraps every registration — one place, so no provider can quietly add a second
@@ -269,6 +341,32 @@ public class ChatClientNoticeExtractorTests
         await Build(client).ExtractAsync(Pdf, NoticeType.Unknown, default);
 
         Assert.Equal(1, client.Calls);
+    }
+
+    /// <summary>
+    /// A scan — pages of images with no text layer — never becomes a successful extraction of
+    /// no fields. The text extractor refuses it, and that refusal has to survive as a failure
+    /// rather than being smoothed into an empty success.
+    /// </summary>
+    [Fact]
+    public async Task APdfTheTextPathCannotReadNeverBecomesAnEmptySuccess()
+    {
+        var client = new FakeChatClient().Returns(ValidResponse);
+        var refusing = new ThrowingTextExtractor();
+
+        var extractor = Build(client, Options(native: false), refusing);
+
+        var ex = await Assert.ThrowsAsync<ExtractionProviderException>(
+            () => extractor.ExtractAsync(Pdf, NoticeType.Unknown, default));
+
+        Assert.Contains("no text layer", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, client.Calls);
+    }
+
+    private sealed class ThrowingTextExtractor : IPdfTextExtractor
+    {
+        public string Extract(byte[] pdfBytes) =>
+            throw new ExtractionProviderException("The PDF has no text layer, so it is a scan.");
     }
 
     private sealed class StubTextExtractor(string text) : IPdfTextExtractor

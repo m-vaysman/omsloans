@@ -97,6 +97,19 @@ if (extractionProviders.Count > 0)
         "Extraction providers registered: {Providers}. Default: {Default}.",
         string.Join(", ", extractionProviders),
         extraction.DefaultProvider);
+
+    // A default naming a provider that did not register is the quiet version of having none.
+    // The banner above would read as healthy, every provider listed would be real, and the
+    // first notice of the day would throw resolving a name nothing answers to.
+    if (!extractionProviders.Contains(extraction.DefaultProvider, StringComparer.OrdinalIgnoreCase))
+    {
+        startupLogger.LogWarning(
+            "The default extraction provider is {Default}, which is not registered. Registered: "
+            + "{Providers}. Any extraction that does not name a provider explicitly will fail. "
+            + "Either fix Extraction:DefaultProvider or supply that provider's key and model id.",
+            extraction.DefaultProvider,
+            string.Join(", ", extractionProviders));
+    }
 }
 else
 {
