@@ -1,25 +1,45 @@
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?logo=linkedin)](https://www.linkedin.com/in/michael-v-5961689/)
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Open issues](https://img.shields.io/github/issues/m-vaysman/omsloans)](https://github.com/m-vaysman/omsloans/issues)
+[![Last commit](https://img.shields.io/github/last-commit/m-vaysman/omsloans)](https://github.com/m-vaysman/omsloans/commits)
 
 # OMS.Loans — Syndicated Loan Order Management & Notice Extraction
 
 Trading and operations tooling for **syndicated loans**, in two parts:
 
 - **A notice extraction pipeline** — agent banks send PDF notices containing rate resets,
-  interest and principal payments and fees. This ingests them, extracts the economic data
-  using LLM APIs, preserves full provenance, and puts every extraction through human review
-  before approval.
-- **A WPF desktop trading and operations application** — blotter, trade entry, allocation,
-  accruals and paydowns, and a cash matching screen that reconciles expected loan cash flows
-  against incoming wires.
+  interest and principal payments and fees. The aim is to ingest them, extract the economic
+  data using LLM APIs, preserve full provenance, and put every extraction through human review
+  before approval. Ingestion and the storage model are in; extraction and review are not.
+- **A WPF desktop trading and operations application** — blotter, trade entry, accruals and
+  paydowns, and a cash matching screen intended to reconcile expected loan cash flows against
+  incoming wires.
 
-Both sit over the same domain: SQL Server via Entity Framework Core, .NET 8 throughout.
+Both are .NET 8 over SQL Server with Entity Framework Core. They share a product area, not one
+database — the desktop application and the pipeline have separate models today.
 
-> **Status:** active development. The desktop application is working software; the extraction
-> pipeline has its foundation in place (domain model, migrations, unit tests, Windows Service
-> host) with ingestion, extraction and the review UI still being built. Progress is tracked in
-> [issues](https://github.com/m-vaysman/omsloans/issues) against five milestones.
+## Status
+
+**As of 2026-09-09.** Two tracks. They share a product area, not one database yet.
+
+| Track | State | What that means |
+| --- | --- | --- |
+| WPF desktop OMS | Working local app | Blotter, trade entry, accruals. Cash-matching UI exists; matching logic is still thin. Needs a DevExpress licence to build. |
+| Notice pipeline | Foundation + folder ingestion | Domain, EF migrations, unit tests, Windows Service host, watched-folder ingest. No extractor yet. React app is still the Vite scaffold. |
+
+Progress lives in [issues](https://github.com/m-vaysman/omsloans/issues) against five
+milestones. A closed issue is the unit of done — not a README adjective.
+
+| Milestone | Now | Next ticket |
+| --- | --- | --- |
+| [Foundation](https://github.com/m-vaysman/omsloans/milestone/1) | Domain, migrations, tests, service host | Deal/Facility master data |
+| [Ingestion](https://github.com/m-vaysman/omsloans/milestone/2) | Watched folder → `Notice` row, fail-closed startup | `.pdf` extension rule, mailbox, manual upload |
+| [Extraction](https://github.com/m-vaysman/omsloans/milestone/3) | Schema + ADRs only | `INoticeExtractor`, classify, per-type prompts |
+| [Review UI](https://github.com/m-vaysman/omsloans/milestone/4) | API host can serve a SPA; UI not built | App shell, queue, side-by-side review |
+| [Ops](https://github.com/m-vaysman/omsloans/milestone/5) | Not started | Reprocess, accuracy report, logging/alerting |
+
+How work moves: issue → branch → review (mine, then adversarial) → `release` → `main`.
 
 ---
 
@@ -30,27 +50,27 @@ interest, the payment date — has to reach loan operations accurately, and a mi
 real operational error. The pipeline is built around that risk.
 
 ```
- watched folder ─┐
- shared mailbox ─┼─► Notice (PDF stored verbatim, SHA-256 dedup)
- manual upload ──┘        │
-                          ▼
-                   classify → extract (Claude / OpenAI / Groq)
-                          │
-                          ▼
-                   Extraction (raw model JSON, append-only)
-                          │
-                          ▼
-                   human review → approve / correct
+ watched folder [SHIPPED] ─┐
+ shared mailbox [NOT YET] ─┼─► Notice (PDF stored verbatim, SHA-256 dedup)
+ manual upload  [NOT YET] ─┘        │
+                                    ▼
+                        classify → extract (Claude / OpenAI / Groq)   [NOT YET]
+                                    │
+                                    ▼
+                        Extraction (raw model JSON, append-only)   [TABLES EXIST, NO WRITER]
+                                    │
+                                    ▼
+                        human review → approve / correct   [NOT YET]
 ```
 
 ### The decisions that shape it
 
 Recorded as ADRs in [`docs/decisions/`](docs/decisions):
 
-**[Cloud LLM APIs behind an interface](docs/decisions/0001-cloud-llm-over-local.md).** Claude,
-OpenAI and Groq sit behind a single `INoticeExtractor`, so the provider is a configuration
-value rather than a code path. Claude accepts PDFs natively, which matters because these
-documents are tabular — a rate reset table flattened to text loses the association between a
+**[Cloud LLM APIs behind an interface](docs/decisions/0001-cloud-llm-over-local.md).** The
+decision — not yet the code — is that Claude, OpenAI and Groq will sit behind a single
+`INoticeExtractor`, so the provider is a configuration value rather than a code path. Claude
+accepts PDFs natively, which matters because these documents are tabular — a rate reset table flattened to text loses the association between a
 tranche and its rate.
 
 **[A Windows Service, not a desktop app](docs/decisions/0002-windows-service-over-desktop.md).**
@@ -69,8 +89,8 @@ than updating one, so a prompt change can be compared against the same notice.
 | --- | --- |
 | [`src/OmsLoan.Domain`](src/OmsLoan.Domain) | Entities, EF Core configuration, migrations |
 | [`src/OmsLoan.Worker`](src/OmsLoan.Worker) | Windows Service host — ingestion and extraction |
-| [`src/OmsLoan.Api`](src/OmsLoan.Api) | Self-hosted Kestrel Windows Service — review API, and the React UI in production |
-| [`src/OmsLoan.Web`](src/OmsLoan.Web) | React review UI |
+| [`src/OmsLoan.Api`](src/OmsLoan.Api) | Self-hosted Kestrel Windows Service — can serve a SPA from its own `wwwroot`; the review API is not built |
+| [`src/OmsLoan.Web`](src/OmsLoan.Web) | Vite + React scaffold — the review UI itself is not built |
 | [`tests/OmsLoan.Domain.Tests`](tests/OmsLoan.Domain.Tests) | Domain unit tests — no database required |
 | [`scripts/prompts`](scripts/prompts) | Extraction prompts, vision and text variants |
 | [`scripts/Notices`](scripts/Notices) | Generated sample notices for testing extraction |
@@ -144,7 +164,7 @@ to be reconciled over time. Each split appears as its own line and is matched in
 | Services | Worker Service (Windows Service), ASP.NET Core |
 | Web | React, TypeScript, Vite |
 | Data | Entity Framework Core, SQL Server 2019 |
-| Extraction | Claude, OpenAI and Groq APIs behind `INoticeExtractor` |
+| Extraction | Planned — Claude, OpenAI and Groq APIs behind `INoticeExtractor` (not built) |
 | Testing | xUnit |
 
 ---
@@ -206,7 +226,7 @@ dotnet run --project OMS.Loans
 dotnet test tests/OmsLoan.Domain.Tests
 ```
 
-**Run the review API and UI** — two processes in development, one in production:
+**Run the API and web scaffold** — two processes in development, one in production:
 
 ```bash
 dotnet run --project src/OmsLoan.Api          # Kestrel on :5023, Swagger at /swagger
@@ -225,8 +245,9 @@ other — see [ADR 0002](docs/decisions/0002-windows-service-over-desktop.md).
 
 Both self-host — no IIS — and both are registered Automatic (Delayed Start) with restart-on-
 failure backoff, so a reboot or a crash brings each back without anyone logging on. The Api
-publishes the React build into its own `wwwroot` and serves it from the same process, so
-production is one port and one URL. Install, uninstall and lifecycle scripts for both are in
+publishes the web build into its own `wwwroot` and serves it from the same process, so
+production is one port and one URL — the mechanism works; what it serves is still the
+scaffold. Install, uninstall and lifecycle scripts for both are in
 [`scripts/`](scripts).
 
 ---

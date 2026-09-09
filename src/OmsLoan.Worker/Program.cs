@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Domain;
+using OmsLoan.Domain.Extractors;
 using OmsLoan.Worker;
 using OmsLoan.Worker.Ingestion;
 using OmsLoan.Worker.Ingestion.Email;
@@ -49,6 +50,15 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 {
     builder.Services.AddOmsLoanDbContext(connectionString);
 }
+
+// The extraction seam. Providers register themselves under their configuration name once
+// they exist (#8, #9, #10); this puts the selector and the resilience policy in place so they
+// have somewhere to land. A provider with no key or no model id is not registered at all, so
+// nothing can resolve an extractor that is certain to fail on its first call.
+builder.Services.Configure<ExtractionOptions>(
+    builder.Configuration.GetSection(ExtractionOptions.SectionName));
+
+builder.Services.AddNoticeExtraction();
 
 builder.Services.Configure<IngestionOptions>(
     builder.Configuration.GetSection(IngestionOptions.SectionName));
