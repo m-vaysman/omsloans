@@ -26,6 +26,7 @@ public class StartupValidationTests
         ("Graph:TenantId", "tenant"),
         ("Graph:ClientId", "client"),
         ("Graph:ClientSecret", "secret"),
+        ("Graph:Mailbox", "notices@example.test"),
     ];
 
     [Fact]
@@ -40,6 +41,7 @@ public class StartupValidationTests
     [InlineData("Graph:TenantId", "GRAPH_TENANT_ID")]
     [InlineData("Graph:ClientId", "GRAPH_CLIENT_ID")]
     [InlineData("Graph:ClientSecret", "GRAPH_CLIENT_SECRET")]
+    [InlineData("Graph:Mailbox", "GRAPH_USER")]
     public void AnySingleMissingRequiredSettingStopsStartup(string configurationKey, string variable)
     {
         var configuration = Configuration([.. Complete().Where(v => v.Item1 != configurationKey)]);
@@ -65,7 +67,7 @@ public class StartupValidationTests
             ("Graph:TenantId", "tenant"));
 
         Assert.Equal(
-            new[] { "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET" },
+            new[] { "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET", "GRAPH_USER" },
             StartupValidation.MissingRequiredSettings(configuration)
                 .Select(setting => setting.EnvironmentVariable));
     }
@@ -157,6 +159,7 @@ public class StartupValidationTests
                 "GRAPH_TENANT_ID",
                 "GRAPH_CLIENT_ID",
                 "GRAPH_CLIENT_SECRET",
+                "GRAPH_USER",
             },
             ConfigurationKeys.RequiredSettings.Select(setting => setting.EnvironmentVariable));
     }

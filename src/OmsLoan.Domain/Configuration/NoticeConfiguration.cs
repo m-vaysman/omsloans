@@ -46,8 +46,16 @@ public class NoticeConfiguration : IEntityTypeConfiguration<Notice>
         builder.HasIndex(n => n.Sha256);
 
         // Filtered, so the many notices with no message id do not collide with each other.
+        // Filtered, so the many notices with no message id do not all index together. Not
+        // unique, for the same reason Sha256 is not: mailbox ingestion records a notice and
+        // only then marks the message read, and those two are not atomic. A crash between
+        // them means the message is read again and recorded again — and a unique index would
+        // turn that retry into an insert that always throws, a message that can never be
+        // marked read, and a mailbox that reprocesses it for ever.
+        //
+        // One message can also carry several PDF attachments, and each is its own notice, so
+        // the same message id legitimately appears more than once.
         builder.HasIndex(n => n.EmailMessageId)
-            .IsUnique()
             .HasFilter("[EmailMessageId] IS NOT NULL");
     }
 }

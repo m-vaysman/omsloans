@@ -42,6 +42,7 @@ public class FlatEnvironmentSecretsTests
     [InlineData("Graph:TenantId", "GRAPH_TENANT_ID")]
     [InlineData("Graph:ClientId", "GRAPH_CLIENT_ID")]
     [InlineData("Graph:ClientSecret", "GRAPH_CLIENT_SECRET")]
+    [InlineData("Graph:Mailbox", "GRAPH_USER")]
     public void CanonicalSecretsKeepTheirAgreedVariableNames(string configurationKey, string variable)
     {
         var secret = Assert.Single(
@@ -54,9 +55,12 @@ public class FlatEnvironmentSecretsTests
     [Fact]
     public void AllSecretsCoversProvidersAndGraphAndNothingElse()
     {
-        Assert.Equal(6, ConfigurationKeys.AllSecrets.Count);
+        Assert.Equal(7, ConfigurationKeys.AllSecrets.Count);
         Assert.Equal(3, ConfigurationKeys.ProviderApiKeys.Count);
-        Assert.Equal(3, ConfigurationKeys.GraphSettings.Count);
+
+        // Four, not three: the credential plus the mailbox it is used against. An address
+        // rather than a secret, but ingestion has nowhere to look without it.
+        Assert.Equal(4, ConfigurationKeys.GraphSettings.Count);
 
         // Duplicate variable names would mean one secret silently overwriting another.
         Assert.Equal(
