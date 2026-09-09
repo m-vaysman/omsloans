@@ -41,9 +41,14 @@ public class Notice
     public NoticeStatus Status { get; set; }
 
     /// <summary>
-    /// The mailbox message id, when the notice arrived by email. Null otherwise, under a
-    /// filtered unique index, so folder and upload ingestion are not forced to invent one.
+    /// The mailbox message id, when the notice arrived by email. Null otherwise — under a
+    /// filtered index, so folder and upload ingestion are not forced to invent one.
     /// </summary>
+    /// <remarks>
+    /// Indexed but not unique. One message can carry several PDF attachments and each is its
+    /// own notice, and a message re-read after an interrupted run is recorded again rather
+    /// than rejected — see <see cref="Sha256"/> for the same reasoning applied to content.
+    /// </remarks>
     public string? EmailMessageId { get; set; }
 
     public ICollection<Extraction> Extractions { get; set; } = new List<Extraction>();

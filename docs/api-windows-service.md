@@ -316,6 +316,78 @@ relative paths in both, and there is no CORS configuration that exists only for 
 because `dist/` is gitignored. The banner reports `React UI: not deployed`, which is the
 expected state there.
 
+## Manual notice upload
+
+`POST /api/notices` accepts a PDF as `multipart/form-data` and records it as a notice. It is
+how a notice gets in when it did not arrive through the watched folder or the shared mailbox
+— a one-off, a re-send, or a channel nobody automated.
+
+| Field | | |
+| --- | --- | --- |
+| `file` | required | The PDF |
+| `sender` | optional | Who sent it, usually read off a forwarded email |
+| `sentAtUtc` | optional | When the agent bank sent it |
+
+Both optional fields mean *unknown* when absent, and unknown is stored as null. `sentAtUtc`
+is never inferred from the upload time: that is when it reached us, which is a different fact
+and is already recorded as `ReceivedAtUtc`.
+
+| Response | When |
+| --- | --- |
+| `201` | Recorded. Body carries the notice id, the SHA-256 and the received timestamp |
+| `400` | No file, an empty one, or an upload that could not be read in full |
+| `413` | Larger than `Upload:MaxBytes` |
+| `415` | Not a PDF — by filename or by bytes |
+| `503` | The database is unavailable. Nothing was stored; try again |
+
+**Validation happens in the controller, first, and in order of cost.** There is no point
+measuring, reading, hashing or storing a file that was never going to be accepted.
+
+1. **The filename ends in `.pdf`.** Free — no bytes read, no length consulted. A file that is
+   not named like a PDF is refused before anything else is looked at, and a missing extension
+   is a rejection too: absence is not a pass.
+2. **The size is within the limit** — a number already on the request, so an oversized upload
+   is never buffered.
+
+Only then are the bytes read and checked for the `%PDF` marker, which is the check that
+actually decides. A filename is supplied by whoever sent the file; the magic number is not,
+so a spreadsheet renamed `.pdf` is still refused.
+
+**The declared content type is not checked**, deliberately. It was, and it rejected genuine
+notices: `application/octet-stream` — what `fetch` sends for an untyped `Blob` — and the
+legacy `application/x-pdf` were both refused despite the filename and the bytes being right.
+It never caught anything the magic-byte check does not, so it was pure false-rejection risk.
+
+**Failures below the gate do not escape as 500s.** An upload that cannot be read in full is
+the request's fault and answers `400`. A database that is down, timing out or refusing the
+write is not the uploader's fault and is not permanent, so it answers `503` — "try again
+later" rather than "never" — and the exception is logged. Nothing partial is left behind:
+the notice is one row in one `SaveChanges`, so a failure there stored nothing and the
+uploader still has the file.
+
+**There is no duplicate check and no `409`.** Every upload is recorded, exactly as every file
+dropped in the watched folder is. Uploading the same document twice produces two notices;
+deciding they are the same is review's work. See the ingestion section in
+[`windows-service.md`](windows-service.md#ingestion) for why `Notices.Sha256` is not uniquely
+indexed.
+
+Hashing and notice construction come from `OmsLoan.Domain.NoticeContent`, the same code
+folder ingestion uses, so identical bytes produce an identical row whichever way they arrived.
+
+### Upload size
+
+```json
+{ "Upload": { "MaxBytes": 33554432 } }
+```
+
+Default 32 MB. Notices vary — a rate reset is a page, a credit agreement amendment can be a
+hundred — and the cost of a too-small limit is a reviewer unable to file a real notice, which
+is worse than storing a few megabytes nobody needed.
+
+The request body cap is derived from this value plus an allowance for the multipart envelope,
+so raising `Upload:MaxBytes` raises the server limit with it. Without that, an operator would
+raise the setting and find uploads still refused by a number they cannot see.
+
 ## Startup banner
 
 On every start the Api logs its environment, content root, **web root**, whether it is running

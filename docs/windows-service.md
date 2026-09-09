@@ -107,7 +107,7 @@ sets it on the service; if it is missing the host defaults to `Production`.
 
 ### Required, and what happens when they are not set
 
-The Worker **will not start** without these five:
+The Worker **will not start** without these six:
 
 | Setting | Variable |
 | --- | --- |
@@ -116,9 +116,11 @@ The Worker **will not start** without these five:
 | Graph tenant | `GRAPH_TENANT_ID` |
 | Graph app id | `GRAPH_CLIENT_ID` |
 | Graph secret | `GRAPH_CLIENT_SECRET` |
+| Shared mailbox | `GRAPH_USER` |
 
 Graph is all-or-nothing: a tenant with no client secret is a half-finished credential, not a
-partially working one, so a partial set is refused exactly as an empty one is. A blank value
+partially working one, so a partial set is refused exactly as an empty one is. The mailbox
+address counts too — a complete credential pointed at nothing has nowhere to look. A blank value
 counts as absent — the committed placeholders are empty strings.
 
 Without a database the Worker cannot record a notice; without the Graph credential it cannot
@@ -353,6 +355,121 @@ Polling rather than `FileSystemWatcher`: the watcher misses events when its buff
 during a bulk drop, does not fire reliably on network shares — which is where these folders
 usually live — and offers no way to retry a file that was locked when the event arrived. A
 scan re-examines whatever is still present, so a missed notice is self-correcting.
+
+## Mailbox ingestion
+
+The production channel: agent banks email notices to a shared mailbox and the Worker pulls
+the PDF attachments out of it via Microsoft Graph, app-only.
+
+### The same rule as the folder, with a folder move standing in for the file move
+
+**A message is never moved out of the inbox until its notices are committed.** Sitting in the
+inbox is what "not yet ingested" means, so the mailbox is the queue exactly as the watched
+folder is, and handling a message means moving it to `OmsLoan Ingested` — created on first
+use if it is not there.
+
+**Moved, never deleted.** The message is the original evidence and the only copy of the
+envelope the notice came from.
+
+**A move, not the read flag.** Read state is not ours to rely on: somebody opening the mailbox
+to look at a notice would dequeue it by accident, and the notice would never be ingested.
+Which folder a message is in is state only the Worker changes.
+
+If the database is unavailable, messages stay in the inbox and are picked up when it returns;
+nothing needs replaying by hand.
+
+As with the folder, the two steps are not atomic. A crash or a failed move after the commit
+means the message is seen again next poll — at-least-once, and the right way round. It is why
+`Notices.EmailMessageId` is indexed but **not unique**: with a unique index that retry would
+throw for ever and the message could never leave the inbox.
+
+A message whose attachments were only *partly* recorded is not moved either. Moving it would
+lose the rest with nothing left to say they existed.
+
+**A move that keeps failing does not flood the database.** A message recorded but not moved is
+remembered for the life of the process and afterwards only retried for the move, never
+recorded again. Without that, a permanent failure — the app registration holding `Mail.Read`
+rather than `Mail.ReadWrite` is how it happens — re-records the same notices on every poll.
+Not an outage: a silent flood, roughly fourteen hundred duplicates a day per stuck message at
+a one-minute interval. Found by running it against a real mailbox; no unit test would have.
+
+### What it does with a message
+
+- **One notice per PDF attachment.** A mail carrying three notices is three documents to
+  review, not one with the other two hidden inside it.
+- **Attachments are judged on their bytes**, not on `contentType` or the file name — the same
+  reason the upload endpoint stopped trusting a declared type. Inline images and signature
+  logos fail that check and are ignored.
+- **A message with no PDF attachment is moved out anyway**, so it is not re-examined on every
+  poll for ever. `hasAttachments` is true for signature images too.
+- **Sender and send time come from the envelope.** This is the only ingestion path where
+  `SentAtUtc` is genuinely known; the folder and upload paths leave it null rather than invent
+  it from an arrival time.
+
+### The heartbeat
+
+The requirement is to know *the moment* the mailbox becomes unreachable and *the moment* it
+comes back. That is a statement about transitions, so the log reports transitions:
+
+| Event | Level | |
+| --- | --- | --- |
+| First successful contact | Information | said once, so the log shows contact was made at all |
+| Contact lost | **Warning** | once, naming the error |
+| Still out | Warning | only every 15 minutes |
+| Contact restored | Information | naming how long it was out |
+
+Nothing is logged while it stays up, and nothing while it stays down except the 15-minute
+reminder. A mailbox unreachable overnight at a one-minute poll would otherwise produce around
+five hundred identical errors and bury the first one — which is the only entry anybody needs.
+The reminder exists so an outage that started on Friday is not represented in Monday's log by
+a single line three days back.
+
+The poll itself is the probe. There is no separate ping: a fetch that returns — even empty —
+proves the tenant, the credential and the mailbox all work, and a fetch that throws is the
+moment that stopped being true.
+
+Folder and mailbox ingestion run on **separate loops**. The folder is a local scan; the
+mailbox is a network round trip that can hang or be throttled. Sharing a timer would let an
+unreachable mailbox stall folder ingestion, which has nothing to do with it.
+
+### Settings
+
+| Key | Variable | Default | |
+| --- | --- | --- | --- |
+| `Graph:TenantId` | `GRAPH_TENANT_ID` | — | required |
+| `Graph:ClientId` | `GRAPH_CLIENT_ID` | — | required |
+| `Graph:ClientSecret` | `GRAPH_CLIENT_SECRET` | — | required |
+| `Graph:Mailbox` | `GRAPH_USER` | — | **required**; the shared mailbox address |
+| `Graph:PollIntervalSeconds` | | 60 | |
+| `Graph:MessagesPerPoll` | | 25 | the inbox is the queue, so the rest waits |
+| `Graph:ProcessedFolder` | | `OmsLoan Ingested` | created on first use |
+
+There is no switch to run the Worker without mailbox ingestion. The four Graph settings are
+required, so a host that cannot poll a mailbox is one the Worker refuses to start on — a flag
+to disable it would only contradict that.
+
+**Watch the scope on `GRAPH_USER`.** It is commonly set at *user* scope on a development
+machine, and a Windows Service never sees a user-scope variable — use `setx /M` on any host
+running the service, or the Worker will report it missing and refuse to start.
+
+Auth is client credentials, not delegated: the Worker runs unattended and a delegated token
+tied to somebody's account stops working the moment their password rotates.
+
+**The registration needs `Mail.ReadWrite`, not `Mail.Read`.** Reading the mailbox is only
+half the job — taking a message out of the queue means setting `isRead`, which is a write.
+With `Mail.Read` alone every poll ingests successfully and every mark-read is denied, so the
+same notices are recorded again and again. That was found by running it against a real
+mailbox; no unit test could have. The Worker now records such a message once and then only
+retries the flag, and logs at Error naming the permission, but the mailbox still does not
+drain until the grant is fixed.
+
+Scope it to this one mailbox with an application access policy — the grant is tenant-wide
+otherwise, and this application has no business writing to anybody else's mail. See
+[exchange-test-environment.md](exchange-test-environment.md).
+
+Graph throttling is handled by the SDK's own retry handler, which honours `Retry-After` on
+`429` and `503`. Nothing here second-guesses it: a hand-rolled backoff on top would multiply
+the wait and hide the header Graph actually sent.
 
 ## Startup banner
 

@@ -71,31 +71,28 @@ public static class ConfigurationKeys
     /// and presence reporting only at this point — no Graph call is made yet.
     /// </summary>
     /// <remarks>
-    /// These three are the credential. <c>GRAPH_USER</c> and <c>GRAPH_TEST_MAILBOX</c> also
-    /// exist on the test machines and hold the same value — the mailbox address — but that
-    /// is an address rather than a secret, and which mailbox to poll is an ingestion setting
-    /// this issue does not cover. See docs/exchange-test-environment.md.
+    /// The first three are the credential; the fourth is the mailbox to poll — an address
+    /// rather than a secret, but required all the same, because mailbox ingestion has nowhere
+    /// to look without it. <c>GRAPH_USER</c> is the name the machines and
+    /// <c>tools/GraphDaemonSmokeTest.linq</c> already use; <c>GRAPH_TEST_MAILBOX</c> holds the
+    /// same value on the test machines and is not read.
+    ///
+    /// Watch the scope on <c>GRAPH_USER</c>. It is commonly set at <em>user</em> scope on a
+    /// development machine, which a Windows Service never sees — set it with <c>setx /M</c> on
+    /// any host running the service. See docs/exchange-test-environment.md.
     /// </remarks>
     public static readonly IReadOnlyList<ConfiguredSetting> GraphSettings =
     [
         new("Graph:TenantId", "GRAPH_TENANT_ID", "Graph tenant"),
         new("Graph:ClientId", "GRAPH_CLIENT_ID", "Graph application"),
         new("Graph:ClientSecret", "GRAPH_CLIENT_SECRET", "Graph secret"),
+        new("Graph:Mailbox", "GRAPH_USER", "Shared mailbox"),
     ];
 
     /// <summary>Every flat-named secret, in banner order.</summary>
     public static readonly IReadOnlyList<ConfiguredSetting> AllSecrets =
         [.. ProviderApiKeys, .. GraphSettings];
 
-    /// <summary>
-    /// The database, described the same way as a secret so it can sit in
-    /// <see cref="RequiredSettings"/> alongside the Graph credentials.
-    /// </summary>
-    /// <remarks>
-    /// Deliberately not in <see cref="AllSecrets"/>: it keeps the .NET double-underscore
-    /// convention rather than a flat name, so the stock environment-variable provider
-    /// already resolves it and <see cref="FlatEnvironmentSecrets"/> has no work to do.
-    /// </remarks>
     /// <summary>
     /// Folder the Worker watches for notices, and creates on startup if it is missing.
     /// </summary>
@@ -114,6 +111,15 @@ public static class ConfigurationKeys
     /// </summary>
     public const string ArchiveFolderKey = "Ingestion:ArchiveFolder";
 
+    /// <summary>
+    /// The database, described the same way as a secret so it can sit in
+    /// <see cref="RequiredSettings"/> alongside the Graph credentials.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not in <see cref="AllSecrets"/>: it keeps the .NET double-underscore
+    /// convention rather than a flat name, so the stock environment-variable provider
+    /// already resolves it and <see cref="FlatEnvironmentSecrets"/> has no work to do.
+    /// </remarks>
     public static readonly ConfiguredSetting ConnectionString =
         new(ConnectionStringKey, "ConnectionStrings__OmsLoan", "Database");
 

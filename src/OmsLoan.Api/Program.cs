@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Api;
 using OmsLoan.Domain;
@@ -46,6 +47,29 @@ builder.Services.Configure<HostOptions>(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.Configure<UploadOptions>(
+    builder.Configuration.GetSection(UploadOptions.SectionName));
+
+// Cap the request body just above the upload limit, with room for the multipart envelope and
+// the optional form fields. Without this the server's own default decides, independently of
+// the configured limit, and an operator raising Upload:MaxBytes would find uploads still
+// refused by a number they cannot see. The controller still checks the file itself, so a
+// request inside this cap but over the limit gets a readable 413 rather than a connection
+// closed mid-upload.
+var maxUploadBytes = builder.Configuration
+    .GetSection(UploadOptions.SectionName)
+    .Get<UploadOptions>()?.MaxBytes ?? new UploadOptions().MaxBytes;
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = maxUploadBytes + (1 * 1024 * 1024);
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = maxUploadBytes + (1 * 1024 * 1024);
+});
 
 // Configuration sources come from WebApplication.CreateBuilder in this order, lowest
 // precedence first: appsettings.json, appsettings.{Environment}.json, user-secrets
