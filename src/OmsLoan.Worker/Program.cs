@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Domain;
 using OmsLoan.Worker;
+using OmsLoan.Worker.Ingestion;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -30,8 +32,16 @@ builder.Services.Configure<HostOptions>(options =>
 
 // Configuration sources come from Host.CreateApplicationBuilder in this order, lowest
 // precedence first: appsettings.json, appsettings.{Environment}.json, user-secrets
-// (Development only), environment variables, command line. Nothing is added here — the
-// startup banner reports which one actually supplied each setting.
+// (Development only), environment variables, command line. The startup banner reports which
+// one actually supplied each setting.
+//
+// Added last, so it wins: the flat secret variables the machines already carry —
+// CLAUDE_API_KEY, GRAPH_TENANT_ID and the rest — projected onto the hierarchical keys the
+// application binds against. Without this, a host with every secret correctly set looks
+// identical to one with none, because nothing maps a flat name onto Extraction:Claude:ApiKey.
+// See FlatEnvironmentSecrets.cs.
+builder.Configuration.AddOmsLoanFlatEnvironmentSecrets();
+
 var connectionString = builder.Configuration.GetConnectionString(ConfigurationKeys.ConnectionStringName);
 
 if (!string.IsNullOrWhiteSpace(connectionString))
@@ -39,13 +49,55 @@ if (!string.IsNullOrWhiteSpace(connectionString))
     builder.Services.AddOmsLoanDbContext(connectionString);
 }
 
+builder.Services.Configure<IngestionOptions>(
+    builder.Configuration.GetSection(IngestionOptions.SectionName));
+
+builder.Services.AddSingleton<INoticeStore, EfNoticeStore>();
+builder.Services.AddSingleton<FolderIngestion>();
+
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
 
-StartupSummary.Log(
-    host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("OmsLoan.Worker.Startup"),
-    builder.Environment,
-    builder.Configuration);
+var startupLogger = host.Services
+    .GetRequiredService<ILoggerFactory>()
+    .CreateLogger("OmsLoan.Worker.Startup");
+
+StartupSummary.Log(startupLogger, builder.Environment, builder.Configuration);
+
+// After the banner, so the log shows what was resolved before it shows what was missing, and
+// before Run(), so a Worker with no database or no Graph credential never reaches the SCM as
+// Running. See StartupValidation for why these two are fatal where a missing provider API
+// key is only a warning — and for why this reports and returns rather than throwing.
+var missing = StartupValidation.MissingRequiredSettings(builder.Configuration);
+
+if (missing.Count > 0)
+{
+    StartupValidation.LogRefusalToStart(startupLogger, missing);
+
+    // Dispose flushes the logging providers. The console provider batches its writes, and
+    // returning from Main would otherwise be quick enough to discard the message that
+    // explains the whole thing.
+    host.Dispose();
+
+    return StartupValidation.ExitCodeFor(WindowsServiceHelpers.IsWindowsService());
+}
+
+// The watched folder, once we know a path was configured. Created if missing, and read and
+// write are both proved — a folder that exists but cannot be written to is the common case,
+// and it would otherwise fail on the first notice rather than here. See WatchedFolder.
+var folderProblem = WatchedFolder.Prepare(
+    builder.Configuration[ConfigurationKeys.WatchedFolder.ConfigurationKey],
+    builder.Configuration[ConfigurationKeys.ArchiveFolderKey]);
+
+if (folderProblem is not null)
+{
+    StartupValidation.LogRefusalToStart(startupLogger, folderProblem);
+    host.Dispose();
+
+    return StartupValidation.ExitCodeFor(WindowsServiceHelpers.IsWindowsService());
+}
 
 host.Run();
+
+return 0;

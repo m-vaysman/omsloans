@@ -167,6 +167,27 @@ git clone https://github.com/m-vaysman/omsloans.git
 real one through an environment variable, .NET user secrets, or a gitignored local config
 file — see [SETUP.md](SETUP.md).
 
+**Configure the extraction secrets.** The Worker reads flat environment variables, so a
+machine that already has them set needs nothing further. Committed placeholders are always
+empty:
+
+| Purpose | Variable |
+| --- | --- |
+| Claude / OpenAI / Groq | `CLAUDE_API_KEY`, `OPEN_API_KEY`, `GROQ_API_KEY` |
+| Microsoft Graph | `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET` |
+
+`OPEN_API_KEY` is the correct spelling — not `OPENAI_API_KEY`. The Worker's startup banner
+reports which of these it found and from where, never their values.
+
+**The Worker will not start without the database connection string, the watched folder, or
+all three Graph variables** — without them it can neither collect a notice nor record one, and a service that
+starts anyway looks healthy while ingesting nothing. It reports which are missing and stops,
+without retrying: a missing variable is not fixed by restarting. The provider API keys stay
+optional. The watched folder and its `processed\` / `failed\` subfolders are
+created on startup if missing, and the service refuses to start unless it can read and write
+there — an existing folder is left untouched. Details in
+[`docs/windows-service.md`](docs/windows-service.md#required-and-what-happens-when-they-are-not-set).
+
 **Create the database**
 
 ```bash
