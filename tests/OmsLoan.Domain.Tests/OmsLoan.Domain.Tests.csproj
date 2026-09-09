@@ -32,4 +32,14 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!--
+    Fixtures are real response bodies, kept as files rather than string literals so a body
+    captured from a live provider can be dropped in unedited, and so a diff on one reads as
+    a change to the data rather than to the test.
+  -->
+  <ItemGroup>
+    <Content Include="Extractors\Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Extractors\Fixtures\**\*.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,46 @@
+{
+  "identifiers": {
+    "borrower_name": "Redwood Vale Nutrition Corp",
+    "facility_name": "Incremental Term Loan A",
+    "facility_id": "LN281191",
+    "tranche_name": "Term A",
+    "cusip": null,
+    "lin": null,
+    "currency": "EUR"
+  },
+  "notice_date": "2026-02-04",
+  "events": [
+    {
+      "type": "rate_reset",
+      "dates": {
+        "effective_date": "2026-02-08",
+        "period_start": "2026-02-08",
+        "period_end": "2026-05-06",
+        "payment_due_date": null,
+        "rate_set_date": "2026-02-04"
+      },
+      "economics": {
+        "base_rate_index": "EURIBOR",
+        "base_rate": 0.058866,
+        "margin": 0.028802,
+        "all_in_rate": 0.087668,
+        "day_count_convention": "Actual/360",
+        "days_in_period": null,
+        "outstanding_principal_before": null,
+        "principal_amount": null,
+        "outstanding_principal_after": null,
+        "accrued_interest": null,
+        "fee_amount": null,
+        "fee_type": null,
+        "drawdown_amount": null,
+        "commitment_reduction_amount": null,
+        "unfunded_commitment": null,
+        "lender_share_amount": null,
+        "global_amount": null
+      },
+      "warnings": []
+    }
+  ],
+  "field_confidence": {},
+  "warnings": []
+}
