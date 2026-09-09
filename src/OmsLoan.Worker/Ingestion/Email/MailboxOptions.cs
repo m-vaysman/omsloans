@@ -35,6 +35,21 @@ public sealed class MailboxOptions
     /// </remarks>
     public string Mailbox { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Mail folder ingested messages are moved into. Created if it does not exist.
+    /// </summary>
+    /// <remarks>
+    /// A move rather than a delete, and never a delete: the message is the original evidence
+    /// and the only copy of the envelope. It is also a move rather than only a read flag,
+    /// because the read flag is not ours to rely on — somebody opening the mailbox to look at
+    /// a notice would take it out of the queue by accident. Which folder a message is in is
+    /// state only this Worker changes.
+    ///
+    /// The same shape as the watched folder's <c>processed\</c>: the queue is what is still
+    /// in the inbox, and handling something means moving it out.
+    /// </remarks>
+    public string ProcessedFolder { get; init; } = "OmsLoan Ingested";
+
     /// <summary>How often the mailbox is polled, in seconds.</summary>
     public int PollIntervalSeconds { get; init; } = 60;
 

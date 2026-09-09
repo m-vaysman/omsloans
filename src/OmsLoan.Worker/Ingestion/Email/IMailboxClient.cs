@@ -16,21 +16,29 @@ namespace OmsLoan.Worker.Ingestion.Email;
 public interface IMailboxClient
 {
     /// <summary>
-    /// Unread messages that carry attachments, oldest first, with their PDF attachments read.
+    /// Inbox messages carrying attachments, oldest first, with their PDF attachments read.
     /// </summary>
     /// <remarks>
-    /// Oldest first because notices are processed in the order they arrived, and because a
+    /// The inbox is the queue. Not "unread" — a person opening the mailbox to look at a
+    /// notice would take it out of the queue by accident, and reading a message is not a
+    /// statement about whether it has been ingested.
+    ///
+    /// Oldest first because notices are handled in the order they arrived, and because a
     /// backlog should drain from the front rather than the newest arrivals jumping it.
     ///
     /// A message with no PDF attachment is still returned, carrying an empty list. The caller
-    /// needs to see it to mark it read, or it is re-examined on every poll for ever.
+    /// needs to see it to move it out, or it is re-examined on every poll for ever.
     /// </remarks>
-    Task<IReadOnlyList<MailboxMessage>> GetUnreadMessagesAsync(
+    Task<IReadOnlyList<MailboxMessage>> GetInboxMessagesAsync(
         int maxMessages,
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Marks a message read, which is what takes it out of the queue.
+    /// Moves a message to the processed folder, which is what takes it out of the queue.
     /// </summary>
-    Task MarkReadAsync(string messageId, CancellationToken cancellationToken);
+    /// <remarks>
+    /// Moved, never deleted. The message is the original evidence and the only copy of the
+    /// envelope the notice came from.
+    /// </remarks>
+    Task MoveToProcessedAsync(string messageId, CancellationToken cancellationToken);
 }

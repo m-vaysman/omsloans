@@ -361,20 +361,37 @@ scan re-examines whatever is still present, so a missed notice is self-correctin
 The production channel: agent banks email notices to a shared mailbox and the Worker pulls
 the PDF attachments out of it via Microsoft Graph, app-only.
 
-### The same rule as the folder, with the read flag standing in for the move
+### The same rule as the folder, with a folder move standing in for the file move
 
-**A message is never marked read until its notices are committed.** Unread is what "not yet
-ingested" means, so the mailbox is the queue exactly as the watched folder is. If the
-database is unavailable the messages stay unread and are picked up when it returns; nothing
-needs replaying by hand.
+**A message is never moved out of the inbox until its notices are committed.** Sitting in the
+inbox is what "not yet ingested" means, so the mailbox is the queue exactly as the watched
+folder is, and handling a message means moving it to `OmsLoan Ingested` — created on first
+use if it is not there.
 
-As there, the two steps are not atomic. A crash or a failed mark-read after the commit means
-the message is read again next poll and recorded again — at-least-once, and the right way
-round. It is why `Notices.EmailMessageId` is indexed but **not unique**: with a unique index
-that retry would throw for ever and the message could never leave the mailbox.
+**Moved, never deleted.** The message is the original evidence and the only copy of the
+envelope the notice came from.
 
-A message whose attachments were only *partly* recorded is not marked read either. Marking it
-would lose the rest with nothing left to say they existed.
+**A move, not the read flag.** Read state is not ours to rely on: somebody opening the mailbox
+to look at a notice would dequeue it by accident, and the notice would never be ingested.
+Which folder a message is in is state only the Worker changes.
+
+If the database is unavailable, messages stay in the inbox and are picked up when it returns;
+nothing needs replaying by hand.
+
+As with the folder, the two steps are not atomic. A crash or a failed move after the commit
+means the message is seen again next poll — at-least-once, and the right way round. It is why
+`Notices.EmailMessageId` is indexed but **not unique**: with a unique index that retry would
+throw for ever and the message could never leave the inbox.
+
+A message whose attachments were only *partly* recorded is not moved either. Moving it would
+lose the rest with nothing left to say they existed.
+
+**A move that keeps failing does not flood the database.** A message recorded but not moved is
+remembered for the life of the process and afterwards only retried for the move, never
+recorded again. Without that, a permanent failure — the app registration holding `Mail.Read`
+rather than `Mail.ReadWrite` is how it happens — re-records the same notices on every poll.
+Not an outage: a silent flood, roughly fourteen hundred duplicates a day per stuck message at
+a one-minute interval. Found by running it against a real mailbox; no unit test would have.
 
 ### What it does with a message
 
@@ -383,8 +400,8 @@ would lose the rest with nothing left to say they existed.
 - **Attachments are judged on their bytes**, not on `contentType` or the file name — the same
   reason the upload endpoint stopped trusting a declared type. Inline images and signature
   logos fail that check and are ignored.
-- **A message with no PDF attachment is marked read**, so it is not re-examined on every poll
-  for ever. `hasAttachments` is true for signature images too.
+- **A message with no PDF attachment is moved out anyway**, so it is not re-examined on every
+  poll for ever. `hasAttachments` is true for signature images too.
 - **Sender and send time come from the envelope.** This is the only ingestion path where
   `SentAtUtc` is genuinely known; the folder and upload paths leave it null rather than invent
   it from an arrival time.
@@ -424,7 +441,8 @@ unreachable mailbox stall folder ingestion, which has nothing to do with it.
 | `Graph:ClientSecret` | `GRAPH_CLIENT_SECRET` | — | required |
 | `Graph:Mailbox` | `GRAPH_USER` | — | **required**; the shared mailbox address |
 | `Graph:PollIntervalSeconds` | | 60 | |
-| `Graph:MessagesPerPoll` | | 25 | unread is the queue, so the rest waits |
+| `Graph:MessagesPerPoll` | | 25 | the inbox is the queue, so the rest waits |
+| `Graph:ProcessedFolder` | | `OmsLoan Ingested` | created on first use |
 
 There is no switch to run the Worker without mailbox ingestion. The four Graph settings are
 required, so a host that cannot poll a mailbox is one the Worker refuses to start on — a flag

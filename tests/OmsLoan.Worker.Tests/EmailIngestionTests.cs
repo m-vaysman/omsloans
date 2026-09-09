@@ -7,11 +7,11 @@ using OmsLoan.Worker.Ingestion.Email;
 namespace OmsLoan.Worker.Tests;
 
 /// <summary>
-/// Mailbox ingestion, and above all the ordering rule: a message is never marked read until
+/// Mailbox ingestion, and above all the ordering rule: a message is never moved until
 /// its notices are committed.
 /// </summary>
 /// <remarks>
-/// Both the mailbox and the store are fakes that fail on demand. "The message stays unread
+/// Both the mailbox and the store are fakes that fail on demand. "The message stays in the inbox
 /// when the database is down" and "the mailbox being unreachable loses nothing" are the two
 /// behaviours the design rests on, and neither is arrangeable against a real tenant.
 /// </remarks>
@@ -40,28 +40,28 @@ public class EmailIngestionTests
 
     private sealed class FakeMailbox : IMailboxClient
     {
-        public List<MailboxMessage> Unread { get; } = [];
+        public List<MailboxMessage> Inbox { get; } = [];
 
-        public List<string> MarkedRead { get; } = [];
+        public List<string> Moved { get; } = [];
 
         public Exception? FetchFailsWith { get; set; }
 
-        public Exception? MarkFailsWith { get; set; }
+        public Exception? MoveFailsWith { get; set; }
 
-        public Task<IReadOnlyList<MailboxMessage>> GetUnreadMessagesAsync(
+        public Task<IReadOnlyList<MailboxMessage>> GetInboxMessagesAsync(
             int maxMessages, CancellationToken cancellationToken) =>
             FetchFailsWith is not null
                 ? Task.FromException<IReadOnlyList<MailboxMessage>>(FetchFailsWith)
-                : Task.FromResult<IReadOnlyList<MailboxMessage>>([.. Unread.Take(maxMessages)]);
+                : Task.FromResult<IReadOnlyList<MailboxMessage>>([.. Inbox.Take(maxMessages)]);
 
-        public Task MarkReadAsync(string messageId, CancellationToken cancellationToken)
+        public Task MoveToProcessedAsync(string messageId, CancellationToken cancellationToken)
         {
-            if (MarkFailsWith is not null)
+            if (MoveFailsWith is not null)
             {
-                return Task.FromException(MarkFailsWith);
+                return Task.FromException(MoveFailsWith);
             }
 
-            MarkedRead.Add(messageId);
+            Moved.Add(messageId);
             return Task.CompletedTask;
         }
     }
@@ -86,16 +86,16 @@ public class EmailIngestionTests
             attachments.Length > 0 ? attachments : [Pdf("notice.pdf")]);
 
     [Fact]
-    public async Task AMessageIsRecordedThenMarkedRead()
+    public async Task AMessageIsRecordedThenMoved()
     {
-        _mailbox.Unread.Add(Message());
+        _mailbox.Inbox.Add(Message());
 
         await Ingestion().RunOnceAsync(default);
 
         var notice = Assert.Single(_store.Added);
         Assert.Equal(NoticeStatus.Received, notice.Status);
         Assert.Equal("AAMk-1", notice.EmailMessageId);
-        Assert.Equal(["AAMk-1"], _mailbox.MarkedRead);
+        Assert.Equal(["AAMk-1"], _mailbox.Moved);
     }
 
     /// <summary>
@@ -106,7 +106,7 @@ public class EmailIngestionTests
     public async Task SenderAndSentAtComeFromTheEnvelope()
     {
         var sentAt = new DateTime(2026, 2, 27, 16, 42, 0, DateTimeKind.Utc);
-        _mailbox.Unread.Add(Message(sender: "ops@agentbank.example", sentAt: sentAt));
+        _mailbox.Inbox.Add(Message(sender: "ops@agentbank.example", sentAt: sentAt));
 
         await Ingestion().RunOnceAsync(default);
 
@@ -123,7 +123,7 @@ public class EmailIngestionTests
     [Fact]
     public async Task EachPdfAttachmentBecomesItsOwnNotice()
     {
-        _mailbox.Unread.Add(Message(
+        _mailbox.Inbox.Add(Message(
             attachments: [Pdf("reset.pdf", "one"), Pdf("payment.pdf", "two"), Pdf("fee.pdf", "three")]));
 
         await Ingestion().RunOnceAsync(default);
@@ -131,40 +131,40 @@ public class EmailIngestionTests
         Assert.Equal(3, _store.Added.Count);
         Assert.All(_store.Added, n => Assert.Equal("AAMk-1", n.EmailMessageId));
         Assert.Equal(3, _store.Added.Select(n => n.Sha256).Distinct().Count());
-        Assert.Equal(["AAMk-1"], _mailbox.MarkedRead);
+        Assert.Equal(["AAMk-1"], _mailbox.Moved);
     }
 
     /// <summary>
-    /// The rule. Not recorded, so not marked read — the message stays in the queue and the
+    /// The rule. Not recorded, so not moved — the message stays in the queue and the
     /// next poll picks it up, which is what makes a database outage lossless.
     /// </summary>
     [Fact]
-    public async Task AMessageThatCannotBeRecordedIsNotMarkedRead()
+    public async Task AMessageThatCannotBeRecordedIsNotMoved()
     {
-        _mailbox.Unread.Add(Message());
+        _mailbox.Inbox.Add(Message());
         _store.FailWith = new InvalidOperationException("database unavailable");
 
         await Ingestion().RunOnceAsync(default);
 
         Assert.Empty(_store.Added);
-        Assert.Empty(_mailbox.MarkedRead);
+        Assert.Empty(_mailbox.Moved);
     }
 
     [Fact]
     public async Task AMessageLeftUnreadIsIngestedOnceTheStoreRecovers()
     {
-        _mailbox.Unread.Add(Message());
+        _mailbox.Inbox.Add(Message());
         var ingestion = Ingestion();
 
         _store.FailWith = new InvalidOperationException("database unavailable");
         await ingestion.RunOnceAsync(default);
-        Assert.Empty(_mailbox.MarkedRead);
+        Assert.Empty(_mailbox.Moved);
 
         _store.FailWith = null;
         await ingestion.RunOnceAsync(default);
 
         Assert.Single(_store.Added);
-        Assert.Equal(["AAMk-1"], _mailbox.MarkedRead);
+        Assert.Equal(["AAMk-1"], _mailbox.Moved);
     }
 
     /// <summary>
@@ -172,9 +172,9 @@ public class EmailIngestionTests
     /// that were never recorded, with nothing left to say they existed.
     /// </summary>
     [Fact]
-    public async Task AMessageIsNotMarkedReadWhenOnlySomeAttachmentsWereRecorded()
+    public async Task AMessageIsNotMovedWhenOnlySomeAttachmentsWereRecorded()
     {
-        _mailbox.Unread.Add(Message(attachments: [Pdf("first.pdf", "one"), Pdf("second.pdf", "two")]));
+        _mailbox.Inbox.Add(Message(attachments: [Pdf("first.pdf", "one"), Pdf("second.pdf", "two")]));
 
         var failing = new FailAfterFirst();
         var ingestion = new EmailIngestion(
@@ -186,7 +186,7 @@ public class EmailIngestionTests
         await ingestion.RunOnceAsync(default);
 
         Assert.Single(failing.Added);
-        Assert.Empty(_mailbox.MarkedRead);
+        Assert.Empty(_mailbox.Moved);
     }
 
     private sealed class FailAfterFirst : INoticeStore
@@ -206,7 +206,7 @@ public class EmailIngestionTests
     }
 
     /// <summary>
-    /// Recorded but not marked read: the message stays in the mailbox, but its notices are
+    /// Recorded but not moved: the message stays in the mailbox, but its notices are
     /// not recorded a second time within the run.
     /// </summary>
     /// <remarks>
@@ -216,20 +216,20 @@ public class EmailIngestionTests
     /// unbounded growth while the process keeps running.
     /// </remarks>
     [Fact]
-    public async Task AFailedMarkReadLeavesTheMessageUnreadWithoutRecordingItTwice()
+    public async Task AFailedMoveLeavesTheMessageInTheInboxWithoutRecordingItTwice()
     {
-        _mailbox.Unread.Add(Message());
-        _mailbox.MarkFailsWith = new InvalidOperationException("throttled");
+        _mailbox.Inbox.Add(Message());
+        _mailbox.MoveFailsWith = new InvalidOperationException("throttled");
         var ingestion = Ingestion();
 
         await ingestion.RunOnceAsync(default);
         Assert.Single(_store.Added);
 
-        // Still unread, so the next poll sees it again — and skips recording it.
+        // Still in the inbox, so the next poll sees it again — and skips recording it.
         await ingestion.RunOnceAsync(default);
 
         Assert.Single(_store.Added);
-        Assert.Empty(_mailbox.MarkedRead);
+        Assert.Empty(_mailbox.Moved);
 
         // A fresh process has no memory of it, so it is recorded once more. That is the
         // at-least-once bound, not a leak.
@@ -250,7 +250,7 @@ public class EmailIngestionTests
     [Fact]
     public async Task AnUnreachableMailboxIsRecordedByTheHeartbeatAndLosesNothing()
     {
-        _mailbox.Unread.Add(Message());
+        _mailbox.Inbox.Add(Message());
         _mailbox.FetchFailsWith = new InvalidOperationException("host not found");
         var ingestion = Ingestion();
 
@@ -258,13 +258,13 @@ public class EmailIngestionTests
 
         Assert.Equal(ConnectionState.Down, ingestion.Heartbeat.State);
         Assert.Empty(_store.Added);
-        Assert.Empty(_mailbox.MarkedRead);
+        Assert.Empty(_mailbox.Moved);
     }
 
     [Fact]
     public async Task TheHeartbeatComesBackUpWhenTheMailboxDoes()
     {
-        _mailbox.Unread.Add(Message());
+        _mailbox.Inbox.Add(Message());
         _mailbox.FetchFailsWith = new InvalidOperationException("host not found");
         var ingestion = Ingestion();
 
@@ -276,7 +276,7 @@ public class EmailIngestionTests
 
         Assert.Equal(ConnectionState.Up, ingestion.Heartbeat.State);
         Assert.Single(_store.Added);
-        Assert.Equal(["AAMk-1"], _mailbox.MarkedRead);
+        Assert.Equal(["AAMk-1"], _mailbox.Moved);
     }
 
     /// <summary>A poll that returns nothing still proves the mailbox is reachable.</summary>
@@ -335,14 +335,14 @@ public class EmailIngestionTests
     /// queue rather than being re-examined on every poll for ever.
     /// </summary>
     [Fact]
-    public async Task AMessageWithNoPdfIsMarkedReadWithoutRecordingAnything()
+    public async Task AMessageWithNoPdfIsMovedWithoutRecordingAnything()
     {
-        _mailbox.Unread.Add(new MailboxMessage("AAMk-nopdf", "someone@example.test", null, []));
+        _mailbox.Inbox.Add(new MailboxMessage("AAMk-nopdf", "someone@example.test", null, []));
 
         await Ingestion().RunOnceAsync(default);
 
         Assert.Empty(_store.Added);
-        Assert.Equal(["AAMk-nopdf"], _mailbox.MarkedRead);
+        Assert.Equal(["AAMk-nopdf"], _mailbox.Moved);
     }
 
     /// <summary>
@@ -351,15 +351,15 @@ public class EmailIngestionTests
     /// nothing anywhere to say it existed.
     /// </summary>
     [Fact]
-    public async Task AMessageWhoseAttachmentsCouldNotBeReadIsLeftUnread()
+    public async Task AMessageWhoseAttachmentsCouldNotBeReadIsLeftInTheInbox()
     {
-        _mailbox.Unread.Add(new MailboxMessage(
-            "AAMk-unreadable", "agent@bank.example", null, [], AttachmentsIncomplete: true));
+        _mailbox.Inbox.Add(new MailboxMessage(
+            "AAMk-in the inboxable", "agent@bank.example", null, [], AttachmentsIncomplete: true));
 
         await Ingestion().RunOnceAsync(default);
 
         Assert.Empty(_store.Added);
-        Assert.Empty(_mailbox.MarkedRead);
+        Assert.Empty(_mailbox.Moved);
     }
 
     /// <summary>
@@ -367,9 +367,9 @@ public class EmailIngestionTests
     /// is retried. The recorded ones arrive again — the accepted duplicate, not a lost notice.
     /// </summary>
     [Fact]
-    public async Task AMessageWithSomeUnreadableAttachmentsRecordsWhatItHasAndStaysUnread()
+    public async Task AMessageWithSomeUnreadableAttachmentsRecordsWhatItHasAndStaysPut()
     {
-        _mailbox.Unread.Add(new MailboxMessage(
+        _mailbox.Inbox.Add(new MailboxMessage(
             "AAMk-partial",
             "agent@bank.example",
             null,
@@ -379,18 +379,18 @@ public class EmailIngestionTests
         await Ingestion().RunOnceAsync(default);
 
         Assert.Single(_store.Added);
-        Assert.Empty(_mailbox.MarkedRead);
+        Assert.Empty(_mailbox.Moved);
     }
 
     /// <summary>
-    /// A failed mark-read is not a connectivity failure — the fetch plainly succeeded — so it
+    /// A failed move is not a connectivity failure — the fetch plainly succeeded — so it
     /// must not be reported as one, or a mailbox that is up gets logged as unreachable.
     /// </summary>
     [Fact]
-    public async Task AFailedMarkReadDoesNotReportTheMailboxAsUnreachable()
+    public async Task AFailedMoveDoesNotReportTheMailboxAsUnreachable()
     {
-        _mailbox.Unread.Add(Message());
-        _mailbox.MarkFailsWith = new InvalidOperationException("throttled");
+        _mailbox.Inbox.Add(Message());
+        _mailbox.MoveFailsWith = new InvalidOperationException("throttled");
         var ingestion = Ingestion();
 
         await ingestion.RunOnceAsync(default);
@@ -405,26 +405,26 @@ public class EmailIngestionTests
     [Fact]
     public async Task AnUnreadableMessageDoesNotStopTheOnesBehindIt()
     {
-        _mailbox.Unread.Add(new MailboxMessage("AAMk-bad", null, null, [], AttachmentsIncomplete: true));
-        _mailbox.Unread.Add(Message(id: "AAMk-good"));
+        _mailbox.Inbox.Add(new MailboxMessage("AAMk-bad", null, null, [], AttachmentsIncomplete: true));
+        _mailbox.Inbox.Add(Message(id: "AAMk-good"));
 
         await Ingestion().RunOnceAsync(default);
 
         Assert.Single(_store.Added);
-        Assert.Equal(["AAMk-good"], _mailbox.MarkedRead);
+        Assert.Equal(["AAMk-good"], _mailbox.Moved);
     }
 
     /// <summary>
     /// The failure the live run actually hit: the app registration held Mail.Read, so every
-    /// mark-read was denied and the same notices were recorded on every poll. Not an outage —
+    /// move was denied and the same notices were recorded on every poll. Not an outage —
     /// a silent flood. At a one-minute interval one stuck message is fourteen hundred
     /// duplicate notices a day, and the only sign is a warning nobody is reading.
     /// </summary>
     [Fact]
-    public async Task APermanentMarkReadFailureDoesNotRecordTheSameNoticesOnEveryPoll()
+    public async Task APermanentMoveFailureDoesNotRecordTheSameNoticesOnEveryPoll()
     {
-        _mailbox.Unread.Add(Message());
-        _mailbox.MarkFailsWith = new UnauthorizedAccessException("Access is denied.");
+        _mailbox.Inbox.Add(Message());
+        _mailbox.MoveFailsWith = new UnauthorizedAccessException("Access is denied.");
         var ingestion = Ingestion();
 
         for (var poll = 0; poll < 10; poll++)
@@ -434,7 +434,7 @@ public class EmailIngestionTests
 
         // One record from the first poll, and nine attempts to mark it afterwards.
         Assert.Single(_store.Added);
-        Assert.Empty(_mailbox.MarkedRead);
+        Assert.Empty(_mailbox.Moved);
     }
 
     /// <summary>
@@ -442,20 +442,20 @@ public class EmailIngestionTests
     /// being recorded a second time.
     /// </summary>
     [Fact]
-    public async Task AMessageRecordedButUnmarkedIsMarkedOnceTheBlockClears()
+    public async Task AMessageRecordedButNotMovedIsMovedOnceTheBlockClears()
     {
-        _mailbox.Unread.Add(Message());
-        _mailbox.MarkFailsWith = new UnauthorizedAccessException("Access is denied.");
+        _mailbox.Inbox.Add(Message());
+        _mailbox.MoveFailsWith = new UnauthorizedAccessException("Access is denied.");
         var ingestion = Ingestion();
 
         await ingestion.RunOnceAsync(default);
         await ingestion.RunOnceAsync(default);
         Assert.Single(_store.Added);
 
-        _mailbox.MarkFailsWith = null;
+        _mailbox.MoveFailsWith = null;
         await ingestion.RunOnceAsync(default);
 
         Assert.Single(_store.Added);
-        Assert.Equal(["AAMk-1"], _mailbox.MarkedRead);
+        Assert.Equal(["AAMk-1"], _mailbox.Moved);
     }
 }

@@ -2,6 +2,7 @@ using Azure.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
+using Microsoft.Graph.Users.Item.Messages.Item.Move;
 using Microsoft.Kiota.Abstractions;
 using OmsLoan.Domain;
 
@@ -47,6 +48,13 @@ public sealed class GraphMailboxClient : IMailboxClient
     private readonly MailboxOptions _options;
     private readonly ILogger<GraphMailboxClient> _logger;
 
+    /// <summary>
+    /// Id of the processed folder, resolved once. Folders do not move and the Worker is the
+    /// only thing creating this one, so looking it up on every message would be a round trip
+    /// per notice for an answer that never changes.
+    /// </summary>
+    private string? _processedFolderId;
+
     public GraphMailboxClient(IOptions<MailboxOptions> options, ILogger<GraphMailboxClient> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -64,18 +72,21 @@ public sealed class GraphMailboxClient : IMailboxClient
             new ClientSecretCredential(_options.TenantId, _options.ClientId, _options.ClientSecret));
     }
 
-    public async Task<IReadOnlyList<MailboxMessage>> GetUnreadMessagesAsync(
+    public async Task<IReadOnlyList<MailboxMessage>> GetInboxMessagesAsync(
         int maxMessages,
         CancellationToken cancellationToken)
     {
-        var page = await _graph.Users[_options.Mailbox].Messages.GetAsync(
+        // The inbox, not the whole mailbox: moving a message out of it is what dequeues, so
+        // the processed folder must not be searched or every notice would be found again for
+        // ever.
+        var page = await _graph.Users[_options.Mailbox].MailFolders["inbox"].Messages.GetAsync(
             request =>
             {
                 // sentDateTime first, because Graph requires every $orderby property to appear
-                // in $filter ahead of the rest. Unread is the queue, and hasAttachments keeps
-                // plain replies out of it.
+                // in $filter ahead of the rest. No isRead clause: somebody opening the mailbox
+                // to look at a notice must not dequeue it by accident.
                 request.QueryParameters.Filter =
-                    $"sentDateTime ge {SentDateTimeLowerBound} and isRead eq false and hasAttachments eq true";
+                    $"sentDateTime ge {SentDateTimeLowerBound} and hasAttachments eq true";
                 request.QueryParameters.Top = maxMessages;
                 request.QueryParameters.Select = ["id", "from", "sentDateTime", "subject"];
                 request.QueryParameters.Orderby = ["sentDateTime asc"];
@@ -104,9 +115,54 @@ public sealed class GraphMailboxClient : IMailboxClient
         return messages;
     }
 
-    public Task MarkReadAsync(string messageId, CancellationToken cancellationToken) =>
-        _graph.Users[_options.Mailbox].Messages[messageId].PatchAsync(
-            new Message { IsRead = true }, cancellationToken: cancellationToken);
+    public async Task MoveToProcessedAsync(string messageId, CancellationToken cancellationToken)
+    {
+        var folderId = await GetOrCreateProcessedFolderAsync(cancellationToken);
+
+        await _graph.Users[_options.Mailbox].Messages[messageId].Move.PostAsync(
+            new MovePostRequestBody { DestinationId = folderId },
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// The processed folder, created on first use if it is not there.
+    /// </summary>
+    /// <remarks>
+    /// Created rather than required, so a new mailbox works without anybody preparing it —
+    /// the same reasoning as the watched folder, which the Worker also creates rather than
+    /// expecting. A failure here surfaces as a failed move, which leaves the message in the
+    /// inbox: nothing is lost, it simply does not dequeue until the folder can be made.
+    /// </remarks>
+    private async Task<string> GetOrCreateProcessedFolderAsync(CancellationToken cancellationToken)
+    {
+        if (_processedFolderId is not null)
+        {
+            return _processedFolderId;
+        }
+
+        var existing = await _graph.Users[_options.Mailbox].MailFolders.GetAsync(
+            request => request.QueryParameters.Filter =
+                $"displayName eq '{_options.ProcessedFolder.Replace("'", "''", StringComparison.Ordinal)}'",
+            cancellationToken);
+
+        var folder = existing?.Value?.FirstOrDefault();
+
+        if (folder?.Id is null)
+        {
+            _logger.LogInformation(
+                "Creating mail folder {Folder} in {Mailbox}.", _options.ProcessedFolder, _options.Mailbox);
+
+            folder = await _graph.Users[_options.Mailbox].MailFolders.PostAsync(
+                new MailFolder { DisplayName = _options.ProcessedFolder },
+                cancellationToken: cancellationToken);
+        }
+
+        _processedFolderId = folder?.Id
+            ?? throw new InvalidOperationException(
+                $"Could not find or create the mail folder '{_options.ProcessedFolder}'.");
+
+        return _processedFolderId;
+    }
 
     /// <summary>
     /// Every PDF attachment of one message, judged on the bytes, following pagination.
