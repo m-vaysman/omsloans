@@ -1,0 +1,76 @@
+{
+  "identifiers": {
+    "borrower_name": "Alderwood Media Holdings",
+    "facility_name": "Revolving Credit Facility",
+    "facility_id": "LN568322",
+    "tranche_name": null,
+    "cusip": null,
+    "lin": "LX6368961",
+    "currency": "USD"
+  },
+  "notice_date": "2026-10-13",
+  "events": [
+    {
+      "type": "drawdown",
+      "dates": {
+        "effective_date": "2026-10-20",
+        "period_start": null,
+        "period_end": null,
+        "payment_due_date": null,
+        "rate_set_date": null
+      },
+      "economics": {
+        "base_rate_index": null,
+        "base_rate": null,
+        "margin": null,
+        "all_in_rate": null,
+        "day_count_convention": null,
+        "days_in_period": null,
+        "outstanding_principal_before": null,
+        "principal_amount": null,
+        "outstanding_principal_after": null,
+        "accrued_interest": null,
+        "fee_amount": null,
+        "fee_type": null,
+        "drawdown_amount": 39302086.05,
+        "commitment_reduction_amount": null,
+        "unfunded_commitment": null,
+        "lender_share_amount": 4912760.76,
+        "global_amount": 39302086.05
+      },
+      "warnings": []
+    },
+    {
+      "type": "commitment_reduction",
+      "dates": {
+        "effective_date": "2026-10-20",
+        "period_start": null,
+        "period_end": null,
+        "payment_due_date": null,
+        "rate_set_date": null
+      },
+      "economics": {
+        "base_rate_index": null,
+        "base_rate": null,
+        "margin": null,
+        "all_in_rate": null,
+        "day_count_convention": null,
+        "days_in_period": null,
+        "outstanding_principal_before": null,
+        "principal_amount": null,
+        "outstanding_principal_after": null,
+        "accrued_interest": null,
+        "fee_amount": null,
+        "fee_type": null,
+        "drawdown_amount": null,
+        "commitment_reduction_amount": 14000000,
+        "unfunded_commitment": 241697913.95,
+        "lender_share_amount": null,
+        "global_amount": null
+      },
+      "warnings": []
+    }
+  ],
+  "field_confidence": {},
+  "warnings": []
+}

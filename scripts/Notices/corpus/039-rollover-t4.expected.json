@@ -1,0 +1,46 @@
+{
+  "identifiers": {
+    "borrower_name": "Calder Aerospace Holdings LLC",
+    "facility_name": "Multicurrency Revolving Facility",
+    "facility_id": "LN350678",
+    "tranche_name": "Revolver B",
+    "cusip": "J9XKT3WHQ",
+    "lin": "LX7582625",
+    "currency": "USD"
+  },
+  "notice_date": "2026-06-25",
+  "events": [
+    {
+      "type": "rollover",
+      "dates": {
+        "effective_date": "2026-07-03",
+        "period_start": "2026-07-03",
+        "period_end": "2026-12-03",
+        "payment_due_date": null,
+        "rate_set_date": null
+      },
+      "economics": {
+        "base_rate_index": "Term SOFR",
+        "base_rate": 0.045275,
+        "margin": 0.015268,
+        "all_in_rate": 0.060543,
+        "day_count_convention": "30/360",
+        "days_in_period": null,
+        "outstanding_principal_before": null,
+        "principal_amount": null,
+        "outstanding_principal_after": null,
+        "accrued_interest": null,
+        "fee_amount": null,
+        "fee_type": null,
+        "drawdown_amount": null,
+        "commitment_reduction_amount": null,
+        "unfunded_commitment": null,
+        "lender_share_amount": null,
+        "global_amount": 21000000
+      },
+      "warnings": []
+    }
+  ],
+  "field_confidence": {},
+  "warnings": []
+}
