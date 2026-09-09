@@ -187,9 +187,9 @@ the machines already carry, set for other tooling, and the Worker reads them dir
 
 | Setting | Environment variable | Configuration key in code |
 | --- | --- | --- |
-| Claude key | `CLAUDE_API_KEY` | `Extraction:Claude:ApiKey` |
-| OpenAI key | `OPEN_API_KEY` | `Extraction:OpenAi:ApiKey` |
-| Groq key | `GROQ_API_KEY` | `Extraction:Groq:ApiKey` |
+| Claude key | `CLAUDE_API_KEY` | `Extraction:Providers:Claude:ApiKey` |
+| OpenAI key | `OPEN_API_KEY` | `Extraction:Providers:OpenAi:ApiKey` |
+| Groq key | `GROQ_API_KEY` | `Extraction:Providers:Groq:ApiKey` |
 | Graph tenant | `GRAPH_TENANT_ID` | `Graph:TenantId` |
 | Graph app id | `GRAPH_CLIENT_ID` | `Graph:ClientId` |
 | Graph secret | `GRAPH_CLIENT_SECRET` | `Graph:ClientSecret` |
@@ -218,7 +218,7 @@ and the Api reads the same connection-string variable:
 | Watched folder | `Ingestion:WatchedFolder` | `Ingestion__WatchedFolder` |
 
 <details>
-<summary>The old <code>Extraction__Claude__ApiKey</code> spelling</summary>
+<summary>The old <code>Extraction__Providers__Claude__ApiKey</code> spelling</summary>
 
 Still resolves, because the double-underscore mapping is built into the environment-variable
 provider and cannot be switched off. It is no longer written by the install script or
@@ -235,7 +235,7 @@ up with no further setup. For per-project values, user-secrets take the hierarch
 
 ```powershell
 dotnet user-secrets set "ConnectionStrings:OmsLoan" "Server=(localdb)\MSSQLLocalDB;Database=OmsLoan;Trusted_Connection=true" --project src/OmsLoan.Worker
-dotnet user-secrets set "Extraction:Claude:ApiKey" "..." --project src/OmsLoan.Worker
+dotnet user-secrets set "Extraction:Providers:Claude:ApiKey" "..." --project src/OmsLoan.Worker
 ```
 
 Note that a flat variable outranks user-secrets. If a machine-level `CLAUDE_API_KEY` is set
@@ -355,6 +355,49 @@ Polling rather than `FileSystemWatcher`: the watcher misses events when its buff
 during a bulk drop, does not fire reliably on network shares — which is where these folders
 usually live — and offers no way to retry a file that was locked when the event arrived. A
 scan re-examines whatever is still present, so a missed notice is self-correcting.
+
+## Extraction providers
+
+Provider choice is a configuration value rather than a code path — see
+[ADR 0001](decisions/0001-cloud-llm-over-local.md). Everything talks to `INoticeExtractor`;
+only the implementations know which vendor they are calling, and a provider is resolved by the
+name it has in configuration. That is what makes reprocessing and the accuracy report possible
+at all: running the same notice through two providers has to be a loop over names.
+
+| Key | Default | |
+| --- | --- | --- |
+| `Extraction:DefaultProvider` | `Claude` | used when a caller does not name one |
+| `Extraction:Providers:{name}:ApiKey` | — | from the flat machine variable |
+| `Extraction:Providers:{name}:ModelId` | — | **pinned**, never a floating alias |
+| `Extraction:Providers:{name}:MaxTokens` | 4096 | |
+| `Extraction:Providers:{name}:TimeoutSeconds` | 120 | |
+| `Extraction:Providers:{name}:MaxAttempts` | 3 | total, not retries after the first |
+| `Extraction:Providers:{name}:RetryBaseDelayMilliseconds` | 1000 | doubles each attempt, with jitter |
+
+**A provider with no key or no model id is not registered at all.** Registering it would let
+something resolve an extractor certain to fail on its first call, and the failure would read
+as a provider outage rather than a deployment nobody finished.
+
+**Pin the model id.** A floating alias means two rows carrying the same name and different
+behaviour, and nothing afterwards can separate them — which makes the accuracy report
+meaningless.
+
+### What the plumbing guarantees
+
+Every provider is wrapped, so none of them has to remember to handle a 429 and none can get
+the policy subtly different from the others:
+
+- **A timeout**, so a hung provider cannot wedge the ingestion loop. The notice is still on
+  disk or in the mailbox; coming back to it costs nothing next to a Worker stuck on one
+  document.
+- **Retries only where they can work.** `408`, `429` and `5xx` are weather. Other `4xx` are
+  facts about the request — retrying a bad key three times turns a five-second failure into a
+  thirty-second one and delays the log entry that says what is wrong.
+- **Exponential backoff with full jitter.** Without jitter a batch of notices failing together
+  retries together and re-creates the burst that rate-limited them.
+- **A result, not an exception.** Every attempt produces something worth storing, and the
+  failures most of all — an unparseable response is exactly the case somebody needs to look at
+  later. Token counts, latency and finish reason are recorded even when the call failed.
 
 ## Mailbox ingestion
 
@@ -484,9 +527,9 @@ directly actionable:
 ```
   Resolved settings:
     - ConnectionStrings:OmsLoan : present (from EnvironmentVariablesConfigurationProvider)
-    - Extraction:Claude:ApiKey  : present (from CLAUDE_API_KEY)
-    - Extraction:OpenAi:ApiKey  : absent (set OPEN_API_KEY)
-    - Extraction:Groq:ApiKey    : present (from GROQ_API_KEY)
+    - Extraction:Providers:Claude:ApiKey : present (from CLAUDE_API_KEY)
+    - Extraction:Providers:OpenAi:ApiKey : absent (set OPEN_API_KEY)
+    - Extraction:Providers:Groq:ApiKey   : present (from GROQ_API_KEY)
     - Graph:TenantId            : present (from GRAPH_TENANT_ID)
     - Graph:ClientId            : present (from GRAPH_CLIENT_ID)
     - Graph:ClientSecret        : present (from GRAPH_CLIENT_SECRET)

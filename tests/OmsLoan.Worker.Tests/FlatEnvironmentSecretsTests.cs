@@ -36,9 +36,9 @@ public class FlatEnvironmentSecretsTests
     /// it is what is set on the machines, so it is what the Worker reads.
     /// </summary>
     [Theory]
-    [InlineData("Extraction:Claude:ApiKey", "CLAUDE_API_KEY")]
-    [InlineData("Extraction:OpenAi:ApiKey", "OPEN_API_KEY")]
-    [InlineData("Extraction:Groq:ApiKey", "GROQ_API_KEY")]
+    [InlineData("Extraction:Providers:Claude:ApiKey", "CLAUDE_API_KEY")]
+    [InlineData("Extraction:Providers:OpenAi:ApiKey", "OPEN_API_KEY")]
+    [InlineData("Extraction:Providers:Groq:ApiKey", "GROQ_API_KEY")]
     [InlineData("Graph:TenantId", "GRAPH_TENANT_ID")]
     [InlineData("Graph:ClientId", "GRAPH_CLIENT_ID")]
     [InlineData("Graph:ClientSecret", "GRAPH_CLIENT_SECRET")]
@@ -77,13 +77,13 @@ public class FlatEnvironmentSecretsTests
             ["GRAPH_TENANT_ID"] = "tenant",
         });
 
-        Assert.Equal("from-flat", configuration["Extraction:Claude:ApiKey"]);
+        Assert.Equal("from-flat", configuration["Extraction:Providers:Claude:ApiKey"]);
         Assert.Equal("tenant", configuration["Graph:TenantId"]);
     }
 
     /// <summary>
     /// The precedence rule, stated as a test. The environment-variable provider turns
-    /// <c>Extraction__Claude__ApiKey</c> into the same hierarchical key, so a machine
+    /// <c>Extraction__Providers__Claude__ApiKey</c> into the same hierarchical key, so a machine
     /// carrying both spellings has to resolve to the flat one — otherwise a stale nested
     /// variable left over from an older deployment quietly wins.
     /// </summary>
@@ -92,9 +92,9 @@ public class FlatEnvironmentSecretsTests
     {
         var configuration = Build(
             environment: new Dictionary<string, string?> { ["CLAUDE_API_KEY"] = "flat-wins" },
-            lowerPrecedence: new Dictionary<string, string?> { ["Extraction:Claude:ApiKey"] = "nested-loses" });
+            lowerPrecedence: new Dictionary<string, string?> { ["Extraction:Providers:Claude:ApiKey"] = "nested-loses" });
 
-        Assert.Equal("flat-wins", configuration["Extraction:Claude:ApiKey"]);
+        Assert.Equal("flat-wins", configuration["Extraction:Providers:Claude:ApiKey"]);
     }
 
     [Fact]
@@ -102,9 +102,9 @@ public class FlatEnvironmentSecretsTests
     {
         var configuration = Build(
             environment: new Dictionary<string, string?> { ["GROQ_API_KEY"] = "flat-wins" },
-            lowerPrecedence: new Dictionary<string, string?> { ["Extraction:Groq:ApiKey"] = "file-loses" });
+            lowerPrecedence: new Dictionary<string, string?> { ["Extraction:Providers:Groq:ApiKey"] = "file-loses" });
 
-        Assert.Equal("flat-wins", configuration["Extraction:Groq:ApiKey"]);
+        Assert.Equal("flat-wins", configuration["Extraction:Providers:Groq:ApiKey"]);
     }
 
     /// <summary>
@@ -119,9 +119,9 @@ public class FlatEnvironmentSecretsTests
     {
         var configuration = Build(
             environment: new Dictionary<string, string?> { ["GROQ_API_KEY"] = blank },
-            lowerPrecedence: new Dictionary<string, string?> { ["Extraction:Groq:ApiKey"] = "real-value" });
+            lowerPrecedence: new Dictionary<string, string?> { ["Extraction:Providers:Groq:ApiKey"] = "real-value" });
 
-        Assert.Equal("real-value", configuration["Extraction:Groq:ApiKey"]);
+        Assert.Equal("real-value", configuration["Extraction:Providers:Groq:ApiKey"]);
     }
 
     [Fact]
