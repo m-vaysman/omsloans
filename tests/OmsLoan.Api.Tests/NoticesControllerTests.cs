@@ -25,10 +25,18 @@ public class NoticesControllerTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private NoticesController Controller(long maxBytes = 32 * 1024 * 1024) =>
-        new(_db,
+    private NoticesController Controller(long maxBytes = 32 * 1024 * 1024, OmsLoanDbContext? db = null) =>
+        new(db ?? _db,
             Options.Create(new UploadOptions { MaxBytes = maxBytes }),
             NullLogger<NoticesController>.Instance);
+
+    /// <summary>A context whose save always fails, standing in for a database that is down.</summary>
+    private sealed class UnreachableDatabase(DbContextOptions<OmsLoanDbContext> options)
+        : OmsLoanDbContext(options)
+    {
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("A network-related error occurred while establishing a connection.");
+    }
 
     private static IFormFile File(byte[] content, string name = "notice.pdf", string contentType = "application/pdf") =>
         new FormFile(new MemoryStream(content), 0, content.Length, "file", name)
@@ -197,5 +205,114 @@ public class NoticesControllerTests : IDisposable
         var notices = _db.Notices.ToList();
         Assert.Equal(2, notices.Count);
         Assert.Equal(notices[0].Sha256, notices[1].Sha256);
+    }
+
+    // --- the extension gate ------------------------------------------------------------
+    // Cheapest check, so it runs first: no bytes read, no length consulted.
+
+    [Theory]
+    [InlineData("notice.txt")]
+    [InlineData("notice.pdf.exe")]
+    [InlineData("notice")]
+    [InlineData("")]
+    public async Task AFileNotNamedPdfIsRefusedEvenWhenEverythingElseIsRight(string fileName)
+    {
+        var result = await Controller().Upload(
+            File(Pdf(), fileName), sender: null, sentAtUtc: null, default);
+
+        Assert.Equal(StatusCodes.Status415UnsupportedMediaType, StatusOf(result));
+        Assert.Empty(_db.Notices);
+    }
+
+    [Theory]
+    [InlineData("notice.PDF")]
+    [InlineData("notice.Pdf")]
+    public async Task TheExtensionCheckIsCaseInsensitive(string fileName)
+    {
+        var result = await Controller().Upload(
+            File(Pdf(), fileName), sender: null, sentAtUtc: null, default);
+
+        Assert.Equal(StatusCodes.Status201Created, StatusOf(result));
+    }
+
+    /// <summary>
+    /// Ordering, stated as a test: there is no point measuring a file that was never going to
+    /// be accepted. An oversized upload with the wrong extension is refused on the extension.
+    /// </summary>
+    [Fact]
+    public async Task TheExtensionIsCheckedBeforeTheSizeLimit()
+    {
+        var result = await Controller(maxBytes: 8).Upload(
+            File(Pdf("well over eight bytes"), "notice.txt"), sender: null, sentAtUtc: null, default);
+
+        Assert.Equal(StatusCodes.Status415UnsupportedMediaType, StatusOf(result));
+    }
+
+    /// <summary>And before the content type, which is also only a header.</summary>
+    [Fact]
+    public async Task TheExtensionIsCheckedBeforeTheContentType()
+    {
+        var result = await Controller().Upload(
+            File(Pdf(), "notice.txt", "application/pdf"), sender: null, sentAtUtc: null, default);
+
+        var problem = Assert.IsType<ObjectResult>(result).Value as Microsoft.AspNetCore.Mvc.ProblemDetails;
+
+        Assert.Equal(StatusCodes.Status415UnsupportedMediaType, StatusOf(result));
+        Assert.Contains("extension", problem!.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The extension is checked without reading a byte.</summary>
+    [Fact]
+    public async Task AWrongExtensionIsRefusedWithoutReadingTheFile()
+    {
+        var unreadable = new FormFile(new ThrowingStream(), 0, 100, "file", "notice.txt")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "application/pdf",
+        };
+
+        var result = await Controller().Upload(unreadable, sender: null, sentAtUtc: null, default);
+
+        Assert.Equal(StatusCodes.Status415UnsupportedMediaType, StatusOf(result));
+    }
+
+    // --- failures below the validation gate --------------------------------------------
+
+    /// <summary>
+    /// The database being down is not the uploader's fault and is not permanent, so 503 and a
+    /// "try again" rather than a 500 and a stack trace. Nothing partial is stored: the notice
+    /// is one row in one SaveChanges.
+    /// </summary>
+    [Fact]
+    public async Task ADatabaseFailureReturnsServiceUnavailableRatherThanThrowing()
+    {
+        using var unreachable = new UnreachableDatabase(
+            new DbContextOptionsBuilder<OmsLoanDbContext>()
+                .UseInMemoryDatabase("unreachable-" + Guid.NewGuid().ToString("N"))
+                .Options);
+
+        var result = await Controller(db: unreachable).Upload(
+            File(Pdf()), sender: null, sentAtUtc: null, default);
+
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, StatusOf(result));
+    }
+
+    /// <summary>
+    /// A truncated or aborted upload is the request's fault, not the server's, so 400 — but it
+    /// must not escape as an unhandled exception.
+    /// </summary>
+    [Fact]
+    public async Task AnUnreadableUploadIsRefusedRatherThanThrowing()
+    {
+        var unreadable = new FormFile(new ThrowingStream(), 0, 100, "file", "notice.pdf")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "application/pdf",
+        };
+
+        var result = await Controller().Upload(unreadable, sender: null, sentAtUtc: null, default);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, StatusOf(result));
+        Assert.Empty(_db.Notices);
     }
 }

@@ -9,8 +9,8 @@ namespace OmsLoan.Api.Controllers;
 /// folder or the shared mailbox.
 /// </summary>
 /// <remarks>
-/// Validation happens here, first, and cheaply. There is no point hashing a file, opening a
-/// transaction and touching the database to discover the upload was a spreadsheet.
+/// Validation happens here, first, and in order of cost. There is no point measuring,
+/// reading, hashing or storing a file that was never going to be accepted.
 ///
 /// The notice itself is built by <see cref="NoticeContent"/>, the same code folder ingestion
 /// uses, so identical bytes produce an identical row whichever way they arrived. A second
@@ -24,12 +24,14 @@ public class NoticesController(
     IOptions<UploadOptions> uploadOptions,
     ILogger<NoticesController> logger) : ControllerBase
 {
+    private const string PdfExtension = ".pdf";
+
     private readonly UploadOptions _upload = uploadOptions.Value;
 
     /// <summary>
     /// Records an uploaded PDF as a notice.
     /// </summary>
-    /// <param name="file">The PDF.</param>
+    /// <param name="file">The PDF. Must be named <c>*.pdf</c>.</param>
     /// <param name="sender">
     /// Who sent it, if the uploader knows — usually read off a forwarded email. Optional.
     /// </param>
@@ -38,22 +40,39 @@ public class NoticesController(
     /// time: that is when it reached us, which is a different fact and is recorded separately.
     /// </param>
     /// <remarks>
+    /// <para>
+    /// Three checks, cheapest first, and each one is a reason to stop:
+    /// </para>
+    /// <list type="number">
+    /// <item>the filename ends in <c>.pdf</c> — costs nothing, needs no bytes read</item>
+    /// <item>the size is within the limit — a number already on the request</item>
+    /// <item>the declared content type is a PDF — still just a header</item>
+    /// </list>
+    /// <para>
+    /// Only then are the bytes read and checked for the <c>%PDF</c> marker, which is the check
+    /// that actually decides — a filename and a content type are both supplied by whoever sent
+    /// the file, and the magic number is not.
+    /// </para>
+    /// <para>
     /// No duplicate check. Every upload is recorded, exactly as every file dropped in the
     /// watched folder is — deciding two arrivals are the same document is review's work, not
     /// ingestion's. That is why there is no 409 here.
+    /// </para>
     /// </remarks>
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType(StatusCodes.Status415UnsupportedMediaType)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Upload(
         IFormFile? file,
         [FromForm] string? sender,
         [FromForm] DateTime? sentAtUtc,
         CancellationToken cancellationToken)
     {
-        if (file is null || file.Length == 0)
+        if (file is null)
         {
             return Problem(
                 title: "No file was uploaded.",
@@ -61,8 +80,30 @@ public class NoticesController(
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        // Checked before reading, so an oversized upload is refused on its declared length
-        // rather than after buffering it.
+        // The extension, first and before anything else is looked at. It is free — no bytes
+        // read, no length consulted — and we only ever accept PDFs, so a file that is not
+        // named like one is rejected without measuring it or asking what it claims to be.
+        // A missing extension is a rejection too: absence is not a pass.
+        var extension = Path.GetExtension(file.FileName);
+
+        if (!PdfExtension.Equals(extension, StringComparison.OrdinalIgnoreCase))
+        {
+            return UnsupportedPdf(
+                file.FileName,
+                string.IsNullOrEmpty(extension)
+                    ? "the file has no extension, and only .pdf is accepted"
+                    : $"the file extension was '{extension}', and only .pdf is accepted");
+        }
+
+        if (file.Length == 0)
+        {
+            return Problem(
+                title: "The file is empty.",
+                detail: "The upload contained no bytes.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // On the declared length, so an oversized upload is refused without being buffered.
         if (file.Length > _upload.MaxBytes)
         {
             logger.LogInformation(
@@ -77,9 +118,8 @@ public class NoticesController(
                 statusCode: StatusCodes.Status413PayloadTooLarge);
         }
 
-        // The declared content type, which is the cheap check and the one a browser gets right
-        // most of the time. It is not trusted on its own — the bytes are checked below — but
-        // it costs nothing and rejects the obvious cases before anything is read.
+        // The declared content type: still only a header, and a browser usually gets it right.
+        // Not trusted on its own — the bytes are checked below — but it costs nothing.
         if (!string.IsNullOrEmpty(file.ContentType)
             && !file.ContentType.StartsWith("application/pdf", StringComparison.OrdinalIgnoreCase))
         {
@@ -88,11 +128,32 @@ public class NoticesController(
 
         byte[] content;
 
-        await using (var stream = file.OpenReadStream())
-        await using (var buffer = new MemoryStream())
+        try
         {
+            await using var stream = file.OpenReadStream();
+            await using var buffer = new MemoryStream();
+
             await stream.CopyToAsync(buffer, cancellationToken);
             content = buffer.ToArray();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The client went away mid-upload. Nothing was stored, there is nobody left to
+            // answer, and this is not a server fault — let it end quietly rather than logging
+            // an error somebody will investigate.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // A truncated or aborted upload. The request is at fault, not the server, so 400
+            // rather than 500 — but it is logged, because a rash of these is a network problem
+            // rather than a user one.
+            logger.LogWarning(ex, "Upload of {FileName} could not be read.", file.FileName);
+
+            return Problem(
+                title: "The upload did not complete.",
+                detail: "The file could not be read in full. Try again.",
+                statusCode: StatusCodes.Status400BadRequest);
         }
 
         // The bytes themselves, which is the check that actually decides. A content type and a
@@ -108,8 +169,34 @@ public class NoticesController(
             sender: sender,
             sentAtUtc: sentAtUtc);
 
-        db.Notices.Add(notice);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            db.Notices.Add(notice);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // The database is unreachable, timing out, or otherwise refusing the write. From
+            // the uploader's side these are one situation — it did not save, try again later —
+            // so they get one answer, and 503 is the one that says "later" rather than "never".
+            //
+            // Nothing partial is left behind: the notice is a single row in a single
+            // SaveChanges, so a failure here stored nothing. The uploader still has the file.
+            logger.LogError(
+                ex,
+                "Could not record uploaded {FileName} (sha256 {Hash}).",
+                file.FileName,
+                notice.Sha256);
+
+            return Problem(
+                title: "The notice could not be recorded.",
+                detail: "The database is not available. Nothing was stored — try again shortly.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
 
         logger.LogInformation(
             "Uploaded {FileName} (sha256 {Hash}) recorded as notice {NoticeId}.",

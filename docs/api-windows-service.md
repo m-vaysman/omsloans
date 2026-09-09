@@ -335,18 +335,33 @@ and is already recorded as `ReceivedAtUtc`.
 | Response | When |
 | --- | --- |
 | `201` | Recorded. Body carries the notice id, the SHA-256 and the received timestamp |
-| `400` | No file, or an empty one |
+| `400` | No file, an empty one, or an upload that could not be read in full |
 | `413` | Larger than `Upload:MaxBytes` |
-| `415` | Not a PDF — either the declared content type or the bytes |
+| `415` | Not a PDF — by filename, declared content type, or bytes |
+| `503` | The database is unavailable. Nothing was stored; try again |
 
-**Validation happens in the controller, first.** There is no point hashing a file, opening a
-transaction and touching the database to discover the upload was a spreadsheet.
+**Validation happens in the controller, first, and in order of cost.** There is no point
+measuring, reading, hashing or storing a file that was never going to be accepted.
 
-Two checks, and the second is the one that decides. The declared content type is cheap and a
-browser usually gets it right, so it rejects the obvious cases before anything is read. Then
-the bytes themselves are checked for the `%PDF` marker — because a content type and a file
-extension are both supplied by whoever sent the file, and the magic number is not. A
-spreadsheet renamed `.pdf` and declared `application/pdf` is still refused.
+1. **The filename ends in `.pdf`.** Free — no bytes read, no length consulted. A file that is
+   not named like a PDF is refused before anything else is looked at, and a missing extension
+   is a rejection too: absence is not a pass.
+2. **The size is within the limit** — a number already on the request, so an oversized upload
+   is never buffered.
+3. **The declared content type is a PDF** — still just a header, and a browser usually gets it
+   right.
+
+Only then are the bytes read and checked for the `%PDF` marker, which is the check that
+actually decides. A filename and a content type are both supplied by whoever sent the file;
+the magic number is not, so a spreadsheet renamed `.pdf` and declared `application/pdf` is
+still refused.
+
+**Failures below the gate do not escape as 500s.** An upload that cannot be read in full is
+the request's fault and answers `400`. A database that is down, timing out or refusing the
+write is not the uploader's fault and is not permanent, so it answers `503` — "try again
+later" rather than "never" — and the exception is logged. Nothing partial is left behind:
+the notice is one row in one `SaveChanges`, so a failure there stored nothing and the
+uploader still has the file.
 
 **There is no duplicate check and no `409`.** Every upload is recorded, exactly as every file
 dropped in the watched folder is. Uploading the same document twice produces two notices;
