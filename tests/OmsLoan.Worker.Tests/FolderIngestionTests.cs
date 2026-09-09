@@ -89,7 +89,7 @@ public class FolderIngestionTests : IDisposable
         Assert.Null(notice.SentAtUtc);
         Assert.Null(notice.Sender);
         Assert.NotEqual(default, notice.ReceivedAtUtc);
-        Assert.Equal(FolderIngestion.Sha256Hex(File.ReadAllBytes(Path.Combine(_root, "processed", "notice.pdf"))), notice.Sha256);
+        Assert.Equal(NoticeContent.Sha256Hex(File.ReadAllBytes(Path.Combine(_root, "processed", "notice.pdf"))), notice.Sha256);
 
         Assert.False(File.Exists(file));
         Assert.Equal(["notice.pdf"], FilesIn("processed"));
