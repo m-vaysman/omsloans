@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    tests/ sits outside src/, so src/Directory.Build.props does not apply here and the
+    shared properties are repeated deliberately. TargetFramework matches the project
+    under test rather than the installed SDK.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OmsLoan.Infrastructure\OmsLoan.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!--
+    The PDF text path is tested against the same frozen corpus the extraction baseline uses,
+    linked rather than copied. A second copy would drift, and the whole point of that corpus
+    is that its bytes are stable.
+  -->
+  <ItemGroup>
+    <Content Include="..\OmsLoan.Domain.Tests\Extractors\Fixtures\corpus\*.pdf"
+             Link="Fixtures\corpus\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

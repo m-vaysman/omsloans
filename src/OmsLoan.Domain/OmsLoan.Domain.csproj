@@ -18,10 +18,6 @@
     Groq needs no package of its own: it speaks the OpenAI API, so it is the same
     Microsoft.Extensions.AI.OpenAI client pointed at a different base address.
   -->
-  <ItemGroup>
-    <PackageReference Include="Anthropic" Version="12.46.0" />
-    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
-  </ItemGroup>
 
   <ItemGroup>
     <!--

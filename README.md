@@ -35,7 +35,7 @@ milestones. A closed issue is the unit of done — not a README adjective.
 | --- | --- | --- |
 | [Foundation](https://github.com/m-vaysman/omsloans/milestone/1) | Domain, migrations, tests, service host | Deal/Facility master data |
 | [Ingestion](https://github.com/m-vaysman/omsloans/milestone/2) | Watched folder → `Notice` row, fail-closed startup | `.pdf` extension rule, mailbox, manual upload |
-| [Extraction](https://github.com/m-vaysman/omsloans/milestone/3) | `INoticeExtractor` seam, prompt + schema | A provider implementation, the writer that persists `Extraction` rows |
+| [Extraction](https://github.com/m-vaysman/omsloans/milestone/3) | Seam, prompt + schema, and the three providers | The writer that persists `Extraction` rows, and the orchestration that calls a provider |
 | [Review UI](https://github.com/m-vaysman/omsloans/milestone/4) | API host can serve a SPA; UI not built | App shell, queue, side-by-side review |
 | [Ops](https://github.com/m-vaysman/omsloans/milestone/5) | Not started | Reprocess, accuracy report, logging/alerting |
 
@@ -54,7 +54,7 @@ real operational error. The pipeline is built around that risk.
  shared mailbox [NOT YET] ─┼─► Notice (PDF stored verbatim, SHA-256 dedup)
  manual upload  [NOT YET] ─┘        │
                                     ▼
-                        extract → events[] (Claude / OpenAI / Groq)   [PROMPT + SEAM, NO PROVIDER]
+                        extract → events[] (Claude / OpenAI / Groq)   [BUILT, NOT YET CALLED]
                                     │
                                     ▼
                         Extraction (raw model JSON, append-only)   [TABLES EXIST, NO WRITER]
@@ -88,6 +88,7 @@ than updating one, so a prompt change can be compared against the same notice.
 | Path | |
 | --- | --- |
 | [`src/OmsLoan.Domain`](src/OmsLoan.Domain) | Entities, EF Core configuration, migrations |
+| [`src/OmsLoan.Infrastructure`](src/OmsLoan.Infrastructure) | The provider implementations — one extractor over `IChatClient`, and the packages that carry it |
 | [`src/OmsLoan.Worker`](src/OmsLoan.Worker) | Windows Service host — ingestion and extraction |
 | [`src/OmsLoan.Api`](src/OmsLoan.Api) | Self-hosted Kestrel Windows Service — can serve a SPA from its own `wwwroot`; the review API is not built |
 | [`src/OmsLoan.Web`](src/OmsLoan.Web) | Vite + React scaffold — the review UI itself is not built |

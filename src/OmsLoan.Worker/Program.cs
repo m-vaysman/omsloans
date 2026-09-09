@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Domain;
 using OmsLoan.Domain.Extractors;
+using OmsLoan.Infrastructure.Extraction;
 using OmsLoan.Worker;
 using OmsLoan.Worker.Ingestion;
 using OmsLoan.Worker.Ingestion.Email;
@@ -51,14 +52,20 @@ if (!string.IsNullOrWhiteSpace(connectionString))
     builder.Services.AddOmsLoanDbContext(connectionString);
 }
 
-// The extraction seam. Providers register themselves under their configuration name once
-// they exist (#8, #9, #10); this puts the selector and the resilience policy in place so they
-// have somewhere to land. A provider with no key or no model id is not registered at all, so
-// nothing can resolve an extractor that is certain to fail on its first call.
+// The extraction providers (#8, #9, #10, built as one implementation per #68). A provider
+// with no key or no model id is not registered at all, so nothing can resolve an extractor
+// that is certain to fail on its first call, and an unconfigured Groq leaves the others
+// working rather than taking the pipeline down with it.
+//
+// Bound eagerly rather than through IOptions because registration has to know which providers
+// are configured while it is still building the container.
 builder.Services.Configure<ExtractionOptions>(
     builder.Configuration.GetSection(ExtractionOptions.SectionName));
 
-builder.Services.AddNoticeExtraction();
+var extraction = new ExtractionOptions();
+builder.Configuration.GetSection(ExtractionOptions.SectionName).Bind(extraction);
+
+var extractionProviders = builder.Services.AddChatClientExtractors(extraction);
 
 builder.Services.Configure<IngestionOptions>(
     builder.Configuration.GetSection(IngestionOptions.SectionName));
@@ -80,6 +87,24 @@ var startupLogger = host.Services
     .CreateLogger("OmsLoan.Worker.Startup");
 
 StartupSummary.Log(startupLogger, builder.Environment, builder.Configuration);
+
+// Named at startup rather than discovered on the first notice. A provider silently missing
+// its key looks identical at runtime to one that is simply not being asked for, and the
+// difference only surfaces as extractions that never happened.
+if (extractionProviders.Count > 0)
+{
+    startupLogger.LogInformation(
+        "Extraction providers registered: {Providers}. Default: {Default}.",
+        string.Join(", ", extractionProviders),
+        extraction.DefaultProvider);
+}
+else
+{
+    startupLogger.LogWarning(
+        "No extraction provider is configured, so notices will be ingested and not read. "
+        + "A provider needs both an API key and a model id. This is a warning and not a "
+        + "refusal to start: ingestion is still worth doing without extraction.");
+}
 
 // After the banner, so the log shows what was resolved before it shows what was missing, and
 // before Run(), so a Worker with no database or no Graph credential never reaches the SCM as
