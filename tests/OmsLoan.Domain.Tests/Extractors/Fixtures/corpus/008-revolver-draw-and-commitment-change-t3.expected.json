@@ -1,0 +1,46 @@
+{
+  "identifiers": {
+    "borrower_name": "Redwood Vale Nutrition Corp",
+    "facility_name": "Revolving Credit Facility",
+    "facility_id": "LN561656",
+    "tranche_name": "Revolver A",
+    "cusip": null,
+    "lin": null,
+    "currency": "EUR"
+  },
+  "notice_date": "2026-04-20",
+  "events": [
+    {
+      "type": "principal_payment",
+      "dates": {
+        "effective_date": "2026-04-27",
+        "period_start": null,
+        "period_end": null,
+        "payment_due_date": null,
+        "rate_set_date": null
+      },
+      "economics": {
+        "base_rate_index": null,
+        "base_rate": null,
+        "margin": null,
+        "all_in_rate": null,
+        "day_count_convention": null,
+        "days_in_period": null,
+        "outstanding_principal_before": null,
+        "principal_amount": null,
+        "outstanding_principal_after": null,
+        "accrued_interest": null,
+        "fee_amount": null,
+        "fee_type": null,
+        "drawdown_amount": 9220587.07,
+        "commitment_reduction_amount": 8000000,
+        "unfunded_commitment": 119779412.93,
+        "lender_share_amount": 1152573.38,
+        "global_amount": 9220587.07
+      },
+      "warnings": []
+    }
+  ],
+  "field_confidence": {},
+  "warnings": []
+}

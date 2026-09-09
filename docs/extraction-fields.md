@@ -104,6 +104,34 @@ It is enforced three times over, because one layer failing must not be enough:
 The third exists for the case where a model ignores its schema. Each layer has a test against
 it; a change that reintroduced bank details would have to defeat all three.
 
+## Testing a prompt change
+
+Prompt edits are regression-tested against generated notices rather than real ones.
+[`tools/NoticeCorpusGenerator.linq`](../tools/NoticeCorpusGenerator.linq) builds a PDF and
+the extraction that PDF should produce from the same `NoticeSpec`, so the ground truth is
+correct by construction — nobody reads a PDF and types out what they saw, which is the step
+that would otherwise put an error in the answer key.
+
+The expected file is in the schema's own nested shape, so the same `ExtractedFieldFlattener`
+flattens both sides of a comparison and a change to the path convention applies to both
+without anyone maintaining a second copy of it.
+
+Eight notices are frozen under
+[`tests/OmsLoan.Domain.Tests/Extractors/Fixtures/corpus`](../tests/OmsLoan.Domain.Tests/Extractors/Fixtures/corpus)
+as the baseline. Two of them exist for rules that nothing else can test:
+
+- `003-rate-reset-no-all-in` states a base rate and a margin and not the total. The correct
+  `all_in_rate` is null, and a model that does the arithmetic fails here and nowhere else.
+- `005-combined-paydown-and-rate-reset` is two events in one document. A model that merges
+  them, or that copies the new rate onto the paydown, fails here.
+
+Every generated notice prints a full set of payment instructions and no expected file
+contains any of them, so the prohibition is tested against documents that actually contain
+what it refuses.
+
+The comparison harness itself is not built — it needs a provider implementation to produce
+the other half.
+
 ## Adding a version
 
 Copy the pair to `extraction.v2.md` / `extraction.v2.schema.json`, add them as embedded

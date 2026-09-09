@@ -94,7 +94,7 @@ than updating one, so a prompt change can be compared against the same notice.
 | [`tests/OmsLoan.Domain.Tests`](tests/OmsLoan.Domain.Tests) | Domain unit tests — no database required |
 | [`scripts/prompts`](scripts/prompts) | Extraction prompts, vision and text variants |
 | [`scripts/Notices`](scripts/Notices) | Generated sample notices for testing extraction |
-| [`tools`](tools) | Development scripts, including the notice generator |
+| [`tools`](tools) | Development scripts, including the notice corpus generator — mock PDFs paired with the extraction each should produce |
 | [`docs/windows-service.md`](docs/windows-service.md) | Worker service — account, ACLs, SQL login, configuration |
 | [`docs/api-windows-service.md`](docs/api-windows-service.md) | Api service — Kestrel URLs and port binding, serving the React build |
 | [`docs/extraction-fields.md`](docs/extraction-fields.md) | The extraction prompt, the field-name convention, and what is never extracted |

@@ -38,7 +38,8 @@
     a change to the data rather than to the test.
   -->
   <ItemGroup>
-    <Content Include="Extractors\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Extractors\Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Extractors\Fixtures\**\*.pdf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
