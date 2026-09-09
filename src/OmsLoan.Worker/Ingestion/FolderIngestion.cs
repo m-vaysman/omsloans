@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Microsoft.Extensions.Options;
 using OmsLoan.Domain;
 
@@ -48,9 +47,6 @@ public sealed class FolderIngestion(
     /// </summary>
     private readonly Dictionary<string, int> _readAttempts = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The first four bytes of every PDF.</summary>
-    private static readonly byte[] PdfMagic = "%PDF"u8.ToArray();
-
     public async Task RunOnceAsync(CancellationToken cancellationToken)
     {
         var watched = _options.WatchedFolder;
@@ -96,9 +92,9 @@ public sealed class FolderIngestion(
 
         _readAttempts.Remove(file);
 
-        var hash = Sha256Hex(content);
+        var hash = NoticeContent.Sha256Hex(content);
 
-        if (!IsPdf(content))
+        if (!NoticeContent.IsPdf(content))
         {
             // Permanent, so no retries: the bytes read fine and are not a PDF. Moving it out
             // keeps the folder honest, and it is the one case besides an unreadable file
@@ -110,20 +106,11 @@ public sealed class FolderIngestion(
             return;
         }
 
-        var notice = new Notice
-        {
-            Content = content,
-            Sha256 = hash,
-            Sender = null,
-
-            // Deliberately null. The filesystem timestamp is when the file was dropped here,
-            // not when the agent bank sent it, and inventing a value would be worse than
-            // admitting we do not know.
-            SentAtUtc = null,
-
-            ReceivedAtUtc = _time.GetUtcNow().UtcDateTime,
-            Status = NoticeStatus.Received,
-        };
+        // Sender and SentAtUtc are left unset. A folder drop carries no envelope: the
+        // filesystem timestamp is when the file arrived here, not when the agent bank sent
+        // it, and inventing a value would be worse than admitting we do not know. The same
+        // construction the upload endpoint uses, so identical bytes produce identical rows.
+        var notice = NoticeContent.Create(content, _time.GetUtcNow().UtcDateTime);
 
         try
         {
@@ -246,10 +233,4 @@ public sealed class FolderIngestion(
         }
     }
 
-    private static bool IsPdf(byte[] content) =>
-        content.Length >= PdfMagic.Length && content.AsSpan(0, PdfMagic.Length).SequenceEqual(PdfMagic);
-
-    /// <summary>Lowercase hex, matching what is stored on <see cref="Notice.Sha256"/>.</summary>
-    public static string Sha256Hex(byte[] content) =>
-        Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant();
 }

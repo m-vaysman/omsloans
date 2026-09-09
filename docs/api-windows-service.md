@@ -316,6 +316,61 @@ relative paths in both, and there is no CORS configuration that exists only for 
 because `dist/` is gitignored. The banner reports `React UI: not deployed`, which is the
 expected state there.
 
+## Manual notice upload
+
+`POST /api/notices` accepts a PDF as `multipart/form-data` and records it as a notice. It is
+how a notice gets in when it did not arrive through the watched folder or the shared mailbox
+— a one-off, a re-send, or a channel nobody automated.
+
+| Field | | |
+| --- | --- | --- |
+| `file` | required | The PDF |
+| `sender` | optional | Who sent it, usually read off a forwarded email |
+| `sentAtUtc` | optional | When the agent bank sent it |
+
+Both optional fields mean *unknown* when absent, and unknown is stored as null. `sentAtUtc`
+is never inferred from the upload time: that is when it reached us, which is a different fact
+and is already recorded as `ReceivedAtUtc`.
+
+| Response | When |
+| --- | --- |
+| `201` | Recorded. Body carries the notice id, the SHA-256 and the received timestamp |
+| `400` | No file, or an empty one |
+| `413` | Larger than `Upload:MaxBytes` |
+| `415` | Not a PDF — either the declared content type or the bytes |
+
+**Validation happens in the controller, first.** There is no point hashing a file, opening a
+transaction and touching the database to discover the upload was a spreadsheet.
+
+Two checks, and the second is the one that decides. The declared content type is cheap and a
+browser usually gets it right, so it rejects the obvious cases before anything is read. Then
+the bytes themselves are checked for the `%PDF` marker — because a content type and a file
+extension are both supplied by whoever sent the file, and the magic number is not. A
+spreadsheet renamed `.pdf` and declared `application/pdf` is still refused.
+
+**There is no duplicate check and no `409`.** Every upload is recorded, exactly as every file
+dropped in the watched folder is. Uploading the same document twice produces two notices;
+deciding they are the same is review's work. See the ingestion section in
+[`windows-service.md`](windows-service.md#ingestion) for why `Notices.Sha256` is not uniquely
+indexed.
+
+Hashing and notice construction come from `OmsLoan.Domain.NoticeContent`, the same code
+folder ingestion uses, so identical bytes produce an identical row whichever way they arrived.
+
+### Upload size
+
+```json
+{ "Upload": { "MaxBytes": 33554432 } }
+```
+
+Default 32 MB. Notices vary — a rate reset is a page, a credit agreement amendment can be a
+hundred — and the cost of a too-small limit is a reviewer unable to file a real notice, which
+is worse than storing a few megabytes nobody needed.
+
+The request body cap is derived from this value plus an allowance for the multipart envelope,
+so raising `Upload:MaxBytes` raises the server limit with it. Without that, an operator would
+raise the setting and find uploads still refused by a number they cannot see.
+
 ## Startup banner
 
 On every start the Api logs its environment, content root, **web root**, whether it is running
