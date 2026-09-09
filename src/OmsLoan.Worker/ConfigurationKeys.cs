@@ -5,7 +5,8 @@ namespace OmsLoan.Worker;
 /// variable that supplies it on a machine.
 /// </summary>
 /// <param name="ConfigurationKey">
-/// The hierarchical key the application binds against, e.g. <c>Extraction:Claude:ApiKey</c>.
+/// The hierarchical key the application binds against, e.g.
+/// <c>Extraction:Providers:Claude:ApiKey</c>.
 /// </param>
 /// <param name="EnvironmentVariable">
 /// The variable an operator actually sets, e.g. <c>CLAUDE_API_KEY</c>. For the secrets these
@@ -26,7 +27,8 @@ public sealed record ConfiguredSetting(string ConfigurationKey, string Environme
 /// </para>
 /// <para>
 /// .NET's own convention maps a hierarchical key onto a double-underscore variable, so
-/// <c>Extraction:Claude:ApiKey</c> would be set as <c>Extraction__Claude__ApiKey</c>. That
+/// <c>Extraction:Providers:Claude:ApiKey</c> would be set as
+/// <c>Extraction__Providers__Claude__ApiKey</c>. That
 /// mapping is built into the environment-variable provider and still works. But the machines
 /// this runs on already carry flat names — <c>CLAUDE_API_KEY</c>, <c>GRAPH_TENANT_ID</c> —
 /// set for other tooling, and nothing auto-maps those onto the nested keys. A deployment
@@ -42,7 +44,8 @@ public sealed record ConfiguredSetting(string ConfigurationKey, string Environme
 /// is what is read here.
 /// </para>
 /// <para>
-/// The nested <c>Extraction__Claude__ApiKey</c> form is not removed and cannot be — it comes
+/// The nested <c>Extraction__Providers__Claude__ApiKey</c> form is not removed and cannot
+/// be — it comes
 /// free with the environment-variable provider. It simply loses to the flat name when both
 /// are set. It is no longer documented or written by the install script.
 /// </para>
@@ -61,9 +64,9 @@ public static class ConfigurationKeys
     /// </summary>
     public static readonly IReadOnlyList<ConfiguredSetting> ProviderApiKeys =
     [
-        new("Extraction:Claude:ApiKey", "CLAUDE_API_KEY", "Claude"),
-        new("Extraction:OpenAi:ApiKey", "OPEN_API_KEY", "OpenAI"),
-        new("Extraction:Groq:ApiKey", "GROQ_API_KEY", "Groq"),
+        new("Extraction:Providers:Claude:ApiKey", "CLAUDE_API_KEY", "Claude"),
+        new("Extraction:Providers:OpenAi:ApiKey", "OPEN_API_KEY", "OpenAI"),
+        new("Extraction:Providers:Groq:ApiKey", "GROQ_API_KEY", "Groq"),
     ];
 
     /// <summary>

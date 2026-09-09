@@ -187,9 +187,9 @@ the machines already carry, set for other tooling, and the Worker reads them dir
 
 | Setting | Environment variable | Configuration key in code |
 | --- | --- | --- |
-| Claude key | `CLAUDE_API_KEY` | `Extraction:Claude:ApiKey` |
-| OpenAI key | `OPEN_API_KEY` | `Extraction:OpenAi:ApiKey` |
-| Groq key | `GROQ_API_KEY` | `Extraction:Groq:ApiKey` |
+| Claude key | `CLAUDE_API_KEY` | `Extraction:Providers:Claude:ApiKey` |
+| OpenAI key | `OPEN_API_KEY` | `Extraction:Providers:OpenAi:ApiKey` |
+| Groq key | `GROQ_API_KEY` | `Extraction:Providers:Groq:ApiKey` |
 | Graph tenant | `GRAPH_TENANT_ID` | `Graph:TenantId` |
 | Graph app id | `GRAPH_CLIENT_ID` | `Graph:ClientId` |
 | Graph secret | `GRAPH_CLIENT_SECRET` | `Graph:ClientSecret` |
@@ -218,13 +218,18 @@ and the Api reads the same connection-string variable:
 | Watched folder | `Ingestion:WatchedFolder` | `Ingestion__WatchedFolder` |
 
 <details>
-<summary>The old <code>Extraction__Claude__ApiKey</code> spelling</summary>
+<summary>Double-underscore spellings, and one that has stopped working</summary>
 
-Still resolves, because the double-underscore mapping is built into the environment-variable
-provider and cannot be switched off. It is no longer written by the install script or
-documented anywhere else, and **it loses to the flat name** when both are set — deliberately,
-so a stale variable left on a host cannot shadow the real one. Treat it as deprecated and
-delete it where you find it.
+**`Extraction__Providers__Claude__ApiKey` still resolves.** The double-underscore mapping is
+built into the environment-variable provider and cannot be switched off. It is not written by
+the install script or documented elsewhere, and **it loses to the flat name** when both are
+set — deliberately, so a stale variable left on a host cannot shadow the real one.
+
+**`Extraction__Claude__ApiKey` no longer binds to anything.** That was the spelling before the
+provider settings moved under `Extraction:Providers`, and it now points at a key nothing reads.
+A host still carrying it will not error: the variable simply has no effect, and the Worker
+reports the key as absent unless the flat `CLAUDE_API_KEY` is also set. Delete it where you
+find it.
 
 </details>
 
@@ -235,7 +240,7 @@ up with no further setup. For per-project values, user-secrets take the hierarch
 
 ```powershell
 dotnet user-secrets set "ConnectionStrings:OmsLoan" "Server=(localdb)\MSSQLLocalDB;Database=OmsLoan;Trusted_Connection=true" --project src/OmsLoan.Worker
-dotnet user-secrets set "Extraction:Claude:ApiKey" "..." --project src/OmsLoan.Worker
+dotnet user-secrets set "Extraction:Providers:Claude:ApiKey" "..." --project src/OmsLoan.Worker
 ```
 
 Note that a flat variable outranks user-secrets. If a machine-level `CLAUDE_API_KEY` is set
@@ -355,6 +360,53 @@ Polling rather than `FileSystemWatcher`: the watcher misses events when its buff
 during a bulk drop, does not fire reliably on network shares — which is where these folders
 usually live — and offers no way to retry a file that was locked when the event arrived. A
 scan re-examines whatever is still present, so a missed notice is self-correcting.
+
+## Extraction providers
+
+Provider choice is a configuration value rather than a code path — see
+[ADR 0001](decisions/0001-cloud-llm-over-local.md). Everything talks to `INoticeExtractor`;
+only the implementations know which vendor they are calling, and a provider is resolved by the
+name it has in configuration. That is what makes reprocessing and the accuracy report possible
+at all: running the same notice through two providers has to be a loop over names.
+
+| Key | Default | |
+| --- | --- | --- |
+| `Extraction:DefaultProvider` | `Claude` | used when a caller does not name one |
+| `Extraction:Providers:{name}:ApiKey` | — | from the flat machine variable |
+| `Extraction:Providers:{name}:ModelId` | — | **pinned**, never a floating alias |
+| `Extraction:Providers:{name}:MaxTokens` | 4096 | |
+| `Extraction:Providers:{name}:TimeoutSeconds` | 120 | the whole budget for one call |
+
+**A provider with no key or no model id is not registered at all.** Registering it would let
+something resolve an extractor certain to fail on its first call, and the failure would read
+as a provider outage rather than a deployment nobody finished.
+
+**Pin the model id.** A floating alias means two rows carrying the same name and different
+behaviour, and nothing afterwards can separate them — which makes the accuracy report
+meaningless.
+
+### One attempt. No retries.
+
+A provider is a black box. If it does not answer, that is the answer: the extraction is
+recorded as failed, naming the provider and the reason, and a reviewer decides what to do —
+run it again, use a different provider, or type the values in. That decision belongs to a
+person looking at the notice, not to a backoff schedule guessing on their behalf.
+
+Nothing is lost while nobody retries. The notice sits in the queue with a visible failed
+extraction against it, which is a state somebody can act on. Retries would buy little against
+a schedule to reason about, a worst case several times the timeout, and a class of failure
+that gets quietly absorbed instead of reported.
+
+Every provider is still wrapped, for two things it should not have to remember:
+
+- **A deadline**, so a hung provider cannot wedge the ingestion loop. The notice is still on
+  disk or in the mailbox; giving up costs nothing.
+- **A result, not an exception.** Every call leaves a row — the failures most of all, since
+  those are what a reviewer needs to see. *Any* exception becomes a recorded failure, including
+  one a provider never meant to throw: a bug in a provider must not produce a notice with no
+  row against it. Token counts, latency and finish reason are recorded on failures too.
+
+Only genuine shutdown propagates.
 
 ## Mailbox ingestion
 
@@ -484,9 +536,9 @@ directly actionable:
 ```
   Resolved settings:
     - ConnectionStrings:OmsLoan : present (from EnvironmentVariablesConfigurationProvider)
-    - Extraction:Claude:ApiKey  : present (from CLAUDE_API_KEY)
-    - Extraction:OpenAi:ApiKey  : absent (set OPEN_API_KEY)
-    - Extraction:Groq:ApiKey    : present (from GROQ_API_KEY)
+    - Extraction:Providers:Claude:ApiKey : present (from CLAUDE_API_KEY)
+    - Extraction:Providers:OpenAi:ApiKey : absent (set OPEN_API_KEY)
+    - Extraction:Providers:Groq:ApiKey   : present (from GROQ_API_KEY)
     - Graph:TenantId            : present (from GRAPH_TENANT_ID)
     - Graph:ClientId            : present (from GRAPH_CLIENT_ID)
     - Graph:ClientSecret        : present (from GRAPH_CLIENT_SECRET)
