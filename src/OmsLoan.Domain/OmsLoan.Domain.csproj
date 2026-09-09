@@ -1,6 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!--
+      JsonFlatten does the walk in ExtractedFieldFlattener. Its path form is exactly the
+      convention this system stores field names in - events[0].economics.principal_amount -
+      so the format is the library's rather than ours to maintain.
+
+      Newtonsoft comes in under it and is referenced explicitly only to pin the patch line:
+      JsonFlatten asks for [13.0.1, ) and would otherwise resolve to the floor. It is an
+      implementation detail of that one class and does not belong anywhere else - the rest
+      of the codebase is System.Text.Json, and the flattener converts at its own boundary so
+      no caller has to know which library parsed the body.
+    -->
+    <PackageReference Include="JsonFlatten" Version="1.0.4" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
       <PrivateAssets>all</PrivateAssets>

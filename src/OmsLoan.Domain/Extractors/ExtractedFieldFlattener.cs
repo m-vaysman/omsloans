@@ -1,5 +1,7 @@
 using System.Globalization;
-using System.Text.Json;
+using JsonFlatten;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace OmsLoan.Domain.Extractors;
 
@@ -29,14 +31,45 @@ namespace OmsLoan.Domain.Extractors;
 /// warnings[0]
 /// </code>
 /// <para>
-/// Nulls are dropped. A field the notice did not state is absent rather than stored as an
-/// empty row — but the distinction between "not stated" and "stated as empty" is preserved,
-/// because the model is instructed to use null for the first and would have to emit a string
-/// for the second.
+/// The walk itself is <c>JsonFlatten</c>'s, which produces exactly that path form. What is
+/// left here is the part that is ours: which keys are refused, how a confidence is paired to
+/// its field, and how a value becomes a typed projection.
+/// </para>
+/// <para>
+/// Nulls are dropped, and so are empty strings and empty containers. A field the notice did
+/// not state is absent rather than stored as a row with nothing in it. The schema gives an
+/// empty string no meaning — every field is a value or null — so a model returning one has
+/// said nothing, and a row with an empty value reads on a review screen exactly like the
+/// absence it would be recorded as anyway.
 /// </para>
 /// </remarks>
 public static class ExtractedFieldFlattener
 {
+    /// <summary>
+    /// Two settings, both load-bearing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="FloatParseHandling.Decimal"/> because these are money and rates.
+    /// Newtonsoft's default parses any number with a decimal point as a <c>double</c>, and
+    /// <c>NumericValue</c> is <c>decimal(18,6)</c> — a binary float cannot hold every value
+    /// that column can, and the failure is silent and at the far end of the range rather than
+    /// on the first test anybody writes. It also happens to preserve a stated scale, so a
+    /// model returning <c>0.05320</c> is recorded as <c>0.05320</c> rather than <c>0.0532</c>.
+    /// </para>
+    /// <para>
+    /// <see cref="DateParseHandling.None"/> because a date is a string until this class says
+    /// otherwise. Left on, Newtonsoft converts anything date-shaped to a <c>DateTime</c> on
+    /// the way in, under its own rules and the ambient culture — which would quietly undo the
+    /// deliberate decision below to parse ISO and only ISO.
+    /// </para>
+    /// </remarks>
+    private static readonly JsonSerializerSettings ParseSettings = new()
+    {
+        FloatParseHandling = FloatParseHandling.Decimal,
+        DateParseHandling = DateParseHandling.None,
+    };
+
     /// <summary>Keys that are never stored, whatever a model returns under them.</summary>
     /// <remarks>
     /// <para>
@@ -61,6 +94,8 @@ public static class ExtractedFieldFlattener
         "bank_name",
     ];
 
+    private const string ConfidenceKey = "field_confidence";
+
     /// <summary>One flattened field, ready to become an <see cref="ExtractedField"/>.</summary>
     /// <param name="FieldName">The dotted path.</param>
     /// <param name="RawValue">What the model said, as text.</param>
@@ -75,118 +110,91 @@ public static class ExtractedFieldFlattener
         decimal? Confidence);
 
     /// <summary>
-    /// Flattens a response body. Throws <see cref="JsonException"/> on malformed JSON, which
-    /// the caller records as a parse failure with the raw body kept.
+    /// Flattens a response body. Throws <see cref="System.Text.Json.JsonException"/> on
+    /// malformed JSON, which the caller records as a parse failure with the raw body kept.
     /// </summary>
     public static IReadOnlyList<Field> Flatten(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
 
-        using var document = JsonDocument.Parse(json);
+        var root = Parse(json);
+        var confidence = ReadConfidence(root);
 
-        var confidence = ReadConfidence(document.RootElement);
-        var fields = new List<Field>();
-
-        Walk(document.RootElement, path: string.Empty, fields, confidence);
-
-        return fields;
+        // includeNullAndEmptyValues: false drops nulls and empty containers, which is the
+        // behaviour we want and would otherwise have to filter for.
+        return root.Flatten(includeNullAndEmptyValues: false)
+            .Where(entry => !IsConfidence(entry.Key) && !IsForbidden(entry.Key))
+            .Select(entry => ToField(entry.Key, entry.Value, confidence))
+            .ToList();
     }
 
-    private static Dictionary<string, decimal> ReadConfidence(JsonElement root)
+    /// <summary>
+    /// Newtonsoft is an implementation detail of the walk and does not belong in the contract:
+    /// the rest of the codebase is System.Text.Json, and a caller catching a parse failure
+    /// should not have to know which library did the parsing to name the exception.
+    /// </summary>
+    private static JObject Parse(string json)
+    {
+        try
+        {
+            return JsonConvert.DeserializeObject<JObject>(json, ParseSettings)
+                ?? throw new System.Text.Json.JsonException("The response body was not a JSON object.");
+        }
+        catch (JsonException ex)
+        {
+            throw new System.Text.Json.JsonException(ex.Message, ex);
+        }
+    }
+
+    /// <summary>
+    /// Read from the object rather than from the flattened output, because a confidence key is
+    /// itself a path and flattening it produces a key containing a key —
+    /// <c>field_confidence['events[0].economics.all_in_rate']</c>. Taking it from the object
+    /// keeps the lookup keyed by the plain path the fields use.
+    /// </summary>
+    private static Dictionary<string, decimal> ReadConfidence(JObject root)
     {
         var confidence = new Dictionary<string, decimal>(StringComparer.Ordinal);
 
-        if (root.ValueKind != JsonValueKind.Object
-            || !root.TryGetProperty("field_confidence", out var element)
-            || element.ValueKind != JsonValueKind.Object)
-        {
-            return confidence;
-        }
+        if (root[ConfidenceKey] is not JObject stated) return confidence;
 
-        foreach (var entry in element.EnumerateObject())
+        foreach (var entry in stated.Properties())
         {
-            if (entry.Value.ValueKind == JsonValueKind.Number && entry.Value.TryGetDecimal(out var value))
+            if (entry.Value.Type is JTokenType.Float or JTokenType.Integer)
             {
-                confidence[entry.Name] = value;
+                confidence[entry.Name] = entry.Value.Value<decimal>();
             }
         }
 
         return confidence;
     }
 
-    private static void Walk(
-        JsonElement element,
-        string path,
-        List<Field> fields,
-        Dictionary<string, decimal> confidence)
+    private static Field ToField(string path, object? value, Dictionary<string, decimal> confidence)
     {
-        switch (element.ValueKind)
+        // Booleans lowercased to match the JSON the model actually sent; Newtonsoft's
+        // ToString() would write "True".
+        var raw = value switch
         {
-            case JsonValueKind.Object:
-                foreach (var property in element.EnumerateObject())
-                {
-                    // field_confidence is the lookup table, not data. Storing it as fields
-                    // would double every row and give each one a name nobody queries.
-                    if (property.NameEquals("field_confidence"))
-                    {
-                        continue;
-                    }
-
-                    if (IsForbidden(property.Name))
-                    {
-                        continue;
-                    }
-
-                    Walk(property.Value, Join(path, property.Name), fields, confidence);
-                }
-
-                break;
-
-            case JsonValueKind.Array:
-                var index = 0;
-
-                foreach (var item in element.EnumerateArray())
-                {
-                    Walk(item, $"{path}[{index++}]", fields, confidence);
-                }
-
-                break;
-
-            case JsonValueKind.Null:
-                // Not stated. Absent rather than an empty row.
-                break;
-
-            default:
-                if (IsForbidden(path))
-                {
-                    break;
-                }
-
-                fields.Add(Scalar(element, path, confidence));
-                break;
-        }
-    }
-
-    private static Field Scalar(JsonElement element, string path, Dictionary<string, decimal> confidence)
-    {
-        var raw = element.ValueKind switch
-        {
-            JsonValueKind.String => element.GetString(),
-            JsonValueKind.True => "true",
-            JsonValueKind.False => "false",
-            _ => element.GetRawText(),
+            bool flag => flag ? "true" : "false",
+            decimal number => number.ToString(CultureInfo.InvariantCulture),
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value?.ToString(),
         };
 
-        decimal? numeric = element.ValueKind == JsonValueKind.Number && element.TryGetDecimal(out var value)
-            ? value
-            : null;
+        decimal? numeric = value switch
+        {
+            decimal number => number,
+            long whole => whole,
+            int whole => whole,
+            _ => null,
+        };
 
         // ISO only, and only exactly. A model emitting "30 September 2026" leaves DateValue
         // null and the text in RawValue, which is a visible discrepancy rather than a date
         // parsed to something plausible under whatever culture the server happens to run in.
-        DateTime? date = element.ValueKind == JsonValueKind.String
+        DateTime? date = value is string text
             && DateTime.TryParseExact(
-                raw,
+                text,
                 "yyyy-MM-dd",
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.None,
@@ -202,10 +210,13 @@ public static class ExtractedFieldFlattener
             confidence.TryGetValue(path, out var stated) ? stated : null);
     }
 
-    private static bool IsForbidden(string nameOrPath) =>
-        ForbiddenSegments.Any(segment =>
-            nameOrPath.Contains(segment, StringComparison.OrdinalIgnoreCase));
+    /// <summary>
+    /// The lookup table is not itself data. Storing it would double every row and give each
+    /// copy a name nobody queries.
+    /// </summary>
+    private static bool IsConfidence(string path) =>
+        path.StartsWith(ConfidenceKey, StringComparison.Ordinal);
 
-    private static string Join(string path, string name) =>
-        path.Length == 0 ? name : $"{path}.{name}";
+    private static bool IsForbidden(string path) =>
+        ForbiddenSegments.Any(segment => path.Contains(segment, StringComparison.OrdinalIgnoreCase));
 }

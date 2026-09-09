@@ -178,9 +178,17 @@ public class ExtractedFieldFlattenerTests
 
         Assert.False(fields.ContainsKey("identifiers.cusip"));
         Assert.False(fields.ContainsKey("events[0].economics.fee_amount"));
+    }
 
-        // "Stated as empty" survives, because the prompt reserves null for "not stated".
-        Assert.Equal(string.Empty, Flatten("""{ "fee_type": "" }""")["fee_type"].RawValue);
+    /// <summary>
+    /// An empty string goes the same way. The schema gives it no meaning — every field is a
+    /// value or null — so a model returning one has said nothing, and a row with an empty
+    /// value reads on a review screen exactly like the absence it would otherwise be.
+    /// </summary>
+    [Fact]
+    public void AnEmptyValueIsAbsenceRatherThanAnEmptyRow()
+    {
+        Assert.Empty(ExtractedFieldFlattener.Flatten("""{ "fee_type": "" }"""));
     }
 
     [Fact]

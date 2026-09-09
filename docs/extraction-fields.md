@@ -56,9 +56,18 @@ and the reason this file exists: the convention is pinned here instead.
 field's own name rather than carried in a parallel structure that can drift out of step with
 it. The table itself is not stored as fields.
 
-**Nulls are dropped.** Most fields are null on any given notice; storing them would bury the
-dozen a notice states under the sixty it does not. The prompt reserves `null` for "not
-stated", so a value the notice states as empty survives as an empty string.
+The walk itself is [`JsonFlatten`](https://www.nuget.org/packages/JsonFlatten)'s, whose path
+form is this convention exactly. Two parse settings are load-bearing and easy to lose:
+`FloatParseHandling.Decimal`, because these are money and rates and the default would read
+them as `double` when `NumericValue` is `decimal(18,6)`; and `DateParseHandling.None`,
+because a date stays a string until the flattener parses it under the rule below rather than
+under Newtonsoft's and the ambient culture's.
+
+**Nulls are dropped**, and so are empty strings and empty containers. Most fields are null on
+any given notice; storing them would bury the dozen a notice states under the sixty it does
+not. The schema gives an empty string no meaning — every field is a value or null — so a
+model returning one has said nothing, and an empty row reads on a review screen exactly like
+the absence it would be recorded as anyway.
 
 ## Verbatim against normalised
 
