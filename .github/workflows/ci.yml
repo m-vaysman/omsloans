@@ -21,7 +21,8 @@ permissions:
 jobs:
   build-test:
     name: Build and test (Worker path)
-    runs-on: ubuntu-latest
+    # Worker is a Windows Service; folder-lock tests assume NTFS share semantics.
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,8 +32,6 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      # One project per command — MSBuild rejects multiple project args.
-      # Domain.Tests / Worker.Tests pull Domain + Worker; Api and Web are not referenced.
       - name: Test Domain
         run: dotnet test tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj -c Release --verbosity normal
 
