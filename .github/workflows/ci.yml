@@ -8,7 +8,6 @@ on:
       - "src/Directory.Build.props"
       - "tests/OmsLoan.Domain.Tests/**"
       - "tests/OmsLoan.Worker.Tests/**"
-      - "OmsLoan.sln"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
 
@@ -21,7 +20,7 @@ permissions:
 
 jobs:
   build-test:
-    name: Restore, build, test (Worker path)
+    name: Build and test (Worker path)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,25 +31,10 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Restore
-        run: >
-          dotnet restore
-          src/OmsLoan.Domain/OmsLoan.Domain.csproj
-          src/OmsLoan.Worker/OmsLoan.Worker.csproj
-          tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj
-          tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj
+      # One project per command — MSBuild rejects multiple project args.
+      # Domain.Tests / Worker.Tests pull Domain + Worker; Api and Web are not referenced.
+      - name: Test Domain
+        run: dotnet test tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj -c Release --verbosity normal
 
-      - name: Build
-        run: >
-          dotnet build
-          src/OmsLoan.Worker/OmsLoan.Worker.csproj
-          tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj
-          tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj
-          -c Release --no-restore
-
-      - name: Test
-        run: >
-          dotnet test
-          tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj
-          tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj
-          -c Release --no-build --verbosity normal
+      - name: Test Worker
+        run: dotnet test tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj -c Release --verbosity normal
