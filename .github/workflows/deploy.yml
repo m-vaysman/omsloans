@@ -2,6 +2,7 @@ name: Deploy Worker
 
 # Manual only — no push-to-main rebuild (not TeamCity-style polling).
 # Pick the branch/tag in the Actions "Run workflow" UI.
+# Worker only — Api / Web left out for now.
 on:
   workflow_dispatch:
 
@@ -22,10 +23,19 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Restore
-        run: dotnet restore OmsLoan.sln
+        run: >
+          dotnet restore
+          src/OmsLoan.Domain/OmsLoan.Domain.csproj
+          src/OmsLoan.Worker/OmsLoan.Worker.csproj
+          tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj
+          tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj
 
       - name: Test
-        run: dotnet test OmsLoan.sln -c Release --verbosity normal
+        run: >
+          dotnet test
+          tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj
+          tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj
+          -c Release --verbosity normal
 
       - name: Publish Worker
         run: >
