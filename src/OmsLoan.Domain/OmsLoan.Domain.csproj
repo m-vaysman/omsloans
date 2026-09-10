@@ -44,4 +44,15 @@
     <EmbeddedResource Include="Extractors\Prompts\*.json" />
   </ItemGroup>
 
+  <!--
+    The extraction internals are internal so that INoticeExtraction is the only way to run an
+    extraction (#70). Infrastructure implements them and the test projects assert on them;
+    nothing else can reach them, which is the whole guarantee.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="OmsLoan.Infrastructure" />
+    <InternalsVisibleTo Include="OmsLoan.Domain.Tests" />
+    <InternalsVisibleTo Include="OmsLoan.Infrastructure.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -23,7 +23,7 @@ namespace OmsLoan.Domain.Extractors;
 /// into a failed <see cref="ExtractionResult"/>. Only genuine cancellation propagates.
 /// </para>
 /// </remarks>
-public interface INoticeExtractor
+internal interface INoticeExtractor
 {
     /// <summary>
     /// The pinned model id, recorded on every row this extractor produces.

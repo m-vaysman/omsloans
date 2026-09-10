@@ -32,7 +32,7 @@ namespace OmsLoan.Domain.Extractors;
 /// genuine cancellation propagates.
 /// </para>
 /// </remarks>
-public sealed class GuardedNoticeExtractor(
+internal sealed class GuardedNoticeExtractor(
     INoticeExtractor inner,
     ProviderOptions options,
     TimeProvider? timeProvider = null) : INoticeExtractor

@@ -34,6 +34,15 @@
     <Content Include="..\OmsLoan.Domain.Tests\Extractors\Fixtures\corpus\*.pdf"
              Link="Fixtures\corpus\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
+
+    <!--
+      The expected extractions come too, because the classifier is scored against them: the
+      notice's real types are the ones its own answer key states, so the gate is measured
+      against ground truth rather than against a list typed out here.
+    -->
+    <Content Include="..\OmsLoan.Domain.Tests\Extractors\Fixtures\corpus\*.expected.json"
+             Link="Fixtures\corpus\%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
