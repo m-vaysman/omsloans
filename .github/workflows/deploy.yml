@@ -1,8 +1,9 @@
 name: Deploy Worker
 
-# Manual only — no push-to-main rebuild (not TeamCity-style polling).
-# Pick the branch/tag in the Actions "Run workflow" UI.
-# Worker only — Api / Web left out for now.
+# Manual only — no push-to-main rebuild.
+# Worker path only — Api / Web not built or published.
+# Node.js lines in the log come from actions/checkout and actions/setup-dotnet (JS actions),
+# not from npm / OmsLoan.Web.
 on:
   workflow_dispatch:
 
@@ -22,20 +23,11 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Restore
-        run: >
-          dotnet restore
-          src/OmsLoan.Domain/OmsLoan.Domain.csproj
-          src/OmsLoan.Worker/OmsLoan.Worker.csproj
-          tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj
-          tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj
+      - name: Test Domain
+        run: dotnet test tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj -c Release --verbosity normal
 
-      - name: Test
-        run: >
-          dotnet test
-          tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj
-          tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj
-          -c Release --verbosity normal
+      - name: Test Worker
+        run: dotnet test tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj -c Release --verbosity normal
 
       - name: Publish Worker
         run: >
