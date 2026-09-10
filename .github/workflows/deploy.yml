@@ -1,0 +1,42 @@
+name: Deploy Worker
+
+# Manual only — no push-to-main rebuild (not TeamCity-style polling).
+# Pick the branch/tag in the Actions "Run workflow" UI.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-worker:
+    name: Publish OmsLoan.Worker artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore OmsLoan.sln
+
+      - name: Test
+        run: dotnet test OmsLoan.sln -c Release --verbosity normal
+
+      - name: Publish Worker
+        run: >
+          dotnet publish src/OmsLoan.Worker/OmsLoan.Worker.csproj
+          -c Release
+          -o "${{ github.workspace }}/publish/OmsLoan.Worker"
+
+      - name: Upload Worker artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OmsLoan.Worker-${{ github.run_number }}
+          path: ${{ github.workspace }}/publish/OmsLoan.Worker
+          if-no-files-found: error
+          retention-days: 14
