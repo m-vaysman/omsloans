@@ -13,6 +13,8 @@ GitHub Actions **does not** touch the Windows host. It builds a Release publish 
 
 There is no rebuild-on-`main` polling.
 
+CI and Deploy run on **`windows-latest`** — the Worker is a Windows Service, and folder-lock tests assume NTFS share semantics (they fail incorrectly on Linux).
+
 ## Ship a Worker build
 
 1. Actions → **Deploy Worker** → **Run workflow** (pick the branch/tag in the UI).
