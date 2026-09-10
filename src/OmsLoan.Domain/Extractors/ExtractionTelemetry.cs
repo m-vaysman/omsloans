@@ -24,7 +24,8 @@ public sealed record ExtractionTelemetry(
     int? CompletionTokens = null,
     TimeSpan Latency = default,
     string? FinishReason = null,
-    DocumentMode DocumentMode = DocumentMode.Native)
+    DocumentMode DocumentMode = DocumentMode.Native,
+    TimeSpan QueueWait = default)
 {
     /// <summary>Total billed tokens, when both halves are known.</summary>
     public int? TotalTokens =>

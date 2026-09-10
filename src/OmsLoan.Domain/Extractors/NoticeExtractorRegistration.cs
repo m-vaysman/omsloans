@@ -11,7 +11,7 @@ namespace OmsLoan.Domain.Extractors;
 /// the reprocess command (#18) and the accuracy report (#19) are built on. Running the same
 /// notice through two providers has to be a loop over names, not a branch.
 /// </remarks>
-public interface INoticeExtractorSelector
+internal interface INoticeExtractorSelector
 {
     /// <summary>Providers that are registered, in configuration order.</summary>
     IReadOnlyList<string> Available { get; }
@@ -31,7 +31,7 @@ public interface INoticeExtractorSelector
 }
 
 /// <inheritdoc />
-public sealed class NoticeExtractorSelector(
+internal sealed class NoticeExtractorSelector(
     IServiceProvider services,
     IOptions<ExtractionOptions> options) : INoticeExtractorSelector
 {
@@ -85,7 +85,7 @@ public static class NoticeExtractorRegistration
     /// </para>
     /// </remarks>
     /// <returns>True when the provider was registered; false when it is not configured.</returns>
-    public static bool AddNoticeExtractor(
+    internal static bool AddNoticeExtractor(
         this IServiceCollection services,
         ExtractionOptions extraction,
         string providerName,
@@ -117,6 +117,12 @@ public static class NoticeExtractorRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<INoticeExtractorSelector, NoticeExtractorSelector>();
+
+        // The one public way in. Registered here rather than left to the host, so a host cannot
+        // wire the internals and leave the selector and the concurrency gate unenforced (#70).
+        services.AddSingleton<INoticeExtraction>(provider => new NoticeExtraction(
+            provider.GetRequiredService<INoticeExtractorSelector>(),
+            provider.GetRequiredService<IOptions<ExtractionOptions>>()));
 
         return services;
     }

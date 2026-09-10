@@ -72,6 +72,22 @@ public sealed class ProviderOptions
     /// </remarks>
     public int MaxDocumentBytes { get; init; } = 30 * 1024 * 1024;
 
+    /// <summary>The default concurrency cap, used when configuration does not give one.</summary>
+    public const int DefaultMaxConcurrentExtractions = 2;
+
+    /// <summary>
+    /// How many extractions may be in flight against this provider at once.
+    /// </summary>
+    /// <remarks>
+    /// Per provider rather than global, because rate limits and latency belong to a vendor and
+    /// one slow Claude call should not block a Groq call that shares nothing with it.
+    ///
+    /// The unit is concurrent work, not threads. An awaiting call holds no thread, so this does
+    /// not cap threads and was never meant to — it caps what actually runs out: provider rate
+    /// limit, spend per minute, and PDFs held in memory at once.
+    /// </remarks>
+    public int MaxConcurrentExtractions { get; init; } = DefaultMaxConcurrentExtractions;
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(ModelId);
 }
 

@@ -41,7 +41,7 @@ namespace OmsLoan.Infrastructure.Extraction;
 /// invent a second retry policy underneath the one that says there are none.
 /// </para>
 /// </remarks>
-public sealed class ChatClientNoticeExtractor(
+internal sealed class ChatClientNoticeExtractor(
     IChatClient chatClient,
     ProviderOptions provider,
     IPdfTextExtractor? pdfTextExtractor = null) : INoticeExtractor
