@@ -6,7 +6,7 @@ GitHub Actions **does not** touch the Windows host. It builds a Release publish 
 
 | Workflow | When it runs |
 | --- | --- |
-| [CI](.github/workflows/ci.yml) | Pull requests that touch `src/` / `tests/` / `OmsLoan.sln`, or **Run workflow** |
+| [CI](.github/workflows/ci.yml) | Pull requests that touch Domain/Worker (or their tests), or **Run workflow** — Api/Web excluded |
 | [Deploy Worker](.github/workflows/deploy.yml) | **Run workflow** only — never on push to `main` |
 
 There is no rebuild-on-`main` polling.
@@ -53,7 +53,7 @@ Set these on the Windows host (machine-scope or the service environment block). 
 
 ## Not in this PR
 
-- `OmsLoan.Api` publish (separate artifact later)
+- `OmsLoan.Api` / `OmsLoan.Web` (left out for now — Worker path only)
 - GitHub Environments / protection rules
 - WinRM/SSH remote install
 - GitHub Pages
