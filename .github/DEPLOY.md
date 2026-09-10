@@ -1,5 +1,7 @@
 # Deploy — OmsLoan.Worker
 
+> **Node.js in the Actions log:** `actions/checkout` and `actions/setup-dotnet` are JavaScript actions, so the runner prints Node warnings. That is not `npm` / `OmsLoan.Web` — those are not part of this pipeline.
+
 GitHub Actions **does not** touch the Windows host. It builds a Release publish folder and uploads it as an artifact. You download it and install with the scripts already in this repo.
 
 ## Triggers (by design)
