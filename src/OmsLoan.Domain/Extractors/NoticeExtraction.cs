@@ -129,11 +129,31 @@ public sealed class NoticeExtraction : INoticeExtraction
         }
     }
 
+    /// <summary>
+    /// One gate for a provider, with the configured value checked rather than trusted.
+    /// </summary>
+    /// <remarks>
+    /// A cap of zero or less is a deployment mistake, and left to <see cref="SemaphoreSlim"/> it
+    /// surfaces as an <c>ArgumentOutOfRangeException</c> thrown from here — outside the guard, so
+    /// it escapes as an exception rather than becoming a recorded failure, and the message names
+    /// a parameter nobody configured. Worse, a cap of zero would otherwise mean "block forever",
+    /// which looks like a hung provider rather than a typo.
+    ///
+    /// So it is refused by name, saying which provider and which setting.
+    /// </remarks>
     private SemaphoreSlim CreateGate(string providerName)
     {
         var configured = _options.Providers.TryGetValue(providerName, out var provider)
             ? provider.MaxConcurrentExtractions
             : ProviderOptions.DefaultMaxConcurrentExtractions;
+
+        if (configured < 1)
+        {
+            throw new InvalidOperationException(
+                $"Extraction:Providers:{providerName}:MaxConcurrentExtractions is {configured}. "
+                + "It must be at least 1 — zero would block every extraction against this "
+                + "provider forever, which reads as a hung provider rather than a setting.");
+        }
 
         return new SemaphoreSlim(configured, configured);
     }

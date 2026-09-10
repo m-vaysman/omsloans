@@ -158,6 +158,68 @@ public class NoticeClassifierTests
         Assert.True(classification.HasRateTable);
     }
 
+    // --- the matching itself, which is where the defect was -----------------------------------
+
+    /// <summary>
+    /// "estr" occurs inside "restricted", and restricted payments appear on a large share of
+    /// credit documents. A plain substring test reported a rate table on every one of them,
+    /// which routes a cheap notice to an expensive document read.
+    /// </summary>
+    [Theory]
+    [InlineData("Restricted Payments are governed by Section 7.")]
+    [InlineData("The Borrower shall not make any restricted payment.")]
+    [InlineData("RESTRICTED — FOR ADDRESSEE ONLY")]
+    public void RestrictedIsNotTheEuroShortTermRate(string text) =>
+        Assert.False(NoticeClassifier.Classify(text).HasRateTable);
+
+    /// <summary>
+    /// And the same index written with the symbol is still found. This is the damaging direction:
+    /// a missed rate signal routes a rate table through a text extractor, and then the model is
+    /// blamed for a loss that was our routing.
+    /// </summary>
+    /// <remarks>
+    /// A word boundary would not have caught the symbol form — <c>€</c> is not a word character,
+    /// so there is no boundary between a space and it. The matcher asks for "not adjacent to a
+    /// letter or digit" instead.
+    /// </remarks>
+    [Theory]
+    [InlineData("Rate quoted against €STR for the period.")]
+    [InlineData("Rate quoted against ESTR for the period.")]
+    [InlineData("Index: €str")]
+    public void TheEuroShortTermRateIsFoundInBothSpellings(string text) =>
+        Assert.True(NoticeClassifier.Classify(text).HasRateTable);
+
+    /// <summary>
+    /// The general form: no signal fires from inside a longer word.
+    /// </summary>
+    [Theory]
+    [InlineData("soniafication", false)]
+    [InlineData("prepaymentary clause", false)]
+    [InlineData("SONIA is the index", true)]
+    public void ASignalInsideALongerWordDoesNotCount(string text, bool expected)
+    {
+        var classification = NoticeClassifier.Classify(text);
+
+        Assert.Equal(expected, classification.HasRateTable || classification.Type != NoticeType.Unknown);
+    }
+
+    /// <summary>
+    /// Priority is declared, not incidental. A notice stating both a reset and a payment reports
+    /// the reset, because the reset is the one that needs a document read and routing is what
+    /// this answer is for.
+    /// </summary>
+    [Fact]
+    public void ARateResetOutranksAPaymentWhenBothAppear()
+    {
+        var classification = NoticeClassifier.Classify(
+            "Rate Set Date: 8 September. Principal Amount: 2,500,000. Accrued Interest: 1,200.");
+
+        Assert.Equal(NoticeType.RateReset, classification.Type);
+        Assert.Contains(NoticeType.PrincipalPayment, classification.Types);
+        Assert.Contains(NoticeType.InterestPayment, classification.Types);
+        Assert.True(classification.IsCombined);
+    }
+
     /// <summary>
     /// And prose that merely says "rate" is not a rate table. The phrases are phrases rather
     /// than words precisely because "rate" appears on nearly every notice ever written.

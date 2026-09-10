@@ -1,11 +1,15 @@
+using System.Text.RegularExpressions;
+
 namespace OmsLoan.Domain.Extractors;
 
 /// <summary>
 /// What the gate concluded about a notice before any provider was asked.
 /// </summary>
 /// <param name="Type">
-/// The dominant type, or <see cref="NoticeType.Unknown"/> when nothing was recognised. A hint
-/// the extractor may disagree with, never a routing decision it has to obey.
+/// The highest-priority type recognised, or <see cref="NoticeType.Unknown"/> when nothing was.
+/// Priority is the declaration order of the signal table, which is ordered deliberately — see
+/// <see cref="NoticeClassifier"/>. A hint the extractor may disagree with, never a routing
+/// decision it has to obey.
 /// </param>
 /// <param name="Types">Every type the text suggests, which is how a combined notice is spotted.</param>
 /// <param name="HasRateTable">
@@ -38,7 +42,7 @@ public sealed record Classification(
 /// <para>
 /// Moving the gate to extracted text dropped that to ~230 tokens — and then raised the obvious
 /// question. The gate answers something far coarser than extraction: is there a rate table,
-/// what does this look like. On text, that is keywords. So this costs no tokens, no latency and
+/// what does this look like. On text, that is phrases. So this costs no tokens, no latency and
 /// no rate-limit slot, and unlike a model it returns the same answer twice.
 /// </para>
 /// <para>
@@ -49,41 +53,73 @@ public sealed record Classification(
 /// <para>
 /// <strong>It is allowed to be wrong.</strong> #68 makes the type a hint the extractor may
 /// contradict, and a gate returning <see cref="Classification.None"/> costs a more expensive
-/// read rather than a wrong answer. That asymmetry is why heuristics are defensible here and
-/// would not be in the extraction itself.
+/// read rather than a wrong answer. That asymmetry is why phrase matching is defensible here
+/// and would not be in the extraction itself.
 /// </para>
 /// </remarks>
-public static class NoticeClassifier
+public static partial class NoticeClassifier
 {
+    /// <summary>
+    /// Matches a phrase only where it stands as its own word or words.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not <c>Contains</c>, and the reason is a real defect this replaced: <c>estr</c> occurs
+    /// inside <c>restricted</c>, which appears on a large share of credit documents, so a plain
+    /// substring test reported a rate table on any notice mentioning restricted payments. That
+    /// is a false positive that routes a cheap notice to an expensive document read.
+    /// </para>
+    /// <para>
+    /// <c>\b</c> would not do either. The euro form of that index is written <c>€STR</c>, and
+    /// <c>€</c> is not a word character, so there is no word boundary between a space and it.
+    /// These lookarounds ask for "not adjacent to a letter or digit" instead, which admits a
+    /// leading symbol and still refuses a match buried inside a longer word.
+    /// </para>
+    /// </remarks>
+    private static Regex Matcher(string phrase) =>
+        new(@"(?<![\p{L}\p{N}])" + Regex.Escape(phrase) + @"(?![\p{L}\p{N}])",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    private static Regex[] Matchers(params string[] phrases) => [.. phrases.Select(Matcher)];
+
     /// <summary>
     /// Phrases that indicate a type, in the wording agent banks actually use.
     /// </summary>
     /// <remarks>
-    /// Each entry needs at least one match. They are deliberately phrases rather than single
-    /// words: "rate" appears on almost every notice ever written, and "Base Rate" does not.
+    /// <para>
+    /// Each entry needs one match. They are phrases rather than single words because "rate"
+    /// appears on almost every notice ever written and "Base Rate" does not.
+    /// </para>
+    /// <para>
+    /// <strong>The order is the priority</strong>, and it is chosen rather than incidental.
+    /// <see cref="Classification.Type"/> takes the first match, so a notice stating both a reset
+    /// and a payment reports the reset — the reset is the one that needs a document read, and
+    /// routing is what this answer is for. Reordering this table changes which type a combined
+    /// notice reports.
+    /// </para>
     /// </remarks>
-    private static readonly (NoticeType Type, string[] Phrases)[] Signals =
+    private static readonly (NoticeType Type, Regex[] Phrases)[] Signals =
     [
         (NoticeType.RateReset,
-            ["rate reset", "interest rate reset", "rate set date", "repricing", "reset effective"]),
+            Matchers("rate reset", "interest rate reset", "rate set date", "repricing", "reset effective")),
 
         (NoticeType.InterestPayment,
-            ["interest accrual", "accrued interest", "interest payment", "interest due", "interest period"]),
+            Matchers("interest accrual", "accrued interest", "interest payment", "interest due", "interest period")),
 
         (NoticeType.PrincipalPayment,
-            ["principal payment", "principal amount", "paydown", "outstanding principal", "prepayment"]),
-
-        (NoticeType.Fee,
-            ["fee amount", "commitment fee", "amendment fee", "agency fee", "upfront fee", "fee type"]),
-
-        (NoticeType.Rollover,
-            ["rollover", "roll over", "maturing contract", "continuation of"]),
+            Matchers("principal payment", "principal amount", "paydown", "outstanding principal", "prepayment")),
 
         (NoticeType.Drawdown,
-            ["drawdown", "draw down", "borrowing request", "advance request", "funding date"]),
+            Matchers("drawdown", "draw down", "borrowing request", "advance request", "funding date")),
 
         (NoticeType.CommitmentReduction,
-            ["commitment reduction", "commitment reduced", "reduction of commitment", "unfunded commitment"]),
+            Matchers("commitment reduction", "commitment reduced", "reduction of commitment", "unfunded commitment")),
+
+        (NoticeType.Rollover,
+            Matchers("rollover", "roll over", "maturing contract", "continuation of")),
+
+        (NoticeType.Fee,
+            Matchers("fee amount", "commitment fee", "amendment fee", "agency fee", "upfront fee", "fee type")),
     ];
 
     /// <summary>
@@ -93,13 +129,16 @@ public static class NoticeClassifier
     /// This is the signal that actually decides cost. A notice with rates on it should go to a
     /// provider reading the document, because the row and column association between a tranche
     /// and its rate does not survive text extraction. A notice without them can take the cheap
-    /// path safely.
+    /// path safely — so a false negative here is the expensive mistake: it routes a rate table
+    /// through a text extractor and then the model gets blamed for losing it.
     /// </remarks>
-    private static readonly string[] RateTablePhrases =
-    [
-        "base rate", "applicable margin", "all-in rate", "all in rate",
-        "day count", "term sofr", "euribor", "sonia", "estr", "daily simple sofr",
-    ];
+    private static readonly Regex[] RateTablePhrases = Matchers(
+        "base rate", "applicable margin", "all-in rate", "all in rate", "day count",
+        "term sofr", "daily simple sofr", "euribor", "sonia",
+
+        // Both spellings. The euro short-term rate is written either way on real notices, and
+        // the symbol form is the one a naive substring match silently misses.
+        "estr", "€str");
 
     /// <summary>
     /// Classifies extracted text. Empty or unreadable text yields
@@ -118,13 +157,13 @@ public static class NoticeClassifier
 
         foreach (var (type, phrases) in Signals)
         {
-            if (phrases.Any(phrase => text.Contains(phrase, StringComparison.OrdinalIgnoreCase)))
+            if (phrases.Any(phrase => phrase.IsMatch(text)))
             {
                 found.Add(type);
             }
         }
 
-        var hasRates = RateTablePhrases.Any(phrase => text.Contains(phrase, StringComparison.OrdinalIgnoreCase));
+        var hasRates = RateTablePhrases.Any(phrase => phrase.IsMatch(text));
 
         if (found.Count == 0)
         {

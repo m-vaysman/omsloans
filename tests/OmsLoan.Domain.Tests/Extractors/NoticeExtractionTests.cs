@@ -152,6 +152,69 @@ public class NoticeExtractionTests
             "Both extractions recorded queueing, though only one could have waited.");
     }
 
+    /// <summary>
+    /// Queueing does not consume the provider's deadline.
+    /// </summary>
+    /// <remarks>
+    /// Constructed so the distinction is provable rather than asserted. The cap is one and the
+    /// provider takes 600ms, so the second extraction waits ~600ms and then runs for ~600ms —
+    /// 1.2s in total against a 1s deadline. If the wait were inside the deadline it would record
+    /// a timeout against a provider that answered perfectly well, and somebody would go looking
+    /// at a vendor for a queue we built.
+    /// </remarks>
+    [Fact]
+    public async Task AQueuedExtractionIsNotTimedOutForWaiting()
+    {
+        var options = new ExtractionOptions { DefaultProvider = "Claude" };
+        options.Providers["Claude"] = new ProviderOptions
+        {
+            ApiKey = "k",
+            ModelId = "claude-test",
+            MaxConcurrentExtractions = 1,
+            TimeoutSeconds = 1,
+        };
+
+        var inner = new CountingExtractor().Delays(TimeSpan.FromMilliseconds(600));
+
+        var services = new ServiceCollection();
+        services.AddSingleton(Options.Create(options));
+        services.AddNoticeExtraction();
+        services.AddNoticeExtractor(options, "Claude", (_, _) => inner);
+
+        var extraction = services.BuildServiceProvider().GetRequiredService<INoticeExtraction>();
+
+        var results = await Task.WhenAll(
+            extraction.ExtractAsync(Pdf, NoticeType.Unknown, cancellationToken: default),
+            extraction.ExtractAsync(Pdf, NoticeType.Unknown, cancellationToken: default));
+
+        Assert.All(results, r => Assert.NotEqual(ExtractionOutcome.TimedOut, r.Outcome));
+        Assert.All(results, r => Assert.Equal(ExtractionOutcome.Succeeded, r.Outcome));
+    }
+
+    /// <summary>
+    /// A concurrency cap below one is a deployment mistake and is refused by name.
+    /// </summary>
+    /// <remarks>
+    /// Left to <see cref="SemaphoreSlim"/> it throws about a parameter nobody configured, from
+    /// outside the guard so it escapes as an exception rather than a recorded failure. A cap of
+    /// zero is worse than an error: it would block every extraction against that provider
+    /// forever, which reads as a hung vendor rather than a typo.
+    /// </remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task AConcurrencyCapBelowOneIsRefusedByName(int cap)
+    {
+        var (extraction, _) = Build(maxConcurrent: cap);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => extraction.ExtractAsync(Pdf, NoticeType.Unknown, cancellationToken: default));
+
+        Assert.Contains("MaxConcurrentExtractions", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("Claude", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("at least 1", ex.Message, StringComparison.Ordinal);
+    }
+
     // --- routing and resolution ----------------------------------------------------------------
 
     [Fact]
