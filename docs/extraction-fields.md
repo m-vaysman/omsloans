@@ -120,6 +120,45 @@ It is enforced three times over, because one layer failing must not be enough:
 The third exists for the case where a model ignores its schema. Each layer has a test against
 it; a change that reintroduced bank details would have to defeat all three.
 
+## The providers
+
+One implementation, `ChatClientNoticeExtractor`, over `Microsoft.Extensions.AI`'s
+`IChatClient`. Issues #8, #9 and #10 were written as an implementation per vendor and #68
+replaced that, because the vendors implement the abstraction themselves — Anthropic's official
+package supplies an `IChatClient`, and `Microsoft.Extensions.AI.OpenAI` supplies one for
+OpenAI and for anything else speaking that API.
+
+That is why the abstraction costs nothing. A wrapper that normalised the vendors would have
+had to normalise document input too, and Claude's native PDF handling is the reason ADR 0001
+chose Claude.
+
+| Provider | Reached through | Document input |
+| --- | --- | --- |
+| Claude | `Anthropic` → `AsIChatClient()` | The PDF itself |
+| OpenAI | `Microsoft.Extensions.AI.OpenAI` | The PDF itself |
+| Groq | The same OpenAI client, different base address | Text, extracted first |
+
+Groq needs no package of its own: it speaks the OpenAI API, so it is one configuration value.
+It is also explicitly optional — configured with no key or no model id it disables itself and
+leaves the other two working.
+
+**`SendsPdfNatively` is recorded, not just acted on.** A notice read natively and a notice read
+from flattened text are not the same measurement: `PdfPigTextExtractor` recovers reading order
+and line structure but not columns, so a rate table arrives as rows whose headings the model
+has to re-associate, and anything overlaid on the page — a watermark, a received stamp — lands
+interleaved with the content. An accuracy report that compared the two without knowing which
+was which would attribute a preprocessing loss to the model.
+
+**Neither client retries.** Both SDKs retry by default and both are turned off explicitly —
+`MaxRetries = 0` on Anthropic's client, a zero-retry `ClientRetryPolicy` on OpenAI's. #7
+settled that there is one attempt per extraction, and a retry inside a client would be
+invisible from outside, would multiply the cost of an outage, and would make the recorded
+latency the sum of attempts nobody knows happened.
+
+**A truncated response is a failure.** It parses as far as it got, and the fields that never
+arrived are indistinguishable from fields the notice did not state — which is the one failure
+this system must never present as a clean extraction.
+
 ## Testing a prompt change
 
 Prompt edits are regression-tested against generated notices rather than real ones.

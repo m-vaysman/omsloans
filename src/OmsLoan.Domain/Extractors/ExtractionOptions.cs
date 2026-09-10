@@ -42,6 +42,36 @@ public sealed class ProviderOptions
 
     public TimeSpan Timeout => TimeSpan.FromSeconds(TimeoutSeconds);
 
+    /// <summary>
+    /// The endpoint, when it is not the vendor's own default.
+    /// </summary>
+    /// <remarks>
+    /// This is how Groq is reached: it speaks the OpenAI API, so it is the same client
+    /// pointed somewhere else rather than a package and an implementation of its own. Empty
+    /// means the vendor default.
+    /// </remarks>
+    public string BaseUrl { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether the provider takes the PDF itself, or has to be sent text extracted from it.
+    /// </summary>
+    /// <remarks>
+    /// The single most consequential setting here, and the reason it is recorded on every row
+    /// rather than merely acted on. A notice read natively and a notice read from flattened
+    /// text are not the same measurement — a rate table loses which tranche owns which rate on
+    /// the way through a text extractor — so an accuracy report that compared the two without
+    /// knowing which was which would attribute a preprocessing loss to the model.
+    /// </remarks>
+    public bool SendsPdfNatively { get; init; } = true;
+
+    /// <summary>Largest document this provider will accept, in bytes.</summary>
+    /// <remarks>
+    /// Checked before the call so an oversized notice fails saying so, rather than as whatever
+    /// the vendor returns for a request that was too big — which is a generic transport error
+    /// and sends whoever reads it looking in the wrong place.
+    /// </remarks>
+    public int MaxDocumentBytes { get; init; } = 30 * 1024 * 1024;
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(ModelId);
 }
 
