@@ -215,6 +215,68 @@ public class NoticeExtractionTests
         Assert.Contains("at least 1", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A provider at its limit does not hold up a different provider.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the reason the gates are per provider rather than one shared limit, and until now
+    /// it was the only claim in the design with no test behind it — every other test registers a
+    /// single provider, so a single global semaphore would have passed all of them.
+    /// </para>
+    /// <para>
+    /// Claude is capped at one and held busy for five seconds. Groq is then asked, and has to
+    /// come back promptly without having queued. If the gates were shared, Groq would wait on
+    /// Claude's permit for a vendor it shares nothing with — no rate limit, no spend pool, no
+    /// endpoint.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task AProviderAtItsLimitDoesNotBlockAnother()
+    {
+        var options = new ExtractionOptions { DefaultProvider = "Claude" };
+
+        foreach (var name in new[] { "Claude", "Groq" })
+        {
+            options.Providers[name] = new ProviderOptions
+            {
+                ApiKey = "k",
+                ModelId = name.ToLowerInvariant() + "-test",
+                MaxConcurrentExtractions = 1,
+            };
+        }
+
+        var claude = new CountingExtractor("claude-test").Delays(TimeSpan.FromSeconds(5));
+        var groq = new CountingExtractor("groq-test");
+
+        var services = new ServiceCollection();
+        services.AddSingleton(Options.Create(options));
+        services.AddNoticeExtraction();
+        services.AddNoticeExtractor(options, "Claude", (_, _) => claude);
+        services.AddNoticeExtractor(options, "Groq", (_, _) => groq);
+
+        var extraction = services.BuildServiceProvider().GetRequiredService<INoticeExtraction>();
+
+        // Occupies Claude's only permit for five seconds.
+        var busy = extraction.ExtractAsync(Pdf, NoticeType.Unknown, "Claude", CancellationToken.None);
+
+        // Bounded well under Claude's delay, so a shared gate fails this as a cancellation with
+        // an obvious cause rather than passing slowly.
+        using var bound = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+        var throughGroq = await extraction.ExtractAsync(Pdf, NoticeType.Unknown, "Groq", bound.Token);
+
+        Assert.Equal(ExtractionOutcome.Succeeded, throughGroq.Outcome);
+        Assert.Equal("groq-test", throughGroq.ModelName);
+        Assert.True(
+            throughGroq.Telemetry.QueueWait < TimeSpan.FromMilliseconds(500),
+            $"Groq queued for {throughGroq.Telemetry.QueueWait.TotalMilliseconds:N0}ms behind Claude, "
+            + "so the gates are not per provider.");
+
+        Assert.Equal(1, groq.Calls);
+        await busy;
+    }
+
     // --- routing and resolution ----------------------------------------------------------------
 
     [Fact]
@@ -270,13 +332,13 @@ public class NoticeExtractionTests
     /// <summary>
     /// An extractor that records concurrency, because the cap is the thing under test.
     /// </summary>
-    private sealed class CountingExtractor : INoticeExtractor
+    private sealed class CountingExtractor(string modelName = "claude-test") : INoticeExtractor
     {
         private int _current;
         private TimeSpan _delay;
         private bool _fails;
 
-        public string ModelName => "claude-test";
+        public string ModelName => modelName;
 
         public int Calls { get; private set; }
 
