@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OmsLoan.Domain\OmsLoan.Domain.csproj" />
+    <ProjectReference Include="..\OmsLoan.Infrastructure\OmsLoan.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
