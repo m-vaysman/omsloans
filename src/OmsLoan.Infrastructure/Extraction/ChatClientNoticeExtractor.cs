@@ -6,39 +6,33 @@ using OmsLoan.Domain.Extractors;
 namespace OmsLoan.Infrastructure.Extraction;
 
 /// <summary>
-/// The extractor. One implementation over <see cref="IChatClient"/>, used by every provider.
+/// The extractor. One implementation over <see cref="IChatClient"/> for every provider.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Issues #8, #9 and #10 were written as three implementations — one per vendor — and #68
-/// replaced that with this. The reason it works is that the vendors implement the abstraction
-/// themselves: Anthropic's official package supplies an <see cref="IChatClient"/>, and
-/// <c>Microsoft.Extensions.AI.OpenAI</c> supplies one for OpenAI and for anything else
-/// speaking that API. Nothing here is a lowest-common-denominator shim.
+/// Issues #8/#9/#10 were three vendor implementations; #68 replaced them with this. Vendors
+/// implement the abstraction themselves — Anthropic ships an <see cref="IChatClient"/>,
+/// <c>Microsoft.Extensions.AI.OpenAI</c> covers OpenAI and anything speaking that API. Not a
+/// lowest-common-denominator shim.
 /// </para>
 /// <para>
-/// That distinction is load-bearing rather than tidy. A wrapper that normalised the vendors
-/// would have had to normalise document input too, and Claude's native PDF handling is the
-/// reason ADR 0001 chose Claude at all — these notices are tabular, and a rate table flattened
-/// to text loses which tranche owns which rate. Uniformity bought by giving that up would have
-/// cost more than it saved.
+/// Load-bearing, not tidy. A normalising wrapper would have to normalise document input too,
+/// and Claude's native PDF handling is why ADR 0001 chose Claude — these notices are tabular;
+/// a rate table flattened to text loses which tranche owns which rate.
 /// </para>
 /// <para>
-/// What differs per provider is configuration, not code: the model id, the endpoint, and
-/// whether the provider can be handed the PDF or has to be sent text extracted from it.
+/// What differs per provider is configuration: model id, endpoint, and whether the PDF can be
+/// handed over or must be sent as extracted text.
 /// </para>
 /// <para>
-/// <strong>Three steps, deliberately separable.</strong> <see cref="Preflight"/> rejects what
-/// can be rejected without asking anyone. <see cref="BuildRequest"/> assembles the whole call
-/// and throws rather than returning something partial. Only then does anything reach the
-/// network. Everything before the send is pure, so it can be tested exhaustively for free —
-/// and a request that was built successfully is one where the only remaining risk is
-/// transport.
+/// <strong>Three separable steps.</strong> <see cref="Preflight"/> rejects what can be
+/// rejected without a call. <see cref="BuildRequest"/> assembles the whole call or throws —
+/// never partial. Only then does anything reach the network. Everything before the send is
+/// pure and free to test exhaustively.
 /// </para>
 /// <para>
-/// There are no retries and no timeout here. <see cref="GuardedNoticeExtractor"/> wraps every
-/// registration and owns both, so a provider cannot forget to bound its own call and cannot
-/// invent a second retry policy underneath the one that says there are none.
+/// No retries and no timeout here. <see cref="GuardedNoticeExtractor"/> wraps every
+/// registration and owns both, so a provider cannot invent a second retry policy.
 /// </para>
 /// </remarks>
 internal sealed class ChatClientNoticeExtractor(
