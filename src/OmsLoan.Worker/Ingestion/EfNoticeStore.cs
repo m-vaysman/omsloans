@@ -7,9 +7,8 @@ namespace OmsLoan.Worker.Ingestion;
 /// <see cref="INoticeStore"/> over EF Core.
 /// </summary>
 /// <remarks>
-/// A scope per notice, because the context is registered scoped and this is called from a
-/// singleton background service. Per notice rather than per poll is deliberate: one failed
-/// insert then leaves no tracked state behind to affect the next file in the same scan.
+/// Scope per notice: context is scoped, caller is a singleton. Per notice rather than per
+/// poll so a failed insert leaves no tracked state for the next file in the same scan.
 /// </remarks>
 public sealed class EfNoticeStore(IServiceScopeFactory scopeFactory) : INoticeStore
 {
