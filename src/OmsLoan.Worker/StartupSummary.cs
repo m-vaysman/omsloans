@@ -4,23 +4,19 @@ using Microsoft.Extensions.Hosting.WindowsServices;
 namespace OmsLoan.Worker;
 
 /// <summary>
-/// The banner written once at startup, naming the environment and where each setting was
-/// resolved from.
+/// Banner at startup: environment and where each setting resolved from.
 /// </summary>
 /// <remarks>
-/// A service has no window and no console. When it starts against the wrong database or
-/// with a stale key, the cause is almost always that configuration resolved from a
-/// different source than whoever deployed it assumed — a leftover machine environment
-/// variable outranking appsettings, or Production never being selected because
-/// DOTNET_ENVIRONMENT was not set on the service. Naming the winning source for each
-/// setting turns that from an afternoon of guessing into the first line of the log.
+/// An installed Windows service has no window and no console. Wrong database or stale key
+/// almost always means configuration won from a different source than assumed — leftover
+/// machine env outranking appsettings, or Production never selected because
+/// DOTNET_ENVIRONMENT was unset on the service. Naming the winning source turns an afternoon
+/// of guessing into the first log line.
 ///
-/// For the flat-named secrets the banner goes one better and names the variable itself, so a
-/// missing key reads as "set GROQ_API_KEY" rather than leaving the reader to work out which
-/// of two spellings the Worker wanted.
+/// For flat secrets the banner names the variable itself, so a miss reads "set GROQ_API_KEY"
+/// rather than forcing the reader to pick between two spellings.
 ///
-/// Sources and presence only. Values are never written, and the secret checks report
-/// nothing beyond whether something was found.
+/// Sources and presence only. Values are never written.
 /// </remarks>
 public static class StartupSummary
 {
@@ -50,9 +46,8 @@ public static class StartupSummary
         banner.Append($"    - {ConfigurationKeys.ConnectionStringKey.PadRight(width)} : ")
               .AppendLine(Describe(configuration, ConfigurationKeys.ConnectionStringKey));
 
-        // The one setting whose value is safe to print, and the one most worth printing: a
-        // Worker watching the wrong folder looks identical to a correct one from every other
-        // line in this log.
+        // Watched folder is safe to print and most worth printing: watching the wrong path
+        // looks identical from every other line in this log.
         var watchedFolder = configuration[ConfigurationKeys.WatchedFolder.ConfigurationKey];
         banner.Append($"    - {ConfigurationKeys.WatchedFolder.ConfigurationKey.PadRight(width)} : ")
               .AppendLine(string.IsNullOrWhiteSpace(watchedFolder)
@@ -119,18 +114,17 @@ public static class StartupSummary
     }
 
     /// <summary>
-    /// A missing key is a warning rather than a startup failure: the extractor issues have
-    /// not landed yet, and a Worker that refuses to start because one of three optional
-    /// providers is unconfigured would be worse than one that says so and carries on.
+    /// A missing provider key is a warning, not a startup failure: providers are individually
+    /// optional — any one will do — and refusing to start because one of three is unconfigured
+    /// would be worse than saying so and carrying on.
     /// </summary>
     private static void WarnAboutMissingSecrets(
         ILogger logger,
         IHostEnvironment environment,
         IConfigurationRoot configuration)
     {
-        // The connection string and the Graph credential are not warned about here: they are
-        // required, and StartupValidation refuses to start without them. Warning and then
-        // failing about the same setting would only obscure which of the two mattered.
+        // Connection string and Graph are not warned here: StartupValidation refuses without
+        // them. Warning then failing on the same setting would obscure which mattered.
         var missingProviders = Missing(configuration, ConfigurationKeys.ProviderApiKeys);
 
         if (missingProviders.Count == ConfigurationKeys.ProviderApiKeys.Count)

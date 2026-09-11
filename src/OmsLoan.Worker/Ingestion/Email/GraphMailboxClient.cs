@@ -13,34 +13,29 @@ namespace OmsLoan.Worker.Ingestion.Email;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Client credentials, not delegated auth: the Worker runs unattended and a delegated token
-/// tied to somebody's account stops working the moment their password rotates or they leave.
-/// <c>Mail.ReadWrite</c> — reading is only half the job, and marking a message read is a
-/// write — should be scoped to this one mailbox with an application access policy;
-/// the grant is tenant-wide otherwise, and this application has no business reading anybody
-/// else's mail. See docs/exchange-test-environment.md.
+/// Client credentials, not delegated: the Worker runs unattended, and a delegated token dies
+/// when a password rotates or someone leaves. <c>Mail.ReadWrite</c> (marking read is a write)
+/// should be scoped to this mailbox with an application access policy — tenant-wide otherwise,
+/// and this app must not read anyone else's mail. See docs/exchange-test-environment.md.
 /// </para>
 /// <para>
-/// This is the only part of mailbox ingestion a unit test cannot reach, which is why it does
-/// as little as possible: fetch, filter to PDFs, hand back plain records. It has no side
-/// effects — nothing here marks anything read. Every rule about what happens to those records
-/// lives in <see cref="EmailIngestion"/>, where it can be tested.
+/// Only mailbox piece a unit test cannot reach, so it does as little as possible: fetch,
+/// filter to PDFs, hand back plain records. No side effects — nothing marks read here. Rules
+/// live in <see cref="EmailIngestion"/>, where they can be tested.
 /// </para>
 /// </remarks>
 public sealed class GraphMailboxClient : IMailboxClient
 {
     /// <summary>
-    /// Lower bound on <c>sentDateTime</c>, present only to satisfy Graph's filter rules.
+    /// Lower bound on <c>sentDateTime</c>, only to satisfy Graph's filter rules.
     /// </summary>
     /// <remarks>
-    /// Graph refuses <c>$orderby</c> on a property that does not also appear in
-    /// <c>$filter</c>, and rejects the request with <c>InefficientFilter</c>. Ordering by
-    /// <c>sentDateTime</c> therefore requires filtering on it, so this is an open bound that
-    /// excludes nothing — no notice predates it.
+    /// Graph refuses <c>$orderby</c> on a property not also in <c>$filter</c>
+    /// (<c>InefficientFilter</c>). Ordering by <c>sentDateTime</c> needs a filter, so this is
+    /// an open bound that excludes nothing.
     ///
-    /// Dropping the <c>$orderby</c> instead would have been simpler and wrong: Graph's default
-    /// order is newest first, so a backlog larger than one page would never drain from the
-    /// front. The oldest notices would sit unread indefinitely while newer ones jumped them.
+    /// Dropping <c>$orderby</c> would be simpler and wrong: Graph defaults to newest first, so
+    /// a backlog larger than one page would never drain from the front.
     /// </remarks>
     private const string SentDateTimeLowerBound = "1900-01-01T00:00:00Z";
 

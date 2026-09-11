@@ -1,34 +1,26 @@
 namespace OmsLoan.Worker;
 
 /// <summary>
-/// The startup gate: refuses to run when a required setting is absent, and does so in a way
-/// the SCM will not retry.
+/// Startup gate: refuses to run when a required setting is absent, in a way Windows Service
+/// Control Manager will not retry.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Two decisions here, and the second one is the subtle one.
+/// <strong>Why refuse.</strong> Without a database the Worker cannot record a notice; without
+/// Graph it cannot collect one. Starting anyway produces a service the manager reports as
+/// Running that silently ingests nothing — discovered when the review queue stays empty.
+/// Failing at startup is louder and cheaper.
 /// </para>
 /// <para>
-/// <strong>Why refuse at all.</strong> Without a database the Worker cannot record a notice;
-/// without the Graph credential it cannot collect one from the shared mailbox. Starting
-/// anyway produces a service the SCM reports as Running, that looks healthy in every
-/// monitor, and that silently ingests nothing — discovered when somebody asks why the review
-/// queue is empty, typically much later. Failing at startup is louder and cheaper.
+/// <strong>Why it does not throw.</strong> An unhandled exception is an unexpected
+/// termination — the trigger for the installer's failure actions. A missing variable would
+/// then retry at 1m / 2m / 5m, each attempt failing identically. Retrying is for conditions
+/// that resolve on their own. Configuration is not one of them.
 /// </para>
 /// <para>
-/// <strong>Why it does not throw.</strong> An unhandled exception kills the process without
-/// a clean stop, which is exactly what the SCM classifies as an unexpected termination — the
-/// trigger for the failure actions the installer configures. A missing environment variable
-/// would then be retried at one, two and five minutes before the SCM gave up for the day,
-/// and every one of those attempts would fail identically. Retrying is for conditions that
-/// resolve on their own: a database still starting, a network not yet up. Configuration is
-/// not one of them.
-/// </para>
-/// <para>
-/// So this reports and returns, the host is never started, and the process ends normally.
-/// The exit code is chosen by <see cref="ExitCodeFor"/>: zero under the SCM, so the stop
-/// cannot be read as an error termination and no recovery action fires; non-zero in a
-/// console, where a developer or a CI step legitimately wants a failed exit status.
+/// So this reports and returns; the host never starts. <see cref="ExitCodeFor"/> chooses
+/// zero under an installed Windows service (ordinary stop, no recovery) and non-zero under
+/// Visual Studio / console / CI, where a failed exit status is wanted.
 /// </para>
 /// </remarks>
 public static class StartupValidation
@@ -50,13 +42,12 @@ public static class StartupValidation
     ];
 
     /// <summary>
-    /// Writes the refusal to the log. Called after the startup banner, so whoever reads the
-    /// log sees the full configuration picture immediately above the reason it stopped.
+    /// Writes the refusal after the startup banner, so the log shows what resolved above why
+    /// it stopped.
     /// </summary>
     /// <remarks>
-    /// Critical rather than Error: the Event Log level filter in appsettings admits Warning
-    /// and above, and this is the one message that must never be filtered out. Under the SCM
-    /// it is the only record anybody gets.
+    /// Critical rather than Error: the Event Log filter admits Warning and above, and under
+    /// an installed Windows service this is the only record anybody gets.
     /// </remarks>
     public static void LogRefusalToStart(ILogger logger, IReadOnlyList<ConfiguredSetting> missing)
     {
@@ -64,10 +55,8 @@ public static class StartupValidation
     }
 
     /// <summary>
-    /// The same refusal, for a problem that is not a missing setting — a watched folder that
-    /// cannot be created, read or written. Same level, same wording, same clean stop, because
-    /// from an operator's side it is the same situation: something has to be fixed on the
-    /// host before this service can run, and restarting will not do it.
+    /// Same refusal for a watched folder that cannot be created, read, or written. Same clean
+    /// stop: restarting will not fix host permissions.
     /// </summary>
     public static void LogRefusalToStart(ILogger logger, string reason)
     {
@@ -81,24 +70,22 @@ public static class StartupValidation
     }
 
     /// <summary>
-    /// Zero when running as a Windows Service, so the SCM sees an ordinary stop rather than
-    /// an error termination and leaves the failure actions alone. Non-zero otherwise.
+    /// Zero when running as an installed Windows service, so Windows Service Control Manager
+    /// sees an ordinary stop and leaves failure actions alone. Non-zero under Visual Studio /
+    /// console.
     /// </summary>
     /// <remarks>
-    /// The asymmetry is deliberate and is the whole mechanism. A service that exits with an
-    /// error, or dies without stopping cleanly, is a candidate for restart; one that stops
-    /// normally is not. A misconfigured Worker should stay stopped until somebody sets the
-    /// variable, and the Event Log entry — not a restart loop — is what tells them to.
+    /// A service that exits with an error is a candidate for restart; one that stops normally
+    /// is not. A misconfigured Worker should stay stopped until somebody sets the variable —
+    /// the Event Log entry, not a restart loop, tells them.
     ///
-    /// Genuine faults are unaffected: an exception thrown once the host is running still
-    /// terminates the process unexpectedly and still earns the 1m / 2m / 5m backoff.
+    /// Genuine faults once the host is running still earn the 1m / 2m / 5m backoff.
     /// </remarks>
     public static int ExitCodeFor(bool isWindowsService) =>
         isWindowsService ? 0 : ConfigurationErrorExitCode;
 
     /// <summary>
-    /// Names every missing variable rather than stopping at the first. Somebody configuring
-    /// a host wants one list, not three restarts each revealing the next problem.
+    /// Names every missing variable. One list beats three restarts each revealing the next.
     /// </summary>
     public static string BuildMessage(IReadOnlyList<ConfiguredSetting> missing)
     {

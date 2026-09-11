@@ -1,15 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <!--
-    The review UI (#75, ADR 0004): Blazor Server, interactive throughout.
+    Review UI (#75, ADR 0004): Blazor Server, interactive throughout.
 
-    No PropertyGroup of its own. TargetFramework, Nullable, ImplicitUsings and
-    TreatWarningsAsErrors come from src/Directory.Build.props, as they do for the Api and
-    the Worker - repeating them here would be a second place to change and the first
-    place to drift.
+    No PropertyGroup — TFM / Nullable / ImplicitUsings / TreatWarningsAsErrors come from
+    src/Directory.Build.props with Api and Worker. Repeating them here is a second place to
+    drift.
 
-    No package references either, deliberately. Everything this needs ships with the
-    framework, so there is nothing to upgrade, audit or lose track of.
+    No package references: everything needed ships with the framework.
   -->
 
 </Project>

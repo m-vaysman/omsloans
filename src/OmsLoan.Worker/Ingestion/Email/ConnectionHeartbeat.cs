@@ -14,31 +14,25 @@ public enum ConnectionState
 }
 
 /// <summary>
-/// Reports the moment a connection is lost and the moment it comes back — and says nothing
-/// in between.
+/// Logs the moment a connection is lost and the moment it returns — nothing in between.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The requirement is to know <em>the moment</em> connectivity goes and the moment it
-/// returns. That is a statement about transitions, not about state, and the distinction is
-/// the whole design: logging every failed poll would bury the first one, which is the only
-/// entry anybody actually needs. A mailbox unreachable overnight at a one-minute poll would
-/// otherwise produce around five hundred identical errors, and the alert that matters — the
-/// first — scrolls away.
+/// About transitions, not state. Logging every failed poll buries the first one — the only
+/// entry that matters. A mailbox down overnight at one-minute polls would otherwise produce
+/// ~500 identical errors and scroll the alert away.
 /// </para>
 /// <para>
-/// So a change of state logs, and a continuation does not. Down is a Warning naming the
-/// error; up is an Information naming how long it was out, because "back after 4 minutes" and
-/// "back after 9 hours" call for very different follow-up.
+/// State change logs; continuation does not. Down is a Warning naming the error; up is
+/// Information naming how long it was out — "back after 4 minutes" and "back after 9 hours"
+/// need different follow-up.
 /// </para>
 /// <para>
-/// A long outage still gets a periodic reminder, at <see cref="ReminderInterval"/>, so a
-/// mailbox that has been unreachable since Friday is not represented in Monday's log by a
-/// single line somebody has to scroll back three days to find. That is a heartbeat rather
-/// than a repeat of the error: it says it is still down and for how long.
+/// Long outages get a reminder at <see cref="ReminderInterval"/> so Friday's outage is not a
+/// single Monday line three days back. A heartbeat, not a repeat of the error.
 /// </para>
 /// <para>
-/// Not thread-safe, and does not need to be: it is driven from one polling loop.
+/// Not thread-safe; driven from one polling loop.
 /// </para>
 /// </remarks>
 public sealed class ConnectionHeartbeat(

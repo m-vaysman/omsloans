@@ -8,41 +8,37 @@ using OmsLoan.Worker.Ingestion.Email;
 
 var builder = Host.CreateApplicationBuilder(args);
 
-// Sets the content root to the executable's folder and reports lifecycle to the SCM. Without
-// it a service started by the SCM inherits C:\Windows\System32 as its working directory and
-// silently finds no appsettings.json — the classic "runs with dotnet run, dies as a service".
-// It is a no-op when the process is not actually running as a service, so F5 still works.
+// Sets the content root to the executable's folder and reports lifecycle to Windows Service
+// Control Manager. Without it an installed Windows service inherits C:\Windows\System32 and
+// silently finds no appsettings.json — the classic "runs under Visual Studio / `dotnet run`,
+// dies as a service". A no-op when not running as a service, so Visual Studio still works.
 builder.Services.AddWindowsService(options =>
 {
     options.ServiceName = ServiceMetadata.ServiceName;
 });
 
-// The only sink that exists before the logging issue lands. A service with no console needs
-// somewhere to say why it stopped, and the Event Log is readable without deploying anything.
-// The source is registered by the install script: creating one needs administrator rights
-// that the service account is deliberately not granted.
+// An installed Windows service has no console; the Event Log is where it says why it stopped.
+// The source is registered by the install script — creating one needs admin rights the service
+// account is deliberately not granted.
 if (OperatingSystem.IsWindows())
 {
     builder.Logging.AddOmsLoanEventLog();
 }
 
-// The SCM kills a service that does not stop in time and logs it as a crash. Ingestion work
-// is interruptible, so this only needs to cover finishing the notice in hand.
+// Windows Service Control Manager kills a service that does not stop in time and logs it as a
+// crash. Ingestion is interruptible, so this only needs to finish the notice in hand.
 builder.Services.Configure<HostOptions>(options =>
 {
     options.ShutdownTimeout = TimeSpan.FromSeconds(20);
 });
 
-// Configuration sources come from Host.CreateApplicationBuilder in this order, lowest
-// precedence first: appsettings.json, appsettings.{Environment}.json, user-secrets
-// (Development only), environment variables, command line. The startup banner reports which
-// one actually supplied each setting.
+// Configuration sources come from Host.CreateApplicationBuilder. The startup banner reports
+// which one supplied each setting.
 //
-// Added last, so it wins: the flat secret variables the machines already carry —
-// CLAUDE_API_KEY, GRAPH_TENANT_ID and the rest — projected onto the hierarchical keys the
-// application binds against. Without this, a host with every secret correctly set looks
-// identical to one with none, because nothing maps a flat name onto Extraction:Claude:ApiKey.
-// See FlatEnvironmentSecrets.cs.
+// Added last, so it wins: flat secrets the machines already carry (CLAUDE_API_KEY,
+// GRAPH_TENANT_ID, …) projected onto hierarchical keys. Without this, a host with every
+// secret set looks identical to one with none — nothing maps a flat name onto
+// Extraction:Claude:ApiKey. See FlatEnvironmentSecrets.cs.
 builder.Configuration.AddOmsLoanFlatEnvironmentSecrets();
 
 var connectionString = builder.Configuration.GetConnectionString(ConfigurationKeys.ConnectionStringName);
@@ -52,13 +48,12 @@ if (!string.IsNullOrWhiteSpace(connectionString))
     builder.Services.AddOmsLoanDbContext(connectionString);
 }
 
-// The extraction providers (#8, #9, #10, built as one implementation per #68). A provider
-// with no key or no model id is not registered at all, so nothing can resolve an extractor
-// that is certain to fail on its first call, and an unconfigured Groq leaves the others
-// working rather than taking the pipeline down with it.
+// Extraction providers (#8/#9/#10, one implementation per #68). A provider with no key or
+// model id is not registered, so nothing resolves an extractor certain to fail on first call,
+// and an unconfigured Groq leaves the others working.
 //
-// Bound eagerly rather than through IOptions because registration has to know which providers
-// are configured while it is still building the container.
+// Bound eagerly rather than through IOptions: registration must know which providers are
+// configured while still building the container.
 builder.Services.Configure<ExtractionOptions>(
     builder.Configuration.GetSection(ExtractionOptions.SectionName));
 
@@ -89,8 +84,8 @@ var startupLogger = host.Services
 StartupSummary.Log(startupLogger, builder.Environment, builder.Configuration);
 
 // Named at startup rather than discovered on the first notice. A provider silently missing
-// its key looks identical at runtime to one that is simply not being asked for, and the
-// difference only surfaces as extractions that never happened.
+// its key looks identical at runtime to one never asked for — the gap is extractions that
+// never happened.
 if (extractionProviders.Count > 0)
 {
     startupLogger.LogInformation(
@@ -98,9 +93,8 @@ if (extractionProviders.Count > 0)
         string.Join(", ", extractionProviders),
         extraction.DefaultProvider);
 
-    // A default naming a provider that did not register is the quiet version of having none.
-    // The banner above would read as healthy, every provider listed would be real, and the
-    // first notice of the day would throw resolving a name nothing answers to.
+    // A default naming an unregistered provider is the quiet version of having none. The
+    // banner would look healthy; the first notice would throw resolving a name nothing answers.
     if (!extractionProviders.Contains(extraction.DefaultProvider, StringComparer.OrdinalIgnoreCase))
     {
         startupLogger.LogWarning(
@@ -119,27 +113,26 @@ else
         + "refusal to start: ingestion is still worth doing without extraction.");
 }
 
-// After the banner, so the log shows what was resolved before it shows what was missing, and
-// before Run(), so a Worker with no database or no Graph credential never reaches the SCM as
-// Running. See StartupValidation for why these two are fatal where a missing provider API
-// key is only a warning — and for why this reports and returns rather than throwing.
+// After the banner, before Run(): a Worker with no database or Graph credential must never
+// reach Windows Service Control Manager as Running. See StartupValidation for why these two
+// are fatal where a missing provider key is only a warning — and why this returns rather than
+// throws.
 var missing = StartupValidation.MissingRequiredSettings(builder.Configuration);
 
 if (missing.Count > 0)
 {
     StartupValidation.LogRefusalToStart(startupLogger, missing);
 
-    // Dispose flushes the logging providers. The console provider batches its writes, and
-    // returning from Main would otherwise be quick enough to discard the message that
-    // explains the whole thing.
+    // Dispose flushes logging providers. The console provider batches writes; returning from
+    // Main can otherwise discard the message that explains the refusal.
     host.Dispose();
 
     return StartupValidation.ExitCodeFor(WindowsServiceHelpers.IsWindowsService());
 }
 
-// The watched folder, once we know a path was configured. Created if missing, and read and
-// write are both proved — a folder that exists but cannot be written to is the common case,
-// and it would otherwise fail on the first notice rather than here. See WatchedFolder.
+// Prove the watched folder: create if missing, and check read and write. A folder that
+// exists but cannot be written is the common case — fail here, not on the first notice.
+// See WatchedFolder.
 var folderProblem = WatchedFolder.Prepare(
     builder.Configuration[ConfigurationKeys.WatchedFolder.ConfigurationKey],
     builder.Configuration[ConfigurationKeys.ArchiveFolderKey]);

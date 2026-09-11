@@ -1,27 +1,22 @@
 namespace OmsLoan.Worker;
 
 /// <summary>
-/// Reads the flat, machine-level secret variables and presents them to the rest of the
-/// application under the hierarchical keys in <see cref="ConfigurationKeys"/>.
+/// Reads flat machine-level secret variables and presents them under the hierarchical keys in
+/// <see cref="ConfigurationKeys"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The problem this solves: the machines already carry <c>CLAUDE_API_KEY</c>,
-/// <c>GRAPH_TENANT_ID</c> and friends, set for other tooling. .NET's environment-variable
-/// provider only understands its own <c>Section__Key</c> convention, so those flat names
-/// reached the Worker as nothing at all — a host with every secret correctly configured was
-/// indistinguishable from a bare one.
+/// Machines already carry <c>CLAUDE_API_KEY</c>, <c>GRAPH_TENANT_ID</c>, and friends. .NET's
+/// env-var provider only understands <c>Section__Key</c>, so those flat names reached the
+/// Worker as nothing — a fully configured host looked bare.
 /// </para>
 /// <para>
-/// Registering this as the <em>last</em> configuration source is deliberate, and is what
-/// "flat names win" means concretely: it outranks appsettings, user-secrets and the nested
-/// <c>Extraction__Claude__ApiKey</c> form. A stale nested variable left on a machine cannot
-/// shadow the real one. The trade is that a value passed on the command line loses too,
-/// which is the right way round for a service that is never launched with one.
+/// Registered <em>last</em> so flat names win: outranks appsettings, user-secrets, and nested
+/// forms. A stale nested variable cannot shadow the real one. Command-line values lose too —
+/// right for a service never launched that way.
 /// </para>
 /// <para>
-/// A variable that is unset or blank contributes nothing rather than an empty string, so
-/// "absent" stays distinguishable from "present but empty" in the startup banner.
+/// Unset or blank contributes nothing, so the banner can tell absent from empty.
 /// </para>
 /// </remarks>
 internal static class FlatEnvironmentSecrets

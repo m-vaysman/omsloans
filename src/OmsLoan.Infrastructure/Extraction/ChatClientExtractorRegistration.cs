@@ -13,14 +13,13 @@ namespace OmsLoan.Infrastructure.Extraction;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Per #68. Each provider contributes an <see cref="IChatClient"/> and they all share
-/// <see cref="ChatClientNoticeExtractor"/>, so adding a fourth vendor that speaks either API
-/// is a configuration entry and a line here rather than a new implementation.
+/// Per #68. Each provider contributes an <see cref="IChatClient"/>; all share
+/// <see cref="ChatClientNoticeExtractor"/>. A fourth vendor that speaks either API is a
+/// configuration entry and a line here, not a new implementation.
 /// </para>
 /// <para>
-/// Registration is conditional throughout. <c>AddNoticeExtractor</c> refuses a provider with
-/// no key or no model id, so an unconfigured Groq disables itself and leaves the others
-/// working — which is what #10 asks for, and matters because Groq is the optional one.
+/// Conditional throughout. <c>AddNoticeExtractor</c> refuses a provider with no key or model
+/// id, so an unconfigured Groq disables itself and leaves the others working (#10).
 /// </para>
 /// </remarks>
 public static class ChatClientExtractorRegistration

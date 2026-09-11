@@ -12,28 +12,22 @@ namespace OmsLoan.Infrastructure.Extraction;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Only Groq needs this. Claude and OpenAI take the PDF itself, and routing them through here
-/// would throw away the layout that ADR 0001 chose them for.
+/// Only Groq needs this. Claude and OpenAI take the PDF itself; routing them here would throw
+/// away the layout ADR 0001 chose them for.
 /// </para>
 /// <para>
-/// PdfPig rather than iText: Apache-2.0 against iText's AGPL, which would need a commercial
-/// licence for a product like this one. It is also pure managed, so nothing native has to be
-/// present on a Windows Service host.
+/// PdfPig rather than iText: Apache-2.0 vs AGPL (commercial licence for a product). Pure
+/// managed — nothing native on an installed Windows service host.
 /// </para>
 /// <para>
-/// Words are recovered by position and then segmented into lines, rather than read in the
-/// order the PDF happens to store them. That is not cosmetic. Content streams are frequently
-/// written column-first or in whatever order the producing application emitted, and a naive
-/// read gives a rate table as an interleaved run with no line breaks at all — every label
-/// separated from its value. Segmenting puts them back together:
-/// <c>Principal Amount €5,408,157.64</c> on one line is a thing a model can read.
+/// Words recovered by position, then segmented into lines — not storage order. Content
+/// streams are often column-first; a naive read interleaved a rate table with no line breaks.
+/// Segmenting yields <c>Principal Amount €5,408,157.64</c> on one line.
 /// </para>
 /// <para>
-/// It is still lossy, and the loss is worth naming. Line structure comes back; column
-/// structure does not, so a table with three rate columns arrives as rows of numbers whose
-/// headings the model has to re-associate. Anything overlaid on the page — a watermark, a
-/// received stamp — is text too, and lands interleaved between content lines. Both are
-/// reasons the extraction records that it came through this path.
+/// Still lossy: line structure returns, column structure does not. Watermarks and stamps
+/// land as interleaved text. Extraction records that it came through this path for both
+/// reasons.
 /// </para>
 /// </remarks>
 public sealed partial class PdfPigTextExtractor : IPdfTextExtractor
@@ -68,15 +62,13 @@ public sealed partial class PdfPigTextExtractor : IPdfTextExtractor
                 }
             }
 
-            // Runs of spaces collapse to one. The word recovery leaves several between words,
-            // and every one of them is a token this provider is billed for — which matters
-            // because the text path exists for the cheap provider.
+            // Collapse runs of spaces. Word recovery leaves several between words, and each
+            // is a billed token — matters because the text path exists for the cheap provider.
             var extracted = Whitespace.Replace(text.ToString(), " ").Trim();
 
-            // A PDF that opens and yields nothing is a scan: pages of images with no text
-            // layer. Returning the empty string would send the model a notice that says
-            // nothing, and it would answer with a confident extraction of no fields — a
-            // success row for a document nobody read.
+            // Opens but yields nothing: a scan with no text layer. Returning empty would send
+            // the model a blank notice and get a confident empty extraction — a success row
+            // for a document nobody read.
             if (extracted.Length == 0)
             {
                 throw new ExtractionProviderException(

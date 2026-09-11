@@ -4,22 +4,18 @@ using Microsoft.Net.Http.Headers;
 namespace OmsLoan.Api;
 
 /// <summary>
-/// Serving the React review UI out of this same process in Production.
+/// Serve the React review UI from this same process in Production.
 /// </summary>
 /// <remarks>
-/// One process serving both halves is the point. The alternative — Kestrel for the API and
-/// something else for the static files — buys a second thing to install, a second thing to
-/// recover after a reboot, a cross-origin story to configure correctly, and an extra hop for
-/// the reviewer. None of that is worth it for a build output measured in hundreds of
-/// kilobytes.
+/// One process for both halves is the point. A separate static host buys a second install, a
+/// second recovery after reboot, CORS to get right, and an extra hop — not worth it for a
+/// few hundred kilobytes of build output.
 ///
-/// Development does not use any of this. Vite runs on its own port with hot module reload
-/// and proxies API calls; <c>dotnet run</c> here serves nothing but the API. That asymmetry
-/// is intentional and is why <see cref="IsPresent"/> exists rather than the pipeline simply
-/// assuming a build is there.
+/// Development skips this. Vite runs on its own port with HMR and proxies the API; Visual
+/// Studio / <c>dotnet run</c> serve the API only. That asymmetry is why <see cref="IsPresent"/>
+/// exists rather than assuming a build is there.
 ///
-/// The publish-time copy of <c>src/OmsLoan.Web/dist</c> into <c>wwwroot</c> is done by a
-/// target in OmsLoan.Api.csproj.
+/// Publish copies <c>src/OmsLoan.Web/dist</c> into <c>wwwroot</c> via OmsLoan.Api.csproj.
 /// </remarks>
 internal static class SpaHosting
 {
@@ -29,9 +25,9 @@ internal static class SpaHosting
     public const string ApiPathPrefix = "/api";
 
     /// <summary>
-    /// Whether a built SPA is actually sitting in the web root. Checked rather than assumed
-    /// so that an API-only deployment, and every <c>dotnet run</c>, skips the static file
-    /// middleware entirely instead of registering a fallback that can only ever 404.
+    /// Whether a built SPA sits in the web root. Checked so API-only deploys and every Visual
+    /// Studio / <c>dotnet run</c> skip static middleware instead of registering a fallback that
+    /// can only 404.
     /// </summary>
     public static bool IsPresent(IWebHostEnvironment environment) =>
         IndexFilePath(environment) is not null;
@@ -42,8 +38,8 @@ internal static class SpaHosting
         var webRoot = environment.WebRootPath;
         if (string.IsNullOrWhiteSpace(webRoot))
         {
-            // Null when wwwroot does not exist under the content root at all — which is the
-            // normal state of a developer checkout, since dist/ is gitignored.
+            // Null when wwwroot is missing under the content root — normal for a developer
+            // checkout; dist/ is gitignored.
             return null;
         }
 
@@ -63,20 +59,17 @@ internal static class SpaHosting
     }
 
     /// <summary>
-    /// The catch-all that turns a deep link such as <c>/notices/42</c> — a client-side route
-    /// the server knows nothing about — into the SPA shell, so a refresh or a pasted URL
-    /// lands where the reviewer expects instead of on a 404.
+    /// Catch-all for client routes such as <c>/notices/42</c>: refresh or a pasted URL gets
+    /// the SPA shell instead of a 404.
     /// </summary>
     /// <remarks>
-    /// Registered after <c>MapControllers</c> and, more importantly, registered as a
-    /// fallback: fallback endpoints sort behind every real endpoint, so a controller route
-    /// always wins and Swagger keeps its own paths.
+    /// Registered after <c>MapControllers</c> as a fallback so every real endpoint wins and
+    /// Swagger keeps its paths.
     ///
-    /// The explicit <c>/api</c> fallback is the part that is easy to leave out and painful to
-    /// debug. Without it, a request to a misspelled or not-yet-implemented API route matches
-    /// the SPA catch-all and comes back as <c>200 text/html</c>. The caller then fails
-    /// deserialising an HTML document, a long way from the cause. Returning 404 for anything
-    /// under <c>/api</c> that matched no controller keeps the failure where it happened.
+    /// The explicit <c>/api</c> fallback is easy to omit and painful to debug. Without it a
+    /// misspelled API route matches the SPA catch-all and returns <c>200 text/html</c> — the
+    /// caller fails deserialising HTML, far from the cause. 404 under <c>/api</c> keeps the
+    /// failure where it happened.
     /// </remarks>
     public static WebApplication MapOmsLoanSpaFallback(this WebApplication app)
     {
@@ -86,15 +79,14 @@ internal static class SpaHosting
     }
 
     /// <summary>
-    /// Cache policy for the build output, and the reason a deploy is visible on the next
-    /// refresh rather than whenever a browser happens to give up on what it has.
+    /// Cache policy so a deploy is visible on the next refresh, not whenever the browser gives
+    /// up on what it cached.
     /// </summary>
     /// <remarks>
-    /// Vite emits every asset with a content hash in its filename, so <c>assets/</c> is
-    /// immutable by construction and can be cached for a year. <c>index.html</c> is the one
-    /// file whose name never changes and whose contents name the current hashed bundles, so
-    /// it must not be cached at all — a stale copy points at bundles that a deploy has
-    /// already deleted, and the application fails to boot with nothing in any server log.
+    /// Vite hashes asset filenames, so <c>assets/</c> is immutable and can cache for a year.
+    /// <c>index.html</c> never changes name and names the current bundles — it must not be
+    /// cached. A stale copy points at deleted bundles; the app fails to boot with nothing in
+    /// any server log.
     /// </remarks>
     private static StaticFileOptions StaticFileOptions() => new()
     {
@@ -117,9 +109,8 @@ internal static class SpaHosting
             }
         },
 
-        // The default provider does not know about every extension a build can emit, and an
-        // unknown type is not served at all rather than served with a guess. Vite fonts are
-        // the usual casualty.
+        // Default provider misses some build extensions; unknown types are not served at all.
+        // Vite fonts are the usual casualty.
         ContentTypeProvider = new FileExtensionContentTypeProvider(),
     };
 }

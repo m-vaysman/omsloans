@@ -3,9 +3,9 @@
   <PropertyGroup>
     <UserSecretsId>dotnet-OmsLoan.Worker-9456a660-23ab-4a3c-bd07-879fef24b0fa</UserSecretsId>
     <!--
-      Windows-only APIs (Event Log, the SCM) are reached through OperatingSystem.IsWindows()
-      guards rather than by retargeting to net8.0-windows, so the project keeps the same
-      target framework as the rest of src/ and the platform analyser stays satisfied.
+      Windows-only APIs (Event Log, Windows Service Control Manager) go through
+      OperatingSystem.IsWindows() rather than retargeting to net8.0-windows, so this stays on
+      the same TFM as the rest of src/.
     -->
     <OutputType>Exe</OutputType>
   </PropertyGroup>
@@ -34,9 +34,8 @@
 
   <ItemGroup>
     <!--
-      FlatEnvironmentSecrets is internal: it is wiring, not API. The tests still need it,
-      because the flat variable spellings are a contract with already-configured machines
-      and a rename must fail in CI rather than at runtime.
+      FlatEnvironmentSecrets is internal wiring. Tests still need it: flat spellings are a
+      contract with already-configured machines; a rename must fail in CI, not at runtime.
     -->
     <InternalsVisibleTo Include="OmsLoan.Worker.Tests" />
   </ItemGroup>
