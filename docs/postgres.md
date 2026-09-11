@@ -16,11 +16,11 @@ Postgres 17 on port 5432. Data lives in the `omsloan-postgres` volume and surviv
 
 **No password, this machine only.** The database holds only this app's fake notices, so it runs with trust auth and publishes its port on `127.0.0.1` alone. Never open 5432 in the firewall, and never widen the bind back to `5432:5432`: with no password, that gives anyone on the network a superuser login.
 
-Postgres writes its login rules only when it creates the volume. A volume created while a password was still required keeps asking for one until it is wiped.
+Postgres writes its login rules only when it creates the volume. A volume created while a password was still required keeps asking for one until it is wiped (`docker compose down -v`).
 
-The volume is named explicitly, so it is `omsloan-postgres` whichever folder the repo is cloned into. To wipe it: `docker compose down -v`.
+The volume is named explicitly, so it is `omsloan-postgres` whichever folder the repo is cloned into.
 
-If something else on the host already uses port 5432, such as a native Postgres install, change the middle number of `127.0.0.1:5432:5432` in `docker-compose.yml` and use the same port in the connection strings below.
+If something else on the host already uses port 5432, change the middle number of `127.0.0.1:5432:5432` in `docker-compose.yml` and use the same port in the connection strings below.
 
 ## 2. Create the schema
 
@@ -29,6 +29,8 @@ dotnet ef database update --project src/OmsLoan.Data.Postgres
 ```
 
 With `OMSLOAN_POSTGRES_CONNECTION` unset, the design-time factory connects to `Host=localhost;Port=5432;Database=omsloan;Username=omsloan`, which is this container. Set the variable only to point at a different database.
+
+On Windows, `localhost` often tries `::1` first and waits a couple of seconds before falling through to `127.0.0.1`. For services on a target machine, `Host=127.0.0.1` avoids that delay on each new physical connection.
 
 To produce a script for a DBA instead:
 
