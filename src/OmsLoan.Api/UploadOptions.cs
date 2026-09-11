@@ -8,17 +8,14 @@ public sealed class UploadOptions
     public const string SectionName = "Upload";
 
     /// <summary>
-    /// Largest accepted upload. Anything above it is refused with 413.
+    /// Largest accepted upload. Above it: 413.
     /// </summary>
     /// <remarks>
-    /// Configurable because notices vary: a rate reset is a page, a credit agreement
-    /// amendment can be a hundred. The default is deliberately generous — the cost of a
-    /// too-small limit is a reviewer unable to file a real notice, which is worse than
-    /// storing a few megabytes we did not need.
+    /// Notices vary: a rate reset is a page; a credit-agreement amendment can be a hundred.
+    /// Default is generous — refusing a real notice beats storing a few unused megabytes.
     ///
-    /// The request body is capped at this value plus a small allowance for the multipart
-    /// envelope, so a wildly oversized upload is rejected by the server before it is buffered
-    /// rather than after.
+    /// Request body is capped at this plus a multipart allowance so a wildly oversized upload
+    /// is rejected before buffering.
     /// </remarks>
     public long MaxBytes { get; set; } = 32 * 1024 * 1024;
 }
