@@ -7,6 +7,10 @@ using OmsLoan.Domain.Design;
 
 namespace OmsLoan.Data.Postgres.Tests;
 
+/// <summary>
+/// Locks the four SQL Server → Postgres overrides, the UTC Kind stamp, and the separate
+/// MigrationsAssembly. A drift here means the customizer or the migration set fell behind.
+/// </summary>
 public class PostgresModelTests
 {
     private static OmsLoanDbContext Postgres() => new PostgresDbContextFactory().CreateDbContext([]);
@@ -24,6 +28,7 @@ public class PostgresModelTests
             .Single(index => index.Properties.Single().Name == nameof(Notice.EmailMessageId))
             .GetFilter();
 
+    // bytea / text / date — the three column types SQL Server's varbinary/nvarchar/datetime2 cannot use.
     [Theory]
     [InlineData(typeof(Notice), nameof(Notice.Content), "bytea")]
     [InlineData(typeof(Extraction), nameof(Extraction.RawJson), "text")]
@@ -35,6 +40,7 @@ public class PostgresModelTests
         Assert.Equal(expected, Property(context, entity, property).GetColumnType());
     }
 
+    // Bracket quoting is SQL Server. Double quotes are Postgres. Wrong quotes = index never created.
     [Fact]
     public void TheEmailMessageIdFilterUsesPostgresQuoting()
     {
@@ -43,6 +49,7 @@ public class PostgresModelTests
         Assert.Equal("\"EmailMessageId\" IS NOT NULL", EmailMessageIdFilter(context));
     }
 
+    // Guard: the IModelCustomizer must not leak onto the SQL Server path.
     [Fact]
     public void TheSqlServerModelIsUnchanged()
     {
@@ -54,6 +61,7 @@ public class PostgresModelTests
         Assert.Null(Property(context, typeof(Notice), nameof(Notice.ReceivedAtUtc)).GetValueConverter());
     }
 
+    // Npgsql refuses non-UTC Kind. Stamp must be on every timestamp property the upload/worker write.
     [Theory]
     [InlineData(typeof(Notice), nameof(Notice.ReceivedAtUtc))]
     [InlineData(typeof(Notice), nameof(Notice.SentAtUtc))]
@@ -66,6 +74,7 @@ public class PostgresModelTests
         Assert.Same(PostgresModelCustomizer.UtcKind, Property(context, entity, property).GetValueConverter());
     }
 
+    // DateValue is a calendar date column — stamping Kind on it would be wrong.
     [Fact]
     public void ADateColumnIsNotStampedAsATimestamp()
     {
@@ -74,6 +83,7 @@ public class PostgresModelTests
         Assert.Null(Property(context, typeof(ExtractedField), nameof(ExtractedField.DateValue)).GetValueConverter());
     }
 
+    // SpecifyKind must not shift the wall clock — Unspecified/Local/Utc all keep the same ticks.
     [Theory]
     [InlineData(DateTimeKind.Unspecified)]
     [InlineData(DateTimeKind.Local)]
@@ -96,6 +106,7 @@ public class PostgresModelTests
         Assert.False(context.Database.HasPendingModelChanges());
     }
 
+    // Two assemblies, two histories. Intersecting names would mean someone pointed MigrationsAssembly wrong.
     [Fact]
     public void PostgresMigrationsAreSeparateFromSqlServerMigrations()
     {
