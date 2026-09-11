@@ -1,28 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    No AI packages here, deliberately (#68). The provider implementations and the packages
-    that carry them live in OmsLoan.Infrastructure; this project owns the seam they implement
-    - INoticeExtractor, ExtractionResult, the prompt and schema - and nothing that talks to a
-    vendor.
+    No AI packages here (#68). Provider implementations live in OmsLoan.Infrastructure; Domain
+    owns the seam they implement — INoticeExtractor, ExtractionResult, prompt and schema — and
+    nothing that talks to a vendor.
 
-    The line is worth holding rather than tidy. Anthropic 12.46.0 pulls
-    Microsoft.Extensions.AI.Abstractions and a .NET 10-era System.Text.Json onto net8.0, and
-    Domain is referenced by every host. Keeping it out is why Domain still resolves
-    System.Text.Json 4.7.2 while Infrastructure resolves 10.0.11.
+    Anthropic 12.46.0 pulls Microsoft.Extensions.AI.Abstractions and a .NET 10-era System.Text.Json
+    onto net8.0, and Domain is referenced by every host. Keeping it out is why Domain still
+    resolves System.Text.Json 4.7.2 while Infrastructure resolves 10.0.11.
   -->
 
   <ItemGroup>
     <!--
-      JsonFlatten does the walk in ExtractedFieldFlattener. Its path form is exactly the
-      convention this system stores field names in - events[0].economics.principal_amount -
-      so the format is the library's rather than ours to maintain.
+      JsonFlatten does the walk in ExtractedFieldFlattener. Its path form is the convention this
+      system stores — events[0].economics.principal_amount — so the format is the library's.
 
-      Newtonsoft comes in under it and is referenced explicitly only to pin the patch line:
-      JsonFlatten asks for [13.0.1, ) and would otherwise resolve to the floor. It is an
-      implementation detail of that one class and does not belong anywhere else - the rest
-      of the codebase is System.Text.Json, and the flattener converts at its own boundary so
-      no caller has to know which library parsed the body.
+      Newtonsoft comes under it and is pinned explicitly: JsonFlatten asks for [13.0.1, ) and
+      would otherwise resolve to the floor. Implementation detail of that one class; the rest of
+      the codebase is System.Text.Json. The flattener converts at its boundary so callers never
+      name which library parsed the body.
     -->
     <PackageReference Include="JsonFlatten" Version="1.0.4" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
@@ -36,18 +32,17 @@
 
   <ItemGroup>
     <!--
-      Prompts and schemas ship inside the assembly, so the version recorded on a row can
-      always be loaded back - a reprocess run comparing against an old extraction needs the
-      prompt that produced it, not the one on disk today.
+      Prompts and schemas ship inside the assembly so a version recorded on a row can always be
+      loaded back — a reprocess comparing against an old extraction needs the prompt that produced
+      it, not the one on disk today.
     -->
     <EmbeddedResource Include="Extractors\Prompts\*.md" />
     <EmbeddedResource Include="Extractors\Prompts\*.json" />
   </ItemGroup>
 
   <!--
-    The extraction internals are internal so that INoticeExtraction is the only way to run an
-    extraction (#70). Infrastructure implements them and the test projects assert on them;
-    nothing else can reach them, which is the whole guarantee.
+    Extraction internals are internal so INoticeExtraction is the only public entry (#70).
+    Infrastructure implements them; test projects assert on them; nothing else can reach them.
   -->
   <ItemGroup>
     <InternalsVisibleTo Include="OmsLoan.Infrastructure" />

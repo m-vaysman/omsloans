@@ -4,15 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 namespace OmsLoan.Domain;
 
 /// <summary>
-/// Single place the SQL Server options are chosen, so the Worker, the Api, and the
-/// design-time tooling cannot drift apart on them.
+/// Single place SQL Server options are chosen, so Worker, Api, and design-time tooling cannot drift.
 /// </summary>
 public static class OmsLoanDbContextRegistration
 {
     /// <summary>
-    /// SQL Server 2019. The provider otherwise assumes a newer level and can emit
-    /// constructs the target server will reject at query time, which a migration that
-    /// applies cleanly would not reveal.
+    /// SQL Server 2019. The provider otherwise assumes a newer level and can emit constructs
+    /// the target server rejects at query time — a clean migration would not reveal that.
     /// </summary>
     public const int SqlServerCompatibilityLevel = 150;
 
@@ -37,9 +35,7 @@ public static class OmsLoanDbContextRegistration
     }
 
     /// <summary>
-    /// Generic overload, mirroring the shape of <c>UseSqlServer</c> itself, so callers
-    /// building a typed <see cref="DbContextOptionsBuilder{TContext}"/> keep the type
-    /// through to <c>.Options</c>.
+    /// Generic overload matching <c>UseSqlServer</c>, so typed builders keep their type through to <c>.Options</c>.
     /// </summary>
     public static DbContextOptionsBuilder<TContext> UseOmsLoanSqlServer<TContext>(
         this DbContextOptionsBuilder<TContext> options,

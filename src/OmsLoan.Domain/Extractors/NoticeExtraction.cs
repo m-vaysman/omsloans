@@ -5,24 +5,15 @@ using Microsoft.Extensions.Options;
 namespace OmsLoan.Domain.Extractors;
 
 /// <summary>
-/// The only way to run an extraction, anywhere in the system.
+/// The only way to run an extraction anywhere in the system.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Per #70. Before this existed there were four routes to an extraction and only one of them
-/// was safe: the selector, a keyed resolve out of the container, and direct construction of
-/// either the provider or its guard. Direct construction was the dangerous one — an extractor
-/// built that way has no <c>GuardedNoticeExtractor</c> around it, so it silently loses the
-/// one-attempt rule, the deadline, and the promise that every failure becomes a recorded row
-/// rather than an exception escaping into the ingestion loop. It compiled, it read naturally,
-/// and nothing about the call site looked wrong.
-/// </para>
-/// <para>
-/// Everything behind this interface is now internal, so a caller has exactly one option
-/// because the others do not compile. That is also what makes any cross-cutting rule cheap:
-/// the concurrency limit below is five lines here instead of a convention every call site has
-/// to remember, and cost accounting or a circuit breaker would go the same way.
-/// </para>
+/// Per #70. Before this, four routes existed and only one was safe. Direct construction of a
+/// provider skipped <see cref="GuardedNoticeExtractor"/> — losing the one-attempt rule, the
+/// deadline, and the promise that every failure becomes a recorded row. It compiled and looked fine.
+///
+/// Everything behind this interface is internal, so the other routes do not compile. Cross-cutting
+/// rules (concurrency here; cost accounting later) live in one place.
 /// </remarks>
 public interface INoticeExtraction
 {
@@ -34,12 +25,12 @@ public interface INoticeExtraction
     /// </summary>
     /// <param name="pdfBytes">The notice, verbatim.</param>
     /// <param name="noticeType">
-    /// The classifier's hint, or <see cref="NoticeType.Unknown"/> when there is none. A hint and
-    /// not an instruction: the extractor is allowed to disagree.
+    /// Classifier hint, or <see cref="NoticeType.Unknown"/> when there is none. A hint, not an
+    /// instruction: the extractor may disagree.
     /// </param>
     /// <param name="providerName">
     /// Which provider, or null for the configured default. Named explicitly by reprocessing and
-    /// by the accuracy report, which exist to run the same notice through two of them.
+    /// by the accuracy report, which run the same notice through two providers.
     /// </param>
     Task<ExtractionResult> ExtractAsync(
         byte[] pdfBytes,
@@ -58,19 +49,12 @@ public sealed class NoticeExtraction : INoticeExtraction
     /// One gate per provider, created on first use.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Per provider rather than one global gate, because rate limits and latency are per
-    /// vendor. A single shared limit would let one slow Claude call block a Groq call that
-    /// shares nothing with it — the providers are independent and the limit should be too.
-    /// </para>
-    /// <para>
-    /// <see cref="SemaphoreSlim"/> and not <c>lock</c>: a lock cannot be held across an
-    /// <c>await</c>, which rules out the obvious first attempt. It also matters that the
-    /// waiting here is asynchronous — an awaiting call holds no thread, so two extractions in
-    /// flight with a queue behind them costs approximately no threads at all. The limit is on
-    /// concurrent <em>work</em>, which is what meets a rate limit and spends money, not on
-    /// threads, which were never the scarce thing.
-    /// </para>
+    /// Per provider, not one global gate: rate limits and latency are per vendor. A shared
+    /// limit would let a slow Claude call block a Groq call that shares nothing with it.
+    ///
+    /// <see cref="SemaphoreSlim"/>, not <c>lock</c>: a lock cannot be held across <c>await</c>.
+    /// Waiting is asynchronous — an awaiting call holds no thread. The limit is concurrent work
+    /// (rate limit, spend, PDFs in memory), not threads.
     /// </remarks>
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.OrdinalIgnoreCase);
 
@@ -93,18 +77,17 @@ public sealed class NoticeExtraction : INoticeExtraction
     {
         ArgumentNullException.ThrowIfNull(pdfBytes);
 
-        // Throws naming what is configured rather than falling back. A reprocess run that asked
-        // for one provider and silently got another produces rows labelled with a model that
-        // never saw the notice, which is worse than not running.
+        // Throws naming what is configured rather than falling back. A reprocess that asked for
+        // one provider and silently got another labels rows with a model that never saw the notice.
         var extractor = _selector.Get(providerName);
         var resolved = string.IsNullOrWhiteSpace(providerName) ? _options.DefaultProvider : providerName;
 
         var gate = _gates.GetOrAdd(resolved, CreateGate);
         var queued = Stopwatch.GetTimestamp();
 
-        // The token is passed so a queued extraction does not outlive shutdown. The Worker gets
-        // twenty seconds from the SCM; a wait that ignored cancellation would be a service
-        // killed and logged as a crash.
+        // Token so a queued extraction does not outlive shutdown. The Worker gets twenty seconds
+        // from Windows Service Control Manager; a wait that ignored cancellation would be a
+        // service killed and logged as a crash.
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         var waited = Stopwatch.GetElapsedTime(queued);
@@ -115,31 +98,25 @@ public sealed class NoticeExtraction : INoticeExtraction
                 .ExtractAsync(pdfBytes, noticeType, cancellationToken)
                 .ConfigureAwait(false);
 
-            // Recorded separately from provider latency. Without the split, being behind our own
-            // limit is indistinguishable from a slow vendor — and one of those is a capacity
-            // decision we control and the other is not.
+            // Separate from provider latency. Without the split, our own queue looks like a slow vendor.
             return result with { Telemetry = result.Telemetry with { QueueWait = waited } };
         }
         finally
         {
-            // The one genuinely load-bearing finally in this codebase. A permit leaked on a
-            // failure path permanently reduces capacity, and the symptom surfaces much later as
-            // "extraction got slow" with nothing in the logs pointing at the cause.
+            // Load-bearing. A permit leaked on failure permanently reduces capacity; the symptom
+            // shows up later as "extraction got slow" with nothing in the logs pointing here.
             gate.Release();
         }
     }
 
     /// <summary>
-    /// One gate for a provider, with the configured value checked rather than trusted.
+    /// One gate for a provider; the configured cap is checked rather than trusted.
     /// </summary>
     /// <remarks>
-    /// A cap of zero or less is a deployment mistake, and left to <see cref="SemaphoreSlim"/> it
-    /// surfaces as an <c>ArgumentOutOfRangeException</c> thrown from here — outside the guard, so
-    /// it escapes as an exception rather than becoming a recorded failure, and the message names
-    /// a parameter nobody configured. Worse, a cap of zero would otherwise mean "block forever",
-    /// which looks like a hung provider rather than a typo.
-    ///
-    /// So it is refused by name, saying which provider and which setting.
+    /// A cap below one is a deployment mistake. Left to <see cref="SemaphoreSlim"/> it throws
+    /// <c>ArgumentOutOfRangeException</c> outside the guard — an escaping exception instead of a
+    /// recorded failure, naming a parameter nobody configured. Zero would block every extraction
+    /// against that provider forever and read as a hung vendor rather than a typo. Refused by name.
     /// </remarks>
     private SemaphoreSlim CreateGate(string providerName)
     {

@@ -1,11 +1,10 @@
 namespace OmsLoan.Domain;
 
 /// <summary>
-/// A notice received from an agent bank, stored as the original PDF bytes.
+/// A notice from an agent bank, stored as the original PDF bytes.
 /// </summary>
 /// <remarks>
-/// The file bytes are kept verbatim rather than as a parsed derivative: they are the
-/// evidence a reviewer compares against, and the input to any future reprocessing.
+/// Bytes stay verbatim: they are the evidence a reviewer compares against, and the input to any later reprocess.
 /// </remarks>
 public class Notice
 {
@@ -15,17 +14,16 @@ public class Notice
     public byte[] Content { get; set; } = [];
 
     /// <summary>
-    /// Lowercase hex SHA-256 of <see cref="Content"/>. Indexed but <em>not</em> unique: the
-    /// same document may legitimately appear more than once, and identifying those arrivals
-    /// as the same document is review's job rather than ingestion's. The index is what makes
-    /// that grouping cheap, and what lets extraction accuracy be compared across identical
-    /// input.
+    /// Lowercase hex SHA-256 of <see cref="Content"/>. Indexed but not unique: the same
+    /// document may arrive more than once, and calling those arrivals the same document is
+    /// review's job, not ingestion's. The index makes that grouping cheap and lets accuracy
+    /// compare identical input.
     /// </summary>
     public string Sha256 { get; set; } = string.Empty;
 
     /// <summary>
-    /// Who sent it. Null for folder-ingested and manually uploaded notices, which have
-    /// no sender, for the same reason <see cref="EmailMessageId"/> is nullable.
+    /// Who sent it. Null for folder and upload arrivals, which have no sender — same reason
+    /// <see cref="EmailMessageId"/> is nullable.
     /// </summary>
     public string? Sender { get; set; }
 
@@ -41,13 +39,13 @@ public class Notice
     public NoticeStatus Status { get; set; }
 
     /// <summary>
-    /// The mailbox message id, when the notice arrived by email. Null otherwise — under a
-    /// filtered index, so folder and upload ingestion are not forced to invent one.
+    /// Mailbox message id when the notice arrived by email. Null otherwise — under a filtered
+    /// index, so folder and upload ingestion are not forced to invent one.
     /// </summary>
     /// <remarks>
-    /// Indexed but not unique. One message can carry several PDF attachments and each is its
-    /// own notice, and a message re-read after an interrupted run is recorded again rather
-    /// than rejected — see <see cref="Sha256"/> for the same reasoning applied to content.
+    /// Indexed but not unique. One message can carry several PDFs (each its own notice), and a
+    /// message re-read after an interrupted run is recorded again rather than rejected — see
+    /// <see cref="Sha256"/> for the same rule on content.
     /// </remarks>
     public string? EmailMessageId { get; set; }
 
