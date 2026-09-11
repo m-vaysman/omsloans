@@ -1,90 +1,69 @@
 namespace OmsLoan.Domain.Extractors;
 
 /// <summary>
-/// Settings for one provider.
+/// Settings for one provider. Same shape for every vendor — a Claude-only setting would leak the abstraction.
 /// </summary>
-/// <remarks>
-/// The same shape for every vendor. Nothing here is Claude-specific or OpenAI-specific,
-/// because the moment one provider needs a setting the others do not, the abstraction has a
-/// leak in it and the reprocess command has a special case.
-/// </remarks>
 public sealed class ProviderOptions
 {
-    /// <summary>The key. Empty means the provider is unconfigured and will not be registered.</summary>
+    /// <summary>The key. Empty means unconfigured and not registered.</summary>
     /// <remarks>
-    /// Supplied by a flat machine variable — <c>CLAUDE_API_KEY</c> and its siblings — and never
-    /// committed. See docs/windows-service.md.
+    /// Flat machine variable — <c>CLAUDE_API_KEY</c> and siblings — never committed. See docs/windows-service.md.
     /// </remarks>
     public string ApiKey { get; init; } = string.Empty;
 
     /// <summary>
-    /// The pinned model id recorded on every row this provider produces.
+    /// Pinned model id recorded on every row this provider produces.
     /// </summary>
     /// <remarks>
-    /// Pinned, not a floating alias. Two rows carrying the same name and different behaviour
-    /// would make the accuracy report meaningless and nothing afterwards could separate them.
+    /// Pinned, not a floating alias. Same name and different behaviour would make the accuracy report meaningless.
     /// </remarks>
     public string ModelId { get; init; } = string.Empty;
 
-    /// <summary>Cap on the response. A notice that needs more than this is a prompt problem.</summary>
+    /// <summary>Cap on the response. A notice that needs more is a prompt problem.</summary>
     public int MaxTokens { get; init; } = 4096;
 
     /// <summary>
     /// How long the call may take before it is abandoned.
     /// </summary>
     /// <remarks>
-    /// The whole budget for one extraction, because there is only ever one attempt. A
-    /// provider that hangs must not hold an ingestion pass open behind it: the notice is
-    /// still on disk or in the mailbox, and a failed extraction a reviewer can see is a far
-    /// better state than a Worker stuck on one document.
+    /// Whole budget for one extraction — there is only ever one attempt. A hung provider must
+    /// not hold ingestion open; a failed extraction a reviewer can see beats a Worker stuck on one document.
     /// </remarks>
     public int TimeoutSeconds { get; init; } = 120;
 
     public TimeSpan Timeout => TimeSpan.FromSeconds(TimeoutSeconds);
 
     /// <summary>
-    /// The endpoint, when it is not the vendor's own default.
+    /// Endpoint when it is not the vendor default. How Groq is reached: OpenAI-shaped API, different base URL.
     /// </summary>
-    /// <remarks>
-    /// This is how Groq is reached: it speaks the OpenAI API, so it is the same client
-    /// pointed somewhere else rather than a package and an implementation of its own. Empty
-    /// means the vendor default.
-    /// </remarks>
     public string BaseUrl { get; init; } = string.Empty;
 
     /// <summary>
-    /// Whether the provider takes the PDF itself, or has to be sent text extracted from it.
+    /// Whether the provider takes the PDF itself, or must be sent text extracted from it.
     /// </summary>
     /// <remarks>
-    /// The single most consequential setting here, and the reason it is recorded on every row
-    /// rather than merely acted on. A notice read natively and a notice read from flattened
-    /// text are not the same measurement — a rate table loses which tranche owns which rate on
-    /// the way through a text extractor — so an accuracy report that compared the two without
-    /// knowing which was which would attribute a preprocessing loss to the model.
+    /// Most consequential setting here, and why it is recorded on every row. A native read and a
+    /// flattened-text read are not the same measurement — a rate table loses which tranche owns
+    /// which rate through text extraction. An accuracy report that compared them without this
+    /// stamp would blame the model for a preprocessing loss.
     /// </remarks>
     public bool SendsPdfNatively { get; init; } = true;
 
     /// <summary>Largest document this provider will accept, in bytes.</summary>
     /// <remarks>
-    /// Checked before the call so an oversized notice fails saying so, rather than as whatever
-    /// the vendor returns for a request that was too big — which is a generic transport error
-    /// and sends whoever reads it looking in the wrong place.
+    /// Checked before the call so an oversized notice fails saying so, not as a generic transport error.
     /// </remarks>
     public int MaxDocumentBytes { get; init; } = 30 * 1024 * 1024;
 
-    /// <summary>The default concurrency cap, used when configuration does not give one.</summary>
+    /// <summary>Default concurrency cap when configuration does not give one.</summary>
     public const int DefaultMaxConcurrentExtractions = 2;
 
     /// <summary>
     /// How many extractions may be in flight against this provider at once.
     /// </summary>
     /// <remarks>
-    /// Per provider rather than global, because rate limits and latency belong to a vendor and
-    /// one slow Claude call should not block a Groq call that shares nothing with it.
-    ///
-    /// The unit is concurrent work, not threads. An awaiting call holds no thread, so this does
-    /// not cap threads and was never meant to — it caps what actually runs out: provider rate
-    /// limit, spend per minute, and PDFs held in memory at once.
+    /// Per provider, not global — rate limits and latency belong to a vendor.
+    /// Unit is concurrent work, not threads. An awaiting call holds no thread.
     /// </remarks>
     public int MaxConcurrentExtractions { get; init; } = DefaultMaxConcurrentExtractions;
 
@@ -92,24 +71,22 @@ public sealed class ProviderOptions
 }
 
 /// <summary>
-/// The <c>Extraction</c> configuration section: which provider to use, and the settings for
-/// each.
+/// The <c>Extraction</c> configuration section: default provider and per-provider settings.
 /// </summary>
 /// <remarks>
-/// Providers are keyed by name — <c>Claude</c>, <c>OpenAi</c>, <c>Groq</c> — so that choosing
-/// one is a configuration value rather than a code path, which is what ADR 0001 is about and
-/// what the reprocess command needs in order to run the same notice through two of them.
+/// Providers keyed by name — <c>Claude</c>, <c>OpenAi</c>, <c>Groq</c> — so choosing one is
+/// configuration, not a code path (ADR 0001). Reprocess needs that to run one notice through two providers.
 /// </remarks>
 public sealed class ExtractionOptions
 {
     public const string SectionName = "Extraction";
 
     /// <summary>
-    /// Which provider is used when a caller does not name one.
+    /// Provider used when a caller does not name one.
     /// </summary>
     /// <remarks>
-    /// Claude by default because it accepts PDFs natively, and these documents are tabular —
-    /// a rate reset flattened to text loses which rate belongs to which tranche. See ADR 0001.
+    /// Claude by default: accepts PDFs natively, and these documents are tabular — a rate reset
+    /// flattened to text loses which rate belongs to which tranche. See ADR 0001.
     /// </remarks>
     public string DefaultProvider { get; init; } = "Claude";
 
