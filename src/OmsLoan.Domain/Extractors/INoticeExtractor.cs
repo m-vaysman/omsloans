@@ -1,37 +1,26 @@
 namespace OmsLoan.Domain.Extractors;
 
 /// <summary>
-/// Reads the economic data out of a notice. The seam that keeps provider choice from leaking
-/// into the rest of the system.
+/// Reads economic data out of a notice. The seam that keeps provider choice from leaking upstream.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Everything upstream and downstream talks to this; only the implementations know which
-/// vendor they are calling — see
-/// <see href="../../../docs/decisions/0001-cloud-llm-over-local.md">ADR 0001</see>. That is
-/// also what makes reprocessing (#18) and the accuracy report (#19) possible at all: a
-/// provider is a name resolved at run time rather than a code path.
-/// </para>
-/// <para>
-/// No vendor SDK is referenced from this project, deliberately. The day one is added here is
-/// the day the abstraction has stopped being one.
-/// </para>
-/// <para>
-/// <strong>Implementations may throw <see cref="ExtractionProviderException"/></strong> to say
-/// a call failed and whether it is worth trying again. Callers do not see that: what they hold
-/// is the resilient decorator, which retries what is worth retrying and turns whatever is left
-/// into a failed <see cref="ExtractionResult"/>. Only genuine cancellation propagates.
-/// </para>
+/// Everything talks to this; only implementations know the vendor
+/// (<see href="../../../docs/decisions/0001-cloud-llm-over-local.md">ADR 0001</see>).
+/// No vendor SDK is referenced from Domain — the day one is added here, the abstraction has stopped.
+///
+/// Implementations may throw <see cref="ExtractionProviderException"/>. Callers do not see that:
+/// they hold <see cref="GuardedNoticeExtractor"/>, which makes one attempt, applies the deadline,
+/// and turns whatever is left into a failed <see cref="ExtractionResult"/>. Only genuine
+/// cancellation propagates. There are no retries.
 /// </remarks>
 internal interface INoticeExtractor
 {
     /// <summary>
-    /// The pinned model id, recorded on every row this extractor produces.
+    /// Pinned model id, recorded on every row this extractor produces.
     /// </summary>
     /// <remarks>
-    /// A pinned id rather than a family alias. "The latest one" makes an accuracy comparison
-    /// meaningless: two rows would carry the same name and different behaviour, and nothing
-    /// afterwards could tell them apart.
+    /// Pinned, not a family alias. "The latest one" makes accuracy comparisons meaningless:
+    /// two rows would share a name and different behaviour.
     /// </remarks>
     string ModelName { get; }
 

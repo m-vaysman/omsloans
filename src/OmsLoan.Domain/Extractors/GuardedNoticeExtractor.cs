@@ -1,36 +1,15 @@
 namespace OmsLoan.Domain.Extractors;
 
 /// <summary>
-/// Wraps a provider with a deadline and the guarantee that a call returns rather than throws.
+/// Wraps a provider with a deadline and the guarantee that a call returns a result rather than throws.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <strong>One attempt. No retries.</strong> A provider is a black box: if it does not answer,
-/// that is the answer, and it is recorded as plainly as a success would be. A reviewer sees
-/// which provider failed and why, and decides — run it again, use another provider, or type
-/// the values in by hand. That decision belongs to a person looking at the notice, not to a
-/// backoff schedule guessing on their behalf.
-/// </para>
-/// <para>
-/// Retrying would buy very little and cost a lot. The notice is not lost while nobody retries
-/// it; it sits in the queue with a failed extraction against it, which is a visible state
-/// somebody can act on. Against that, retries add a schedule to reason about, a worst-case
-/// duration several times the timeout, and a class of failure that gets quietly absorbed
-/// rather than reported.
-/// </para>
-/// <para>
-/// Two things it still does, both one line each:
-/// </para>
-/// <para>
-/// <strong>A deadline</strong>, so a hung provider cannot wedge the ingestion loop. The notice
-/// is still on disk or in the mailbox; giving up costs nothing.
-/// </para>
-/// <para>
-/// <strong>A result rather than an exception</strong>, so every attempt leaves a row — and the
-/// failures most of all, since those are what a reviewer needs to see. Whatever a provider
-/// throws, including a bug in the provider itself, comes back as a recorded failure. Only
-/// genuine cancellation propagates.
-/// </para>
+/// One attempt. No retries. A provider that does not answer is the answer, recorded as plainly
+/// as a success. A reviewer decides whether to rerun, switch providers, or type values in —
+/// not a backoff schedule guessing on their behalf.
+///
+/// A deadline so a hung provider cannot wedge ingestion. A result rather than an exception so
+/// every attempt leaves a row, failures most of all. Only genuine cancellation propagates.
 /// </remarks>
 internal sealed class GuardedNoticeExtractor(
     INoticeExtractor inner,
@@ -48,9 +27,8 @@ internal sealed class GuardedNoticeExtractor(
     {
         var started = _time.GetTimestamp();
 
-        // Linked, so the caller's shutdown still wins, plus a deadline of our own. Which token
-        // fired is what tells the two apart afterwards: a deadline is a failure to record, a
-        // shutdown is not a failure at all.
+        // Linked so caller shutdown still wins, plus our own deadline. Which token fired
+        // separates them: deadline is a recorded failure; shutdown is not a failure at all.
         using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         attempt.CancelAfter(options.Timeout);
 
@@ -65,8 +43,7 @@ internal sealed class GuardedNoticeExtractor(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Shutting down. Not a failed extraction — the notice is untouched and will be
-            // picked up again, so there is nothing to record and nobody to tell.
+            // Shutting down. Notice untouched; it will be picked up again. Nothing to record.
             throw;
         }
         catch (OperationCanceledException)
@@ -79,10 +56,8 @@ internal sealed class GuardedNoticeExtractor(
         }
         catch (Exception ex)
         {
-            // Everything, deliberately — not just ExtractionProviderException. A provider that
-            // throws something unexpected is a bug in that provider, and a bug there must not
-            // become a notice with no row against it. The decorator owns the row; the provider
-            // owns the fault.
+            // Everything, deliberately — not just ExtractionProviderException. A provider bug
+            // must not become a notice with no row. The decorator owns the row; the provider owns the fault.
             return ExtractionResult.ProviderFailure(
                 ModelName,
                 string.Empty,
@@ -91,7 +66,7 @@ internal sealed class GuardedNoticeExtractor(
         }
     }
 
-    /// <summary>One line, and never the key, the token, or any of the notice.</summary>
+    /// <summary>One line. Never the key, the token, or any of the notice.</summary>
     private static string Describe(Exception ex) =>
         ex is ExtractionProviderException { StatusCode: int status } provider
             ? $"{provider.Message} (HTTP {status})"
