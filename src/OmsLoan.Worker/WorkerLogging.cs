@@ -7,14 +7,14 @@ namespace OmsLoan.Worker;
 /// Log sinks that only exist on Windows.
 /// </summary>
 /// <remarks>
-/// The Event Log wiring lives in an attributed method rather than inline in Program.cs
-/// because the platform analyser evaluates a lambda as its own call site: an
-/// <c>OperatingSystem.IsWindows()</c> guard around the call does not reach the configuration
-/// callback inside it, and the attribute is not honoured on a local function either. A real
-/// method carrying <see cref="SupportedOSPlatformAttribute"/> is what the analyser follows.
+/// Event Log wiring lives in an attributed method rather than inline in Program.cs: the
+/// platform analyser treats a lambda as its own call site, so an
+/// <c>OperatingSystem.IsWindows()</c> guard around the call does not cover the callback, and
+/// the attribute is not honoured on a local function. A real method with
+/// <see cref="SupportedOSPlatformAttribute"/> is what it follows.
 ///
-/// The runtime guard is still the thing that matters — this project targets net8.0 rather
-/// than net8.0-windows so it stays consistent with the rest of src/.
+/// Runtime guard still matters — targets net8.0 (not net8.0-windows) to stay consistent with
+/// the rest of src/.
 /// </remarks>
 internal static class WorkerLogging
 {

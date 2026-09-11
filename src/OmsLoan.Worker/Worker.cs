@@ -5,14 +5,13 @@ using OmsLoan.Worker.Ingestion.Email;
 namespace OmsLoan.Worker;
 
 /// <summary>
-/// Polls the watched folder on an interval.
+/// Polls the watched folder and the shared mailbox on their own intervals.
 /// </summary>
 /// <remarks>
-/// Polling rather than FileSystemWatcher. The watcher misses events when its buffer
-/// overflows during a bulk drop, does not fire reliably on network shares — which is where
-/// these folders usually live — and gives no way to retry a file that was locked when the
-/// event arrived. A scan re-examines everything still present, so a missed notice is
-/// self-correcting: anything not yet recorded is still sitting there next time.
+/// Polling rather than FileSystemWatcher. The watcher misses events when its buffer overflows
+/// on a bulk drop, does not fire reliably on network shares — where these folders usually
+/// live — and cannot retry a file locked when the event arrived. A scan re-examines what is
+/// still present, so a missed notice is self-correcting.
 /// </remarks>
 public class Worker : BackgroundService
 {
@@ -23,11 +22,9 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
 
     /// <summary>
-    /// Guards rather than a primary constructor. Both ingestion paths are required — the
-    /// Worker has nothing to do without either — so a null here is a composition mistake, and
-    /// it is worth failing at the point the service is built rather than on the first poll,
-    /// where it would surface as a NullReferenceException inside a caught-and-logged pass and
-    /// look like an ingestion fault.
+    /// Guards rather than a primary constructor. Both ingestion paths are required — null is a
+    /// composition mistake. Fail at build time rather than as a NullReferenceException inside
+    /// a caught-and-logged pass that looks like an ingestion fault.
     /// </summary>
     public Worker(
         FolderIngestion folderIngestion,
@@ -59,9 +56,8 @@ public class Worker : BackgroundService
             _mailboxOptions.Mailbox,
             _mailboxOptions.PollInterval);
 
-        // Two loops rather than one. The folder is local and cheap to scan; the mailbox is a
-        // network round trip that can hang or be throttled. Sharing a timer would let a slow
-        // or unreachable mailbox stall folder ingestion, which has nothing to do with it.
+        // Two loops. Folder is local and cheap; mailbox is a network round trip that can hang
+        // or throttle. One timer would let a stuck mailbox stall folder ingestion.
         var folder = PollAsync(
             _options.PollInterval,
             () => _folderIngestion.RunOnceAsync(stoppingToken),
@@ -78,11 +74,11 @@ public class Worker : BackgroundService
     }
 
     /// <summary>
-    /// Runs one ingestion pass immediately, then on an interval until shutdown.
+    /// One ingestion pass immediately, then on an interval until shutdown.
     /// </summary>
     /// <remarks>
-    /// Immediately first, so a restart picks up a backlog rather than looking idle for an
-    /// interval — which after a deployment is exactly when somebody is watching.
+    /// Immediately first so a restart picks up a backlog rather than looking idle — which
+    /// after a deploy is when somebody is watching.
     /// </remarks>
     private async Task PollAsync(
         TimeSpan interval,
@@ -101,9 +97,8 @@ public class Worker : BackgroundService
     }
 
     /// <summary>
-    /// A pass that throws must not end the service. Whatever went wrong, the files are still
-    /// in the folder and the next tick will try again; stopping would turn a transient fault
-    /// into an outage that needs somebody to notice.
+    /// A throwing pass must not end the service. Work stays in the folder/mailbox; the next
+    /// tick retries. Stopping would turn a transient fault into an outage.
     /// </summary>
     private async Task RunSafelyAsync(Func<Task> pass, string what, CancellationToken stoppingToken)
     {
@@ -113,7 +108,7 @@ public class Worker : BackgroundService
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            // Shutting down.
+            // Shutting down — not a failure.
         }
         catch (Exception ex)
         {
