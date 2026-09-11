@@ -3,42 +3,39 @@ using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Api;
 using OmsLoan.Domain;
 
-// The SCM starts a service with C:\Windows\System32 as its working directory. Left alone,
-// that becomes the content root: appsettings.json is never found, and — the part unique to a
-// web host — WebRootPath is computed from it too, so wwwroot resolves to a folder that does
-// not exist and the React build silently 404s while sitting next to the executable.
+// Windows Service Control Manager starts a service with C:\Windows\System32 as its working
+// directory. Left alone, that becomes the content root: appsettings.json is never found, and
+// WebRootPath is computed from it too — so wwwroot resolves to a missing folder and the React
+// build silently 404s while sitting next to the executable.
 //
 // AddWindowsService() below cannot fix this. Its IServiceCollection form runs after the host
-// environment has already been computed; only the IHostBuilder form sets the content root,
-// and WebApplicationBuilder does not use one. So it is set here, explicitly, and only when
-// the process really is running under the SCM — leaving dotnet run and F5 to keep resolving
-// the content root from the project directory, which is what makes launchSettings work.
+// environment is already computed; only the IHostBuilder form sets the content root, and
+// WebApplicationBuilder does not use one. Set here only when running as an installed Windows
+// service — leaving Visual Studio and `dotnet run` to keep resolving from the project directory.
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
     ContentRootPath = WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : null,
 });
 
-// Reports lifecycle to the SCM: without it the SCM never learns the process finished
-// starting, and kills it as hung. A no-op when the process is not running as a service, so
-// the same build is what runs under dotnet run.
+// Reports lifecycle to Windows Service Control Manager: without it the manager never learns
+// the process finished starting, and kills it as hung. A no-op under Visual Studio / `dotnet
+// run`, so one build covers both starts.
 builder.Services.AddWindowsService(options =>
 {
     options.ServiceName = ServiceMetadata.ServiceName;
 });
 
-// A service with no console needs somewhere to say why it stopped, and the Event Log is
-// readable without deploying anything. The source is registered by the install script:
-// creating one needs administrator rights that the service account is deliberately not
-// granted.
+// An installed Windows service has no console; the Event Log is where it says why it stopped.
+// The source is registered by the install script — creating one needs admin rights the service
+// account is deliberately not granted.
 if (OperatingSystem.IsWindows())
 {
     builder.Logging.AddOmsLoanEventLog();
 }
 
-// The SCM kills a service that does not stop in time and logs it as a crash. Twenty seconds
-// is well inside the SCM's own patience and is more than enough to drain review requests,
-// which are short reads and single-row writes rather than long work.
+// Windows Service Control Manager kills a service that does not stop in time and logs it as a
+// crash. Twenty seconds is inside its patience and enough to drain short review requests.
 builder.Services.Configure<HostOptions>(options =>
 {
     options.ShutdownTimeout = TimeSpan.FromSeconds(20);
@@ -51,12 +48,10 @@ builder.Services.AddSwaggerGen();
 builder.Services.Configure<UploadOptions>(
     builder.Configuration.GetSection(UploadOptions.SectionName));
 
-// Cap the request body just above the upload limit, with room for the multipart envelope and
-// the optional form fields. Without this the server's own default decides, independently of
-// the configured limit, and an operator raising Upload:MaxBytes would find uploads still
-// refused by a number they cannot see. The controller still checks the file itself, so a
-// request inside this cap but over the limit gets a readable 413 rather than a connection
-// closed mid-upload.
+// Cap the request body just above the upload limit, with room for the multipart envelope.
+// Without this Kestrel's default decides independently of Upload:MaxBytes, and raising the
+// limit still refuses uploads by a number nobody can see. The controller still checks the
+// file, so an in-cap but over-limit request gets a readable 413 rather than a mid-upload cut.
 var maxUploadBytes = builder.Configuration
     .GetSection(UploadOptions.SectionName)
     .Get<UploadOptions>()?.MaxBytes ?? new UploadOptions().MaxBytes;
@@ -71,14 +66,12 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxRequestBodySize = maxUploadBytes + (1 * 1024 * 1024);
 });
 
-// Configuration sources come from WebApplication.CreateBuilder in this order, lowest
-// precedence first: appsettings.json, appsettings.{Environment}.json, user-secrets
-// (Development only), environment variables, command line. Nothing is added here — the
-// startup banner reports which one actually supplied each setting.
+// Configuration sources come from WebApplication.CreateBuilder (appsettings, environment,
+// command line). The startup banner reports which one supplied each setting.
 //
-// Registered only when a connection string is present, matching the Worker: a review API
-// that comes up and says it has no database is more useful than one that throws during
-// startup and is restarted three times by the SCM before anyone reads a log.
+// DbContext registered only when a connection string is present, matching the Worker: a
+// review API that starts and says it has no database beats one that throws and is restarted
+// three times by Windows Service Control Manager before anyone reads a log.
 var connectionString = builder.Configuration.GetConnectionString(ConfigurationKeys.ConnectionStringName);
 
 if (!string.IsNullOrWhiteSpace(connectionString))
@@ -99,16 +92,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Only when there is somewhere to redirect to. On an http-only self-host — the default for
-// an internal deployment terminating TLS at a reverse proxy or not at all — this middleware
-// cannot determine a port, logs a warning on every single request, and then does nothing.
+// Only when something is listening on https. On an http-only self-host this middleware cannot
+// pick a port, logs a warning on every request, and then does nothing.
 if (HostUrls.HasHttpsEndpoint(app.Configuration))
 {
     app.UseHttpsRedirection();
 }
 
-// Before routing, so a request for a hashed asset is answered without touching the endpoint
-// pipeline. Skipped entirely when no build is present, which is every developer checkout.
+// Before routing, so a hashed asset never touches the endpoint pipeline. Skipped when no SPA
+// build is present — every Visual Studio / `dotnet run` checkout.
 if (SpaHosting.IsPresent(app.Environment))
 {
     app.UseOmsLoanSpa();
@@ -118,8 +110,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Last, and as fallbacks, so every controller route and every Swagger path wins over the
-// SPA catch-all.
+// Last, as fallbacks, so every controller and Swagger path wins over the SPA catch-all.
 if (SpaHosting.IsPresent(app.Environment))
 {
     app.MapOmsLoanSpaFallback();
