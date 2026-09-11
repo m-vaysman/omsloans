@@ -44,6 +44,9 @@ builder.Configuration.AddOmsLoanFlatEnvironmentSecrets();
 
 var connectionString = builder.Configuration.GetConnectionString(ConfigurationKeys.ConnectionStringName);
 
+// AddOmsLoanDatabase (not AddOmsLoanDbContext): Database:Provider chooses SQL Server or
+// Postgres. Same ConnectionStrings:OmsLoan key. A typo throws before StartupValidation, so an
+// installed Windows service with a bad provider name restarts in a loop instead of exiting clean.
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
     builder.Services.AddOmsLoanDatabase(builder.Configuration, connectionString);
