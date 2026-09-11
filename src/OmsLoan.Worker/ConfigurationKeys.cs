@@ -18,36 +18,27 @@ namespace OmsLoan.Worker;
 public sealed record ConfiguredSetting(string ConfigurationKey, string EnvironmentVariable, string Purpose);
 
 /// <summary>
-/// Configuration keys the Worker expects to find, and the environment variables that supply
-/// them.
+/// Configuration keys the Worker expects, and the environment variables that supply them.
 /// </summary>
 /// <remarks>
 /// <para>
-/// There are two spellings in play and it is worth being precise about why.
+/// Two spellings are in play.
 /// </para>
 /// <para>
-/// .NET's own convention maps a hierarchical key onto a double-underscore variable, so
-/// <c>Extraction:Providers:Claude:ApiKey</c> would be set as
-/// <c>Extraction__Providers__Claude__ApiKey</c>. That
-/// mapping is built into the environment-variable provider and still works. But the machines
-/// this runs on already carry flat names — <c>CLAUDE_API_KEY</c>, <c>GRAPH_TENANT_ID</c> —
-/// set for other tooling, and nothing auto-maps those onto the nested keys. A deployment
-/// with the secrets already present would have looked, to the Worker, exactly like one with
-/// no secrets at all.
+/// .NET maps <c>Extraction:Providers:Claude:ApiKey</c> to
+/// <c>Extraction__Providers__Claude__ApiKey</c>. That still works. But these machines already
+/// carry flat names — <c>CLAUDE_API_KEY</c>, <c>GRAPH_TENANT_ID</c> — for other tooling, and
+/// nothing auto-maps those onto nested keys. A host with every secret set looked identical to
+/// one with none.
 /// </para>
 /// <para>
-/// So the flat names win. <see cref="FlatEnvironmentSecrets"/> projects them onto the
-/// hierarchical keys below and is registered as the highest-precedence configuration source,
-/// which keeps application code binding against a clean options shape while an operator only
-/// ever has to think about the flat variable. Note the spelling of the OpenAI one:
-/// <c>OPEN_API_KEY</c>, not <c>OPENAI_API_KEY</c>. It is what is set on the machines, so it
-/// is what is read here.
+/// So flat names win. <see cref="FlatEnvironmentSecrets"/> projects them onto the hierarchical
+/// keys below as the highest-precedence source. Note the OpenAI spelling: <c>OPEN_API_KEY</c>,
+/// not <c>OPENAI_API_KEY</c> — it is what is on the machines.
 /// </para>
 /// <para>
-/// The nested <c>Extraction__Providers__Claude__ApiKey</c> form is not removed and cannot
-/// be — it comes
-/// free with the environment-variable provider. It simply loses to the flat name when both
-/// are set. It is no longer documented or written by the install script.
+/// The nested form is not removed — it comes free with the env-var provider — but loses to
+/// the flat name when both are set. The install script no longer writes it.
 /// </para>
 /// </remarks>
 public static class ConfigurationKeys
@@ -74,15 +65,14 @@ public static class ConfigurationKeys
     /// and presence reporting only at this point — no Graph call is made yet.
     /// </summary>
     /// <remarks>
-    /// The first three are the credential; the fourth is the mailbox to poll — an address
-    /// rather than a secret, but required all the same, because mailbox ingestion has nowhere
-    /// to look without it. <c>GRAPH_USER</c> is the name the machines and
-    /// <c>tools/GraphDaemonSmokeTest.linq</c> already use; <c>GRAPH_TEST_MAILBOX</c> holds the
-    /// same value on the test machines and is not read.
+    /// First three are the credential; fourth is the mailbox to poll — an address, not a
+    /// secret, but required: mailbox ingestion has nowhere to look without it.
+    /// <c>GRAPH_USER</c> is what the machines and <c>tools/GraphDaemonSmokeTest.linq</c> use;
+    /// <c>GRAPH_TEST_MAILBOX</c> holds the same value on test machines and is not read.
     ///
-    /// Watch the scope on <c>GRAPH_USER</c>. It is commonly set at <em>user</em> scope on a
-    /// development machine, which a Windows Service never sees — set it with <c>setx /M</c> on
-    /// any host running the service. See docs/exchange-test-environment.md.
+    /// Watch scope on <c>GRAPH_USER</c>. Often set at <em>user</em> scope on a development
+    /// machine, which an installed Windows service never sees — use <c>setx /M</c> on any host
+    /// running the service. See docs/exchange-test-environment.md.
     /// </remarks>
     public static readonly IReadOnlyList<ConfiguredSetting> GraphSettings =
     [
@@ -131,21 +121,17 @@ public static class ConfigurationKeys
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The database and the Graph credential are the two things without which the Worker
-    /// has no useful work to do: it cannot record a notice and it cannot collect one from
-    /// the shared mailbox. Starting anyway means a service the SCM reports as Running that
-    /// silently ingests nothing — the worst of the failure modes, because it looks healthy
-    /// and the gap only surfaces when somebody asks why the review queue is empty.
+    /// Database and Graph are required: without them the Worker cannot record or collect a
+    /// notice. Starting anyway means Windows Service Control Manager reports Running while
+    /// nothing is ingested — looks healthy until the review queue stays empty.
     /// </para>
     /// <para>
-    /// Graph is all-or-nothing. A tenant with no client secret is not a partially working
-    /// credential, so a partial set fails exactly as a missing one does.
+    /// Graph is all-or-nothing. A tenant with no client secret is not a partial credential.
     /// </para>
     /// <para>
-    /// The provider API keys in <see cref="ProviderApiKeys"/> are deliberately <em>not</em>
-    /// here. They are individually optional — the point of putting three providers behind
-    /// one interface is that any one of them will do — and a notice ingested but not yet
-    /// extracted is a recoverable state that reprocessing fixes.
+    /// Provider API keys in <see cref="ProviderApiKeys"/> are deliberately <em>not</em> here.
+    /// They are individually optional — any one will do — and ingested-but-not-extracted is
+    /// recoverable by reprocessing.
     /// </para>
     /// </remarks>
     public static readonly IReadOnlyList<ConfiguredSetting> RequiredSettings =
