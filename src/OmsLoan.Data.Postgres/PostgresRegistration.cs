@@ -8,6 +8,11 @@ namespace OmsLoan.Data.Postgres;
 
 public static class PostgresRegistration
 {
+    /// <summary>
+    /// Chooses SQL Server or Postgres from Database:Provider. Missing or blank keeps SQL Server
+    /// (AddOmsLoanDbContext). Postgres swaps the provider. Any other value throws here — before
+    /// StartupValidation — so an installed Windows service with a typo enters a restart loop.
+    /// </summary>
     public static IServiceCollection AddOmsLoanDatabase(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -39,6 +44,10 @@ public static class PostgresRegistration
         string connectionString) =>
         services.AddDbContext<OmsLoanDbContext>(options => options.UseOmsLoanPostgres(connectionString));
 
+    /// <summary>
+    /// Npgsql + MigrationsAssembly pointing at this project (SQL Server migrations stay in
+    /// Domain) + ReplaceService so PostgresModelCustomizer runs on the shared OmsLoanDbContext.
+    /// </summary>
     public static DbContextOptionsBuilder UseOmsLoanPostgres(
         this DbContextOptionsBuilder options,
         string connectionString)
