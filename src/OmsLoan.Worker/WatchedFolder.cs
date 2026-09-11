@@ -24,7 +24,7 @@ public static class WatchedFolder
 {
     /// <summary>
     /// Where ingestion files each notice once it has been handled. Created under the archive
-/// root: that root is usually the watched folder itself, made by whoever set up the drop
+    /// root: that root is usually the watched folder itself, made by whoever set up the drop
     /// location, while these two are an implementation detail nobody outside the project
     /// would know to create.
     /// </summary>
