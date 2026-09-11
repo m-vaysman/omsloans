@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace OmsLoan.Data.Postgres.Tests;
 
 public class ComposeFileTests
@@ -17,8 +19,22 @@ public class ComposeFileTests
     }
 
     [Fact]
-    public void ThePasswordIsRequired() =>
-        Assert.Contains("${POSTGRES_PASSWORD:?", Compose(), StringComparison.Ordinal);
+    public void NoPasswordIsAskedFor()
+    {
+        var compose = Compose();
+
+        Assert.Matches(@"(?m)^\s+POSTGRES_HOST_AUTH_METHOD:\s*trust\s*$", compose);
+        Assert.DoesNotContain("POSTGRES_PASSWORD", compose, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ThePortIsReachableFromThisMachineOnly()
+    {
+        var mappings = Regex.Matches(Compose(), @"(?m)^\s+-\s*""?(?<mapping>[\d.:]+:5432)""?\s*$")
+            .Select(match => match.Groups["mapping"].Value);
+
+        Assert.Equal("127.0.0.1:5432:5432", Assert.Single(mappings));
+    }
 
     [Fact]
     public void TheVolumeNameDoesNotDependOnTheCheckoutFolder() =>
