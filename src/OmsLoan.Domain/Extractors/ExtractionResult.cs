@@ -4,30 +4,22 @@ namespace OmsLoan.Domain.Extractors;
 /// One attempt at reading a notice, successful or not.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Always returned, never thrown. A provider that is down, a response that will not parse and
-/// a call that timed out are all outcomes to be recorded, not exceptions to be handled — an
-/// attempt with no row is an attempt nobody can look at afterwards, and the failures are
-/// exactly the ones worth looking at.
-/// </para>
-/// <para>
-/// <see cref="RawJson"/> is the response verbatim and is filled in whenever there was one,
-/// including when parsing it failed. That is what makes a bad extraction diagnosable months
-/// later, and it maps straight onto <see cref="OmsLoan.Domain.Extraction.RawJson"/>.
-/// </para>
+/// Always returned, never thrown. A down provider, an unparseable response, and a timeout are
+/// outcomes to record, not exceptions to handle — an attempt with no row is one nobody can look at.
+///
+/// <see cref="RawJson"/> is the response verbatim whenever there was one, including parse failure.
+/// That maps onto <see cref="OmsLoan.Domain.Extraction.RawJson"/>.
 /// </remarks>
 /// <param name="Outcome">How it ended.</param>
-/// <param name="ModelName">The pinned model id that produced this, for the stored row.</param>
-/// <param name="PromptVersion">The prompt revision used, for the stored row.</param>
-/// <param name="RawJson">The response exactly as returned. Empty when there was no response.</param>
+/// <param name="ModelName">Pinned model id for the stored row.</param>
+/// <param name="PromptVersion">Prompt revision for the stored row.</param>
+/// <param name="RawJson">Response exactly as returned. Empty when there was no response.</param>
 /// <param name="Fields">
-/// What was parsed out, keyed by field name. Empty unless <see cref="Outcome"/> is
-/// <see cref="ExtractionOutcome.Succeeded"/>.
+/// Parsed fields. Empty unless <see cref="Outcome"/> is <see cref="ExtractionOutcome.Succeeded"/>.
 /// </param>
 /// <param name="Telemetry">Cost and timing, recorded on failures too.</param>
 /// <param name="Error">
-/// Why it failed, in one line, for the log and the operator. Null on success. Never carries a
-/// key, a token or a fragment of the notice.
+/// Why it failed, one line, for the log and the operator. Null on success. Never a key, token, or notice fragment.
 /// </param>
 public sealed record ExtractionResult(
     ExtractionOutcome Outcome,
@@ -59,7 +51,7 @@ public sealed record ExtractionResult(
         string error) =>
         new(ExtractionOutcome.ParseFailed, modelName, promptVersion, rawJson, EmptyFields, telemetry, error);
 
-    /// <summary>The provider did not answer usefully. There is nothing to keep but the reason.</summary>
+    /// <summary>The provider did not answer usefully. Nothing to keep but the reason.</summary>
     public static ExtractionResult ProviderFailure(
         string modelName,
         string promptVersion,

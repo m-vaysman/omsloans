@@ -31,8 +31,8 @@ public class ExtractionConfiguration : IEntityTypeConfiguration<Extraction>
             .HasForeignKey(e => e.NoticeId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Every current-value read filters on IsCurrent, so it belongs in the index rather
-        // than being left to a scan over a notice's full reprocessing history.
+        // Current-value reads filter on IsCurrent; keep it in the index or every read scans
+        // a notice's full reprocessing history.
         builder.HasIndex(e => new { e.NoticeId, e.IsCurrent });
     }
 }

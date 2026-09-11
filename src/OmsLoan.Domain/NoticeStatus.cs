@@ -4,8 +4,7 @@ namespace OmsLoan.Domain;
 /// Lifecycle of a notice from ingestion through review.
 /// </summary>
 /// <remarks>
-/// Persisted as a string, so adding a member here does not require a migration
-/// or a data fix-up of existing rows.
+/// Persisted as a string, so adding a member here does not need a migration or a data fix-up.
 /// </remarks>
 public enum NoticeStatus
 {

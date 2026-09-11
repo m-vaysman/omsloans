@@ -7,9 +7,9 @@ namespace OmsLoan.Domain.Extractors;
 /// Resolves an extractor by provider name.
 /// </summary>
 /// <remarks>
-/// The thing that makes provider choice a value rather than a code path — and therefore what
-/// the reprocess command (#18) and the accuracy report (#19) are built on. Running the same
-/// notice through two providers has to be a loop over names, not a branch.
+/// Makes provider choice a value rather than a code path — what reprocess (#18) and the accuracy
+/// report (#19) are built on. Running the same notice through two providers is a loop over names,
+/// not a branch.
 /// </remarks>
 internal interface INoticeExtractorSelector
 {
@@ -17,16 +17,15 @@ internal interface INoticeExtractorSelector
     IReadOnlyList<string> Available { get; }
 
     /// <summary>
-    /// The extractor for a provider, or the configured default when no name is given.
+    /// Extractor for a provider, or the configured default when no name is given.
     /// </summary>
     /// <exception cref="InvalidOperationException">
-    /// The name is not registered. Thrown rather than falling back to the default: a
-    /// reprocess run asked for one provider and silently given another produces rows labelled
-    /// with a model that never saw the notice, which is worse than not running.
+    /// Name is not registered. Thrown rather than falling back: a reprocess asked for one
+    /// provider and silently given another labels rows with a model that never saw the notice.
     /// </exception>
     INoticeExtractor Get(string? providerName = null);
 
-    /// <summary>The extractor for a provider, or null when it is not registered.</summary>
+    /// <summary>Extractor for a provider, or null when it is not registered.</summary>
     INoticeExtractor? TryGet(string providerName);
 }
 
@@ -38,11 +37,10 @@ internal sealed class NoticeExtractorSelector(
     private readonly ExtractionOptions _options = options.Value;
 
     /// <remarks>
-    /// Asked of the container, not of configuration. A provider can be configured and never
-    /// registered — nobody called <c>AddNoticeExtractor</c> for it, because its implementation
-    /// has not been written yet. Reporting it as available would make a reprocess loop skip it
-    /// silently, or a caller resolve nothing and be told the provider is unknown when
-    /// configuration plainly names it.
+    /// Asked of the container, not configuration. A provider can be configured and never
+    /// registered — nobody called <c>AddNoticeExtractor</c> because its implementation is not
+    /// written yet. Reporting it as available would make a reprocess skip it silently, or a
+    /// caller resolve nothing while configuration plainly names it.
     /// </remarks>
     public IReadOnlyList<string> Available =>
         [.. _options.ConfiguredProviders.Where(name => TryGet(name) is not null)];
@@ -68,21 +66,15 @@ internal sealed class NoticeExtractorSelector(
 public static class NoticeExtractorRegistration
 {
     /// <summary>
-    /// Registers one provider under its name, wrapped in
-    /// <see cref="GuardedNoticeExtractor"/>.
+    /// Registers one provider under its name, wrapped in <see cref="GuardedNoticeExtractor"/>.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Keyed, so a caller asks for a provider by the name it has in configuration. Every
-    /// registration is wrapped, so no implementation has to remember to bound its own call or
-    /// to turn its own exceptions into a recorded failure.
-    /// </para>
-    /// <para>
-    /// An unconfigured provider — no key, or no model id — is <em>not</em> registered at all.
-    /// Registering it would mean a caller could resolve something that is certain to fail on
-    /// its first call, and the failure would look like a provider outage rather than a
-    /// deployment that was never finished.
-    /// </para>
+    /// Keyed so a caller asks by the name in configuration. Every registration is wrapped, so no
+    /// implementation has to bound its own call or turn its own exceptions into a recorded failure.
+    ///
+    /// An unconfigured provider — no key or no model id — is not registered at all. Registering
+    /// it would let a caller resolve something certain to fail on first call, looking like a
+    /// provider outage rather than an unfinished deployment.
     /// </remarks>
     /// <returns>True when the provider was registered; false when it is not configured.</returns>
     internal static bool AddNoticeExtractor(
@@ -118,8 +110,8 @@ public static class NoticeExtractorRegistration
 
         services.AddSingleton<INoticeExtractorSelector, NoticeExtractorSelector>();
 
-        // The one public way in. Registered here rather than left to the host, so a host cannot
-        // wire the internals and leave the selector and the concurrency gate unenforced (#70).
+        // The one public way in. Registered here so a host cannot wire internals and leave the
+        // selector and concurrency gate unenforced (#70).
         services.AddSingleton<INoticeExtraction>(provider => new NoticeExtraction(
             provider.GetRequiredService<INoticeExtractorSelector>(),
             provider.GetRequiredService<IOptions<ExtractionOptions>>()));
