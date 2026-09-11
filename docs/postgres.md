@@ -20,6 +20,10 @@ docker compose up -d
 
 Postgres 17 on port 5432. Data lives in the `omsloan-postgres` volume and survives `docker compose down`. Compose refuses to start if `POSTGRES_PASSWORD` is empty.
 
+The volume is named explicitly, so it is `omsloan-postgres` whichever folder the repo is cloned into. To wipe it: `docker compose down -v`.
+
+If something else on the host already uses port 5432, such as a native Postgres install, change the left side of `5432:5432` in `docker-compose.yml` and use the same port in the connection strings below.
+
 ## 2. Create the schema
 
 ```powershell

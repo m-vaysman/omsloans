@@ -20,3 +20,4 @@ services:
 
 volumes:
   omsloan-postgres:
+    name: omsloan-postgres
