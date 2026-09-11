@@ -5,12 +5,15 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-omsloan}
       POSTGRES_USER: ${POSTGRES_USER:-omsloan}
-      # Compose refuses to start if POSTGRES_PASSWORD is unset — copy .env.example to .env first.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env - copy .env.example}
+      # Trust auth: this DB holds only fake notices. Safe only because the port binds
+      # loopback below — `5432:5432` with no password would give the network a superuser.
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"
+      # This machine only. Pair with trust above; never widen to all interfaces.
+      - "127.0.0.1:5432:5432"
     volumes:
-      # Named volume survives `docker compose down`. Wipe with `docker volume rm omsloan-postgres`.
+      # Named explicitly so every clone uses omsloan-postgres, not <folder>_omsloan-postgres.
+      # Survives `docker compose down`. Wipe: `docker compose down -v`.
       - omsloan-postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
