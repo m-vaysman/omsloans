@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\OmsLoan.Domain\OmsLoan.Domain.csproj" />
@@ -18,9 +18,8 @@
   </PropertyGroup>
 
   <!--
-    ExtractionRequest.Build is internal because it is an assembly detail rather than API, and
-    it is the single most valuable thing to test: every check in it is a way a call could go
-    out looking valid and come back useless having been paid for.
+    ExtractionRequest.Build is internal assembly detail — and the most valuable thing to test:
+    every check is a way a call could look valid, get paid for, and come back useless.
   -->
   <ItemGroup>
     <InternalsVisibleTo Include="OmsLoan.Infrastructure.Tests" />
