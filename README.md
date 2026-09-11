@@ -91,7 +91,8 @@ than updating one, so a prompt change can be compared against the same notice.
 | [`src/OmsLoan.Infrastructure`](src/OmsLoan.Infrastructure) | The provider implementations — one extractor over `IChatClient`, and the packages that carry it |
 | [`src/OmsLoan.Worker`](src/OmsLoan.Worker) | Windows Service host — ingestion and extraction |
 | [`src/OmsLoan.Api`](src/OmsLoan.Api) | Self-hosted Kestrel Windows Service — can serve a SPA from its own `wwwroot`; the review API is not built |
-| [`src/OmsLoan.Web`](src/OmsLoan.Web) | Vite + React scaffold — the review UI itself is not built |
+| [`src/OmsLoan.Review`](src/OmsLoan.Review) | Blazor Server review UI — scaffold only, see [ADR 0004](docs/decisions/0004-blazor-server-for-the-review-ui.md) |
+| [`src/OmsLoan.Web`](src/OmsLoan.Web) | Vite + React scaffold — superseded by `OmsLoan.Review` per ADR 0004, kept until retired deliberately |
 | [`tests/OmsLoan.Domain.Tests`](tests/OmsLoan.Domain.Tests) | Domain unit tests — no database required |
 | [`scripts/prompts`](scripts/prompts) | Extraction prompts, vision and text variants |
 | [`scripts/Notices`](scripts/Notices) | Generated sample notices for testing extraction |
