@@ -1,20 +1,11 @@
 namespace OmsLoan.Domain;
 
 /// <summary>
-/// What a notice's bytes are: whether they are a PDF, what their hash is, and how a
-/// <see cref="Notice"/> is built from them.
+/// What a notice's bytes are: PDF or not, their hash, and how a <see cref="Notice"/> is built.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Here rather than in either host because both need it and neither may reference the other
-/// — the Worker ingests from a folder and a mailbox, the Api from an upload, and all three
-/// must produce identical rows for identical bytes. A second implementation is how the hash
-/// of a folder-ingested notice and an uploaded one quietly stop matching.
-/// </para>
-/// <para>
-/// This is domain logic rather than hosting: what a notice's hash is, and what counts as a
-/// PDF, are facts about the entity, not about how it arrived.
-/// </para>
+/// Shared by Worker and Api because neither may reference the other. A second implementation
+/// is how a folder-ingested hash and an uploaded hash quietly stop matching.
 /// </remarks>
 public static class NoticeContent
 {
@@ -25,31 +16,27 @@ public static class NoticeContent
     /// Whether the bytes are a PDF, judged on the bytes themselves.
     /// </summary>
     /// <remarks>
-    /// The magic number, not the file extension or a declared content type. Both of those are
-    /// supplied by whoever sent the file and are wrong often enough to matter — a mail client
-    /// renaming an attachment, a browser guessing from an extension. The bytes are the only
-    /// part nobody can get wrong by accident.
+    /// Magic number, not extension or content type. Both of those are supplied by the sender
+    /// and are wrong often enough to matter. The bytes are the only part nobody gets wrong by accident.
     /// </remarks>
     public static bool IsPdf(ReadOnlySpan<byte> content) =>
         content.Length >= PdfMagic.Length && content[..PdfMagic.Length].SequenceEqual(PdfMagic);
 
-    /// <summary>Lowercase hex SHA-256, matching what is stored on <see cref="Notice.Sha256"/>.</summary>
+    /// <summary>Lowercase hex SHA-256, matching <see cref="Notice.Sha256"/>.</summary>
     public static string Sha256Hex(byte[] content) =>
         Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(content)).ToLowerInvariant();
 
     /// <summary>
-    /// Builds a notice from the bytes. No deduplication and no lookup: every arrival is
-    /// recorded, and deciding two of them are the same document is review's work.
+    /// Builds a notice from the bytes. No deduplication: every arrival is recorded; deciding
+    /// two are the same document is review's work.
     /// </summary>
     /// <param name="sender">
-    /// Who sent it, when that is known. Null for folder ingestion, and null for an upload
-    /// where the uploader did not say — absent means unknown, and unknown is recorded as
-    /// null rather than invented.
+    /// Who sent it when known. Null for folder ingestion, and null for an upload where the
+    /// uploader did not say — unknown is recorded as null, not invented.
     /// </param>
     /// <param name="sentAtUtc">
-    /// When the agent bank sent it, when that is known. Never derived from a filesystem or
-    /// upload timestamp: those record when it reached us, which is
-    /// <paramref name="receivedAtUtc"/> and a different fact.
+    /// When the agent bank sent it when known. Never derived from a filesystem or upload
+    /// timestamp: those are <paramref name="receivedAtUtc"/>, a different fact.
     /// </param>
     public static Notice Create(
         byte[] content,

@@ -37,24 +37,18 @@ public class NoticeConfiguration : IEntityTypeConfiguration<Notice>
         builder.Property(n => n.ReceivedAtUtc)
             .IsRequired();
 
-        // Not unique. Ingestion records every arrival and only then moves the file, so the
-        // same document can legitimately produce more than one row: a crash or a failed move
-        // between the commit and the move leaves the file to be picked up again next poll.
-        // That is the intended trade — a duplicate row is recoverable, a lost notice is not —
-        // and a unique index here would turn it into a file that can never be moved and is
-        // retried forever. Deciding two arrivals are the same document is review's job.
+        // Not unique. Ingestion records every arrival and only then moves the file, so the same
+        // document can produce more than one row: a crash between commit and move leaves the
+        // file for the next poll. A duplicate row is recoverable; a lost notice is not. A unique
+        // index here would turn that into a file that can never be moved and is retried forever.
         builder.HasIndex(n => n.Sha256);
 
-        // Filtered, so the many notices with no message id do not collide with each other.
-        // Filtered, so the many notices with no message id do not all index together. Not
-        // unique, for the same reason Sha256 is not: mailbox ingestion records a notice and
-        // only then marks the message read, and those two are not atomic. A crash between
-        // them means the message is read again and recorded again — and a unique index would
-        // turn that retry into an insert that always throws, a message that can never be
-        // marked read, and a mailbox that reprocesses it for ever.
-        //
-        // One message can also carry several PDF attachments, and each is its own notice, so
-        // the same message id legitimately appears more than once.
+        // Filtered so null message ids do not all collide. Not unique for the same reason as
+        // Sha256: mailbox ingestion records a notice and only then marks the message read, and
+        // those two are not atomic. A crash between them re-reads and re-records; a unique index
+        // would make that insert always throw and the mailbox reprocess forever.
+        // One message can also carry several PDF attachments — each its own notice — so the same
+        // message id legitimately appears more than once.
         builder.HasIndex(n => n.EmailMessageId)
             .HasFilter("[EmailMessageId] IS NOT NULL");
     }

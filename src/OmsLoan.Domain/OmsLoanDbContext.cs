@@ -2,11 +2,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace OmsLoan.Domain;
 
-/// <summary>
-/// The single EF Core context for the notice-extraction system. It lives in Domain so that
-/// the Worker can write extractions and the Api can serve them without either referencing
-/// the other (see docs/decisions/0002-windows-service-over-desktop.md).
-/// </summary>
+// Lives in Domain so the Worker can write extractions and the Api can serve them
+// without either referencing the other (docs/decisions/0002-windows-service-over-desktop.md).
 public class OmsLoanDbContext : DbContext
 {
     public OmsLoanDbContext(DbContextOptions<OmsLoanDbContext> options)

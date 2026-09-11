@@ -36,7 +36,7 @@ public class ExtractedFieldConfiguration : IEntityTypeConfiguration<ExtractedFie
             .HasForeignKey(f => f.ExtractionId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // The accuracy report slices correction rates by field name within an extraction.
+        // Accuracy report slices correction rates by field name within an extraction.
         builder.HasIndex(f => new { f.ExtractionId, f.FieldName });
     }
 }

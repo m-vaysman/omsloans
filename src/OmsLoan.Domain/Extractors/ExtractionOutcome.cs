@@ -4,9 +4,8 @@ namespace OmsLoan.Domain.Extractors;
 /// How an extraction attempt ended.
 /// </summary>
 /// <remarks>
-/// Every one of these produces a stored row. An attempt that failed is the most interesting
-/// kind of evidence there is — it is the only way to tell later whether a notice was misread,
-/// never read, or read from a response nobody has looked at.
+/// Every value produces a stored row. A failed attempt is the most useful evidence — it is how
+/// you tell later whether a notice was misread, never read, or read from a response nobody looked at.
 /// </remarks>
 public enum ExtractionOutcome
 {
@@ -14,20 +13,20 @@ public enum ExtractionOutcome
     Succeeded,
 
     /// <summary>
-    /// The provider answered and the response did not parse — truncated, not JSON, or not
-    /// matching the schema. The raw response is still recorded, and is the whole point.
+    /// The provider answered and the response did not parse — truncated, not JSON, or schema
+    /// mismatch. The raw response is still recorded; that is the point.
     /// </summary>
     ParseFailed,
 
     /// <summary>
-    /// The provider refused or errored: auth, quota, a bad request, a 5xx that outlasted the
-    /// retries. There is no usable response to parse.
+    /// The provider refused or errored: auth, quota, bad request, or 5xx. There is no usable
+    /// response to parse. There is no retry inside the call — see <see cref="GuardedNoticeExtractor"/>.
     /// </summary>
     ProviderFailed,
 
     /// <summary>
-    /// The call outlasted its timeout. Recorded separately from a provider error because the
-    /// remedy is different — a longer timeout or a smaller document, not a credential.
+    /// The call outlasted its timeout. Separate from a provider error because the remedy differs:
+    /// a longer timeout or a smaller document, not a credential.
     /// </summary>
     TimedOut,
 }

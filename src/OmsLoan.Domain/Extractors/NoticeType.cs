@@ -4,23 +4,19 @@ namespace OmsLoan.Domain.Extractors;
 /// A kind of economic event a notice can describe.
 /// </summary>
 /// <remarks>
-/// <para>
 /// Not a property of the notice. One document can describe several — a principal paydown and
-/// the rate reset for the next period is an ordinary combination — so a notice carries a list
-/// of events, each with its own type, rather than being "a rate reset notice".
-/// </para>
-/// <para>
-/// <see cref="WireName"/> is what appears in the model's JSON and in stored field names. It is
-/// snake_case because that is what the schema constrains the model to emit, and because a
-/// value that round-trips unchanged is one fewer place for a mapping to be wrong.
-/// </para>
+/// the next period's rate reset is ordinary — so a notice carries a list of events, each with
+/// its own type, rather than being "a rate reset notice".
+///
+/// <see cref="WireName"/> is what appears in the model's JSON and in stored field names.
+/// Snake_case because that is what the schema constrains the model to emit, and a value that
+/// round-trips unchanged is one fewer place for a mapping to be wrong.
 /// </remarks>
 public enum NoticeType
 {
     /// <summary>
-    /// An event the model could not type. Emitted rather than dropped: a document containing
-    /// something we cannot name is a thing a reviewer needs to see, and guessing at it
-    /// produces confidently wrong economics.
+    /// An event the model could not type. Emitted rather than dropped: something we cannot name
+    /// is what a reviewer needs to see; guessing produces confidently wrong economics.
     /// </summary>
     Unknown,
 
@@ -37,15 +33,15 @@ public enum NoticeType
 
     /// <summary>Money drawn under a facility.</summary>
     /// <remarks>
-    /// Not a principal payment with the sign reversed. A paydown reduces the outstanding
-    /// balance and a drawdown increases it; typing one as the other puts a borrower on the
-    /// review screen repaying money they were in fact borrowing.
+    /// Not a principal payment with the sign reversed. A paydown reduces outstanding balance;
+    /// a drawdown increases it. Typing one as the other puts a borrower on the review screen
+    /// repaying money they were borrowing.
     /// </remarks>
     Drawdown,
 
     /// <summary>
-    /// A commitment reduced, which happens with or without anything being drawn or repaid and
-    /// is therefore its own event rather than a detail of one.
+    /// A commitment reduced — with or without anything drawn or repaid — so its own event,
+    /// not a detail of one.
     /// </summary>
     CommitmentReduction,
 }
@@ -75,9 +71,9 @@ public static class NoticeTypes
     public static string WireName(this NoticeType type) => Names[type];
 
     /// <summary>
-    /// Parses a type the model emitted. Anything unrecognised becomes
-    /// <see cref="NoticeType.Unknown"/> rather than throwing — a model inventing a type is a
-    /// thing to record and show a reviewer, not a reason to lose the whole extraction.
+    /// Parses a type the model emitted. Unrecognised becomes <see cref="NoticeType.Unknown"/>
+    /// rather than throwing — inventing a type is something to show a reviewer, not a reason to
+    /// lose the whole extraction.
     /// </summary>
     public static NoticeType Parse(string? wireName) =>
         wireName is not null && ByName.TryGetValue(wireName, out var type) ? type : NoticeType.Unknown;
