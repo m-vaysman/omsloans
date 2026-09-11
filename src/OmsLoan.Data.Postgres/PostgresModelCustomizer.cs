@@ -31,8 +31,9 @@ public sealed class PostgresModelCustomizer(ModelCustomizerDependencies dependen
             .Property(n => n.Content)
             .HasColumnType("bytea");
 
-        // SQL Server filter quotes with [brackets]. Postgres needs "double quotes" or the
-        // filtered unique index on EmailMessageId will not create.
+        // SQL Server filter uses [brackets]; Postgres needs "double quotes" or the index will
+        // not create. Filtered, not unique — same as NoticeConfiguration: a crash between
+        // record and ack must be allowed to re-insert.
         modelBuilder.Entity<Notice>()
             .HasIndex(n => n.EmailMessageId)
             .HasFilter("\"EmailMessageId\" IS NOT NULL");
