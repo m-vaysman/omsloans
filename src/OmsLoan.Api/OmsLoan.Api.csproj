@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OmsLoan.Domain\OmsLoan.Domain.csproj" />
+    <ProjectReference Include="..\OmsLoan.Data.Postgres\OmsLoan.Data.Postgres.csproj" />
   </ItemGroup>
 
   <ItemGroup>

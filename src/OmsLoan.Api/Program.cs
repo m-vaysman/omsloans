@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Api;
+using OmsLoan.Data.Postgres;
 using OmsLoan.Domain;
 
 // Windows Service Control Manager starts a service with C:\Windows\System32 as its working
@@ -76,7 +77,7 @@ var connectionString = builder.Configuration.GetConnectionString(ConfigurationKe
 
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
-    builder.Services.AddOmsLoanDbContext(connectionString);
+    builder.Services.AddOmsLoanDatabase(builder.Configuration, connectionString);
 }
 
 var app = builder.Build();
