@@ -73,6 +73,9 @@ builder.WebHost.ConfigureKestrel(options =>
 // DbContext registered only when a connection string is present, matching the Worker: a
 // review API that starts and says it has no database beats one that throws and is restarted
 // three times by Windows Service Control Manager before anyone reads a log.
+//
+// AddOmsLoanDatabase (not AddOmsLoanDbContext): Database:Provider chooses SQL Server or
+// Postgres. Same connection-string key either way. A typo in the provider name throws here.
 var connectionString = builder.Configuration.GetConnectionString(ConfigurationKeys.ConnectionStringName);
 
 if (!string.IsNullOrWhiteSpace(connectionString))
