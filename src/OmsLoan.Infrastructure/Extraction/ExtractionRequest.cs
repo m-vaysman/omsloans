@@ -8,21 +8,17 @@ namespace OmsLoan.Infrastructure.Extraction;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole request is built as one value before anything goes near the network, so that
-/// building it and sending it are separate things that can fail separately. That split is the
-/// point: a test can assemble a request and inspect every part of it — the prompt, the
-/// document, its media type, the schema, the model id, the sampling — without a key, without a
-/// network call, and without spending a token.
+/// Built as one value before the network so build and send fail separately. A test can
+/// inspect prompt, document, media type, schema, model id, sampling — no key, no call, no
+/// token spend.
 /// </para>
 /// <para>
-/// What that buys is a guarantee in the other direction. If a request was built, everything
-/// the provider needs is present and correct; the only thing that can still go wrong is
-/// transport. So the expensive tests — does this vendor honour this schema, does a PDF survive
-/// to that model — are the only ones that need a real call, and everything else is free.
+/// If a request was built, everything the provider needs is present; only transport remains.
+/// Expensive live tests (schema honour, PDF survival) stay the only ones that need a call.
 /// </para>
 /// <para>
-/// <see cref="Build"/> throws rather than returning a half-filled request. A request that
-/// exists is a complete one.
+/// <see cref="Build"/> throws rather than return a half-filled request. A request that exists
+/// is complete.
 /// </para>
 /// </remarks>
 public sealed record ExtractionRequest
@@ -40,14 +36,13 @@ public sealed record ExtractionRequest
     }
 
     /// <summary>
-    /// Assembles a request, refusing to produce one that is missing anything.
+    /// Assembles a request, refusing to produce one missing anything.
     /// </summary>
     /// <remarks>
-    /// The checks look paranoid and are the whole value of the type. Each one is a way a call
-    /// could go out looking valid and come back useless, having been paid for: a document with
-    /// no notice in it, a schema that never made it into the options so the model was only
-    /// asked nicely, a model id that was left empty and defaulted to whatever the vendor
-    /// chooses. Catching them here means a built request needs no live call to trust.
+    /// The checks are the value of the type. Each is a way a call could look valid, get paid
+    /// for, and come back useless: empty document, schema never in options, empty model id
+    /// defaulting to whatever the vendor chooses. Catching them here means a built request
+    /// needs no live call to trust.
     /// </remarks>
     internal static ExtractionRequest Build(
         ExtractionPrompt prompt,
