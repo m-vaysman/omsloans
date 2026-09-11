@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Api;
+using OmsLoan.Data.Postgres;
 using OmsLoan.Domain;
 
 // Windows Service Control Manager starts a service with C:\Windows\System32 as its working
@@ -72,11 +73,14 @@ builder.WebHost.ConfigureKestrel(options =>
 // DbContext registered only when a connection string is present, matching the Worker: a
 // review API that starts and says it has no database beats one that throws and is restarted
 // three times by Windows Service Control Manager before anyone reads a log.
+//
+// AddOmsLoanDatabase (not AddOmsLoanDbContext): Database:Provider chooses SQL Server or
+// Postgres. Same connection-string key either way. A typo in the provider name throws here.
 var connectionString = builder.Configuration.GetConnectionString(ConfigurationKeys.ConnectionStringName);
 
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
-    builder.Services.AddOmsLoanDbContext(connectionString);
+    builder.Services.AddOmsLoanDatabase(builder.Configuration, connectionString);
 }
 
 var app = builder.Build();

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\OmsLoan.Domain\OmsLoan.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Design package for dotnet ef only; PrivateAssets keeps it out of Worker/Api publish. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <!-- 8.0.x matches Domain's EF Core 8. The 10.x line targets EF 10 and will not bind here. -->
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+  </ItemGroup>
+</Project>

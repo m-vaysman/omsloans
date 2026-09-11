@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Hosting.WindowsServices;
+using OmsLoan.Data.Postgres;
 using OmsLoan.Domain;
 using OmsLoan.Domain.Extractors;
 using OmsLoan.Infrastructure.Extraction;
@@ -43,9 +44,12 @@ builder.Configuration.AddOmsLoanFlatEnvironmentSecrets();
 
 var connectionString = builder.Configuration.GetConnectionString(ConfigurationKeys.ConnectionStringName);
 
+// AddOmsLoanDatabase (not AddOmsLoanDbContext): Database:Provider chooses SQL Server or
+// Postgres. Same ConnectionStrings:OmsLoan key. A typo throws before StartupValidation, so an
+// installed Windows service with a bad provider name restarts in a loop instead of exiting clean.
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
-    builder.Services.AddOmsLoanDbContext(connectionString);
+    builder.Services.AddOmsLoanDatabase(builder.Configuration, connectionString);
 }
 
 // Extraction providers (#8/#9/#10, one implementation per #68). A provider with no key or
