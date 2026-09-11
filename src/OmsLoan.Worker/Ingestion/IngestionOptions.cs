@@ -25,22 +25,18 @@ public sealed class IngestionOptions
     public int PollIntervalSeconds { get; set; } = 30;
 
     /// <summary>
-    /// How many consecutive read failures a single file gets before it is moved to
-    /// <c>failed/</c>.
+    /// Consecutive read failures before a file moves to <c>failed/</c>.
     /// </summary>
     /// <remarks>
-    /// This is the escape hatch for a file that can never be read. Without it the rule
-    /// "nothing moves until it is recorded" has no exit, and one zero-byte or permanently
-    /// locked file is retried and logged on every poll for as long as the service runs.
+    /// Escape hatch for a file that can never be read. Without it, "nothing moves until
+    /// recorded" has no exit — one locked file is retried every poll forever.
     ///
-    /// It deliberately does <em>not</em> apply to database failures. A file that was read
-    /// fine but could not be recorded stays where it is, for ever if need be: the watched
-    /// folder is the queue while the database is unavailable, and moving those aside would
-    /// turn an outage into lost notices.
+    /// Deliberately does <em>not</em> apply to database failures. A readable file that could
+    /// not be recorded stays put: the watched folder is the queue while the database is down.
+    /// Moving those aside would turn an outage into lost notices.
     ///
-    /// The default is generous because the common read failure is a file still being copied.
-    /// Ten attempts at the default interval is five minutes, which covers a slow copy of a
-    /// large PDF without leaving genuine rubbish in the folder all day.
+    /// Default is generous: common failure is a file still being copied. Ten attempts at the
+    /// default interval is five minutes.
     /// </remarks>
     public int MaxReadAttempts { get; set; } = 10;
 

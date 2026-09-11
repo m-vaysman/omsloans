@@ -1,14 +1,12 @@
 namespace OmsLoan.Worker.Ingestion.Email;
 
 /// <summary>
-/// Everything mailbox ingestion needs, read from the <c>Graph</c> configuration section.
+/// Everything mailbox ingestion needs, from the <c>Graph</c> configuration section.
 /// </summary>
 /// <remarks>
-/// <c>init</c> rather than <c>set</c>. Configuration binding still works — <c>init</c> is a
-/// compile-time restriction and the binder sets properties by reflection — but nothing can
-/// reassign a value after the options are built. These are read on every poll by a singleton;
-/// a mutable options object is one where a stray assignment changes the mailbox being polled
-/// for the lifetime of the process, and nothing would say so.
+/// <c>init</c> rather than <c>set</c>. Binding still works (reflection), but nothing can
+/// reassign after build. Read every poll by a singleton; a mutable options object could
+/// silently change which mailbox is polled for the process lifetime.
 /// </remarks>
 public sealed class MailboxOptions
 {
@@ -27,10 +25,9 @@ public sealed class MailboxOptions
     /// The shared mailbox agent banks send to. An address, not a secret.
     /// </summary>
     /// <remarks>
-    /// Supplied by <c>GRAPH_USER</c>, which is what the machines and
-    /// <c>tools/GraphDaemonSmokeTest.linq</c> already call it. Note that on a development
-    /// machine it is often set at <em>user</em> scope, which a Windows Service never sees —
-    /// set it with <c>setx /M</c> on any host running the service. See
+    /// Supplied by <c>GRAPH_USER</c> (machines and <c>tools/GraphDaemonSmokeTest.linq</c>).
+    /// Often set at <em>user</em> scope on a development machine, which an installed Windows
+    /// service never sees — use <c>setx /M</c> on any host running the service. See
     /// docs/exchange-test-environment.md.
     /// </remarks>
     public string Mailbox { get; init; } = string.Empty;

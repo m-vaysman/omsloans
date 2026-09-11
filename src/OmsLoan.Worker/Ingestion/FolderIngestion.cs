@@ -8,27 +8,23 @@ namespace OmsLoan.Worker.Ingestion;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole design is one rule — <strong>a file is never moved until its row is
-/// committed</strong> — and everything else follows from it.
+/// One rule — <strong>a file is never moved until its row is committed</strong> — and
+/// everything else follows.
 /// </para>
 /// <para>
-/// It makes the database the commit point and the watched folder the queue. If the database
-/// is unavailable, files simply accumulate where they were dropped and are picked up when it
-/// returns; nothing needs replaying by hand, and an outage shows up as a folder filling
-/// rather than as notices that quietly never existed. It is also why the Worker does not
-/// refuse to start when the database is unreachable.
+/// The database is the commit point; the watched folder is the queue. If the database is
+/// down, files accumulate and are picked up when it returns. An outage shows as a folder
+/// filling, not as notices that quietly never existed. (Configured-but-unreachable is not the
+/// same as missing: StartupValidation still refuses without a connection string.)
 /// </para>
 /// <para>
-/// The cost is that recording and moving are not atomic, so a crash or a failed move between
-/// them means the file is read again next poll and recorded a second time. That is
-/// at-least-once, and it is the right way round: a duplicate row is recoverable, a lost
-/// notice is not. It is also why <c>Notices.Sha256</c> is no longer uniquely indexed — with
-/// a unique index the retry would throw, the file would never move, and it would be retried
-/// forever.
+/// Recording and moving are not atomic, so a crash between them re-reads and records again.
+/// At-least-once, the right way round: a duplicate is recoverable, a lost notice is not. That
+/// is why <c>Notices.Sha256</c> is not uniquely indexed — a unique index would throw forever
+/// and the file would never move.
 /// </para>
 /// <para>
-/// No deduplication happens here. Deciding that two arrivals are the same document is
-/// review's job; ingestion logs, reads, records and moves.
+/// No deduplication here. Calling two arrivals the same document is review's job.
 /// </para>
 /// </remarks>
 public sealed class FolderIngestion(

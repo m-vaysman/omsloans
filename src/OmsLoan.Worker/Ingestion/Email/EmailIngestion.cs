@@ -4,29 +4,25 @@ using OmsLoan.Domain;
 namespace OmsLoan.Worker.Ingestion.Email;
 
 /// <summary>
-/// One pass over the shared mailbox: read each unread message, record its PDF attachments,
-/// then mark it read.
+/// One pass over the shared mailbox: read each unread message, record PDF attachments, then
+/// mark it read.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The same rule as folder ingestion, with the folder move standing in for the file move:
-/// <strong>a message is never moved out of the inbox until its notices are committed</strong>. The
-/// mailbox is the queue, and unread is what "not yet ingested" means. If the database is
-/// unavailable the messages simply stay unread and are picked up when it returns — nothing
-/// needs replaying by hand, and an outage shows up as a mailbox filling rather than as
-/// notices that quietly never existed.
+/// Same rule as folder ingestion, move standing in for file move: <strong>a message leaves
+/// the inbox only after its notices are committed</strong>. The mailbox is the queue; unread
+/// means not yet ingested. If the database is down, messages stay unread and are picked up
+/// later — an outage shows as a mailbox filling, not as notices that never existed.
 /// </para>
 /// <para>
-/// As there, the two steps are not atomic: a crash or a failed move after the commit
-/// means the message is read again next poll and recorded again. At-least-once, and the right
-/// way round — a duplicate notice is recoverable, a lost one is not. It is why
-/// <c>Notices.EmailMessageId</c> is indexed but not unique; with a unique index that retry
-/// would throw for ever and the message could never be moved out of the inbox.
+/// Commit and move are not atomic: a crash after commit re-reads and records again.
+/// At-least-once, the right way round. That is why <c>Notices.EmailMessageId</c> is indexed
+/// but not unique — a unique index would throw forever and the message could never leave.
 /// </para>
 /// <para>
-/// This is the only ingestion path with real provenance. The sender address and the send time
-/// come from the message envelope, so <see cref="Notice.SentAtUtc"/> is genuinely known here,
-/// unlike the folder path where the only timestamp available is when the file arrived.
+/// Only path with real provenance: sender and send time come from the envelope, so
+/// <see cref="Notice.SentAtUtc"/> is known here. Folder ingestion only knows when the file
+/// arrived.
 /// </para>
 /// </remarks>
 public sealed class EmailIngestion

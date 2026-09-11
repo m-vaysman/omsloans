@@ -1,28 +1,23 @@
 namespace OmsLoan.Worker;
 
 /// <summary>
-/// Prepares the watched folder at startup: creates what is missing, and proves the service
-/// account can actually read and write there.
+/// Prepares the watched folder at startup: create what is missing, prove the service account
+/// can read and write there.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Existence is not the useful question. <c>Directory.CreateDirectory</c> is a no-op on a
-/// folder that already exists — it does not touch ACLs or contents, which is exactly what we
-/// want, but it also means it returns happily for a folder the account cannot write a single
-/// byte into. That is the production case: the drop folder is normally created by whoever
-/// set up the share, long before the service account exists. A check that only created
-/// missing folders would pass on every host where it mattered and catch nothing.
+/// folder that already exists — and returns happily for one the account cannot write a byte
+/// into. That is production: the drop share is usually created long before the service
+/// account exists. Create-only would pass where it mattered and catch nothing.
 /// </para>
 /// <para>
-/// So both rights are probed, on the folder and on each subfolder, whether or not it was
-/// just created. Reading is proved by enumerating; writing by creating a file and deleting
-/// it again, which also proves delete — ingestion moves files between these folders, so it
-/// needs all three.
+/// So read, write, and delete are probed on the folder and each subfolder. Enumerate for
+/// read; create-and-delete for write and delete — ingestion moves files between these folders.
 /// </para>
 /// <para>
-/// A failure stops the service the same way a missing environment variable does: reported,
-/// then a clean stop with no restart. Wrong permissions are not a transient condition, and
-/// retrying at one, two and five minutes would fail identically each time.
+/// Failure stops the service like a missing env var: clean stop, no restart. Wrong
+/// permissions are not transient; 1m / 2m / 5m would fail identically.
 /// </para>
 /// </remarks>
 public static class WatchedFolder
@@ -64,9 +59,9 @@ public static class WatchedFolder
 
         string fullRoot;
 
-        // A relative path would resolve against the working directory, which for a service is
-        // wherever the SCM happened to start it. Resolving here means the log names the folder
-        // that was actually used, not the one somebody meant.
+        // A relative path would resolve against the working directory — for an installed
+        // Windows service, wherever Windows Service Control Manager started it. Resolve here
+        // so the log names the folder actually used.
         try
         {
             fullRoot = Path.GetFullPath(root);
@@ -132,8 +127,8 @@ public static class WatchedFolder
             }
         }
 
-        // Enumerating is the read. Take(1) forces the lazy enumerator to actually touch the
-        // directory — without it the call returns an object and no permission is exercised.
+        // Enumerating is the read. Take(1) forces the lazy enumerator to touch the directory —
+        // without it the call returns an object and no permission is exercised.
         try
         {
             _ = Directory.EnumerateFileSystemEntries(path).Take(1).ToList();
@@ -143,9 +138,8 @@ public static class WatchedFolder
             return $"cannot read '{path}': {ex.Message}";
         }
 
-        // Write and delete. A file that ingestion cannot remove afterwards is as broken as one
-        // it could never create, and the delete right is separately grantable, so both are
-        // proved here rather than assumed from the write succeeding.
+        // Write and delete. Delete is separately grantable; prove both rather than assuming
+        // write implies remove.
         var probe = Path.Combine(path, $"omsloan-write-probe-{Guid.NewGuid():N}.tmp");
 
         try

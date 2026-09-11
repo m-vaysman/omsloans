@@ -9,9 +9,9 @@ public sealed record MailAttachment(byte[] Content, string FileName);
 /// A message worth ingesting, reduced to what a notice needs.
 /// </summary>
 /// <remarks>
-/// The Graph SDK's <c>Message</c> is not used past the client boundary. Ingestion needs a
-/// handful of facts, and taking them here keeps the logic testable without standing up Graph
-/// — which is the difference between testing the ordering rule and not testing it at all.
+/// Graph's <c>Message</c> stops at the client boundary. A handful of facts here keeps
+/// ingestion testable without standing up Graph — the difference between testing the
+/// ordering rule and not.
 /// </remarks>
 /// <param name="Id">Graph message id. Recorded on the notice as its provenance.</param>
 /// <param name="Sender">The actual sender address from the envelope.</param>

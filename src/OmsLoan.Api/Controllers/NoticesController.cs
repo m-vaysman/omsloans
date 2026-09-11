@@ -5,17 +5,14 @@ using OmsLoan.Domain;
 namespace OmsLoan.Api.Controllers;
 
 /// <summary>
-/// Manual notice upload: the way a notice gets in when it did not arrive through a watched
-/// folder or the shared mailbox.
+/// Manual notice upload when a notice did not arrive through the watched folder or mailbox.
 /// </summary>
 /// <remarks>
-/// Validation happens here, first, and in order of cost. There is no point measuring,
-/// reading, hashing or storing a file that was never going to be accepted.
+/// Validate here first, cheapest checks first. No point hashing a file that will be refused.
 ///
-/// The notice itself is built by <see cref="NoticeContent"/>, the same code folder ingestion
-/// uses, so identical bytes produce an identical row whichever way they arrived. A second
-/// implementation here is how the hash of an uploaded notice and a folder-ingested one
-/// quietly stop matching.
+/// Built by <see cref="NoticeContent"/> — the same code folder ingestion uses — so identical
+/// bytes produce an identical row either way. A second implementation is how uploaded and
+/// folder hashes quietly stop matching.
 /// </remarks>
 [ApiController]
 [Route("api/notices")]
@@ -117,11 +114,10 @@ public class NoticesController(
                 statusCode: StatusCodes.Status413PayloadTooLarge);
         }
 
-        // No check on the declared content type. It was tried and removed: it rejected genuine
-        // PDFs. A client that sends application/octet-stream — which is what fetch does for an
-        // untyped Blob — or the legacy application/x-pdf was refused despite the filename and
-        // the bytes both being right. It never caught anything the magic-byte check below does
-        // not catch, so it was pure false-rejection risk.
+        // No check on declared content type. Tried and removed: it rejected genuine PDFs.
+        // fetch sends application/octet-stream for an untyped Blob; legacy application/x-pdf
+        // also failed despite correct filename and bytes. Magic-byte check below already
+        // catches what content-type never uniquely caught — pure false-rejection risk.
 
         byte[] content;
 

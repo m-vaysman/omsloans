@@ -1,17 +1,16 @@
 namespace OmsLoan.Worker;
 
 /// <summary>
-/// Identity of the Windows Service, in one place so the host, the Event Log source and the
-/// install scripts cannot drift apart.
+/// Identity of the Windows Service, in one place so the host, Event Log source, and install
+/// scripts cannot drift apart.
 /// </summary>
 /// <remarks>
-/// The install scripts read these values rather than repeating them: a service registered
-/// under one name and logging under another is painful to trace, and renaming in only one
-/// of the two places is the easiest way to get there.
+/// Install scripts read these values rather than repeating them: a service registered under
+/// one name and logging under another is painful to trace.
 /// </remarks>
 public static class ServiceMetadata
 {
-    /// <summary>The name the SCM knows the service by. Used by sc.exe and Get-Service.</summary>
+    /// <summary>Name Windows Service Control Manager knows. Used by sc.exe and Get-Service.</summary>
     public const string ServiceName = "OmsLoanWorker";
 
     /// <summary>The name shown in services.msc.</summary>
@@ -23,8 +22,8 @@ public static class ServiceMetadata
         + "human review.";
 
     /// <summary>
-    /// Event Log source. Registered by the install script, because creating a source needs
-    /// administrator rights the service account itself is not granted.
+    /// Event Log source. Registered by the install script — creating a source needs admin
+    /// rights the service account is not granted.
     /// </summary>
     public const string EventLogSource = "OmsLoanWorker";
 }

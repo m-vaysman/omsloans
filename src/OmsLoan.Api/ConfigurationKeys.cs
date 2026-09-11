@@ -1,27 +1,21 @@
 namespace OmsLoan.Api;
 
 /// <summary>
-/// Configuration keys the Api expects to find, and the environment-variable spellings that
-/// supply them in Production.
+/// Configuration keys the Api expects, and the environment-variable spellings that supply
+/// them in Production.
 /// </summary>
 /// <remarks>
-/// .NET maps a colon-separated key onto a double-underscore environment variable, so
-/// <c>ConnectionStrings:OmsLoan</c> is set as <c>ConnectionStrings__OmsLoan</c>. Naming both
-/// forms here keeps the deployment runbook and the code reading from the same list.
+/// .NET maps <c>ConnectionStrings:OmsLoan</c> to <c>ConnectionStrings__OmsLoan</c>. Naming
+/// both forms here keeps the runbook and the code on the same list.
 ///
-/// <see cref="ConnectionStringName"/> is intentionally the same string the Worker uses. The
-/// two processes are separate services over one database, so one variable name spelled the
-/// same way in both means one thing to get right per host, and a connection string copied
-/// between the two install scripts without editing. The constant is duplicated rather than
-/// shared for the same reason <see cref="ServiceMetadata"/> is: the projects do not
-/// reference each other, and pulling a configuration contract into OmsLoan.Domain would make
-/// the domain model know about hosting.
+/// <see cref="ConnectionStringName"/> matches the Worker on purpose: two services, one
+/// database, one variable spelling. Duplicated rather than shared for the same reason
+/// <see cref="ServiceMetadata"/> is — the projects do not reference each other, and Domain
+/// must not know about hosting.
 ///
-/// Note the drift this does <em>not</em> resolve:
-/// <c>OmsLoan.Domain.OmsLoanDbContextRegistration.ConnectionStringVariable</c> is
-/// <c>OMSLOAN_CONNECTION</c>, a bare variable read only by the design-time factory that
-/// backs <c>dotnet ef</c>. It never participates in a running host's configuration and is
-/// left alone here.
+/// Drift this does <em>not</em> resolve:
+/// <c>OmsLoanDbContextRegistration.ConnectionStringVariable</c> (<c>OMSLOAN_CONNECTION</c>)
+/// is design-time for <c>dotnet ef</c> only; it never participates in a running host.
 /// </remarks>
 public static class ConfigurationKeys
 {

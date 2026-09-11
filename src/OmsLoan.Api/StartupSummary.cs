@@ -4,23 +4,18 @@ using Microsoft.Extensions.Hosting.WindowsServices;
 namespace OmsLoan.Api;
 
 /// <summary>
-/// The banner written once at startup, naming the environment and where each setting was
-/// resolved from.
+/// Banner at startup: environment and where each setting resolved from.
 /// </summary>
 /// <remarks>
-/// A service has no window and no console. When it starts against the wrong database or
-/// with a stale key, the cause is almost always that configuration resolved from a
-/// different source than whoever deployed it assumed — a leftover machine environment
-/// variable outranking appsettings, or Production never being selected because
-/// ASPNETCORE_ENVIRONMENT was not set on the service. Naming the winning source for each
-/// setting turns that from an afternoon of guessing into the first line of the log.
+/// An installed Windows service has no window and no console. Wrong database or stale key
+/// almost always means configuration won from a different source than assumed — leftover
+/// machine env outranking appsettings, or Production never selected because
+/// ASPNETCORE_ENVIRONMENT was unset on the service. Naming the winning source turns guessing
+/// into the first log line.
 ///
-/// The Api adds two lines the Worker has no use for. The listening addresses, because a
-/// service that starts perfectly on Kestrel's default of <c>http://localhost:5000</c> is
-/// indistinguishable in every other log line from one nobody else on the network can reach.
-/// And whether a built SPA was found, because an API-only deployment and a broken web build
-/// produce the same symptom in a browser — a blank page — and only one of them is a
-/// deployment mistake.
+/// The Api adds two lines the Worker does not need: listening addresses (Kestrel's
+/// <c>http://localhost:5000</c> default looks healthy and is unreachable from other machines),
+/// and whether a built SPA was found (API-only and a broken web build both show a blank page).
 ///
 /// Sources and presence only. Values are never written.
 /// </remarks>
@@ -102,9 +97,9 @@ public static class StartupSummary
 
     /// <summary>
     /// Warnings rather than a refusal to start. A review API with no database is still a
-    /// process the SCM reports as Running and whose log can be read; one that exits on
-    /// startup gets restarted three times, gives up, and leaves the reason in whichever log
-    /// nobody thought to open.
+    /// process Windows Service Control Manager reports as Running whose log can be read; one
+    /// that exits on startup gets restarted three times and leaves the reason in a log nobody
+    /// opened.
     /// </summary>
     private static void WarnAboutMissingConfiguration(
         ILogger logger,
