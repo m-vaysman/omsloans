@@ -4,6 +4,9 @@ using OmsLoan.Domain;
 
 namespace OmsLoan.Data.Postgres.Tests;
 
+/// <summary>
+/// Provider selection only. Mapping scars live in PostgresModelTests.
+/// </summary>
 public class DatabaseProviderTests
 {
     private const string PostgresConnection = "Host=localhost;Port=5432;Database=omsloan;Username=omsloan";
@@ -25,6 +28,7 @@ public class DatabaseProviderTests
         return services.BuildServiceProvider().CreateScope().ServiceProvider.GetRequiredService<OmsLoanDbContext>();
     }
 
+    // Missing, blank, and SqlServer (any case) must keep the SQL Server provider — Postgres is opt-in.
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -47,6 +51,7 @@ public class DatabaseProviderTests
         Assert.Equal("Npgsql.EntityFrameworkCore.PostgreSQL", context.Database.ProviderName);
     }
 
+    // Names the setting and the bad value so an operator can fix Database:Provider without guessing.
     [Fact]
     public void AnUnknownProviderIsRefusedNamingTheSetting()
     {
