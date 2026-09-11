@@ -3,25 +3,22 @@
   <PropertyGroup>
     <UserSecretsId>dotnet-OmsLoan.Api-56ba73e3-eb36-44fd-8c9a-8a1f233e5645</UserSecretsId>
     <!--
-      Windows-only APIs (Event Log, the SCM) are reached through OperatingSystem.IsWindows()
-      guards rather than by retargeting to net8.0-windows, so the project keeps the same
-      target framework as the rest of src/ and the platform analyser stays satisfied.
+      Windows-only APIs (Event Log, Windows Service Control Manager) go through
+      OperatingSystem.IsWindows() rather than retargeting to net8.0-windows, so this stays on
+      the same TFM as the rest of src/.
     -->
   </PropertyGroup>
 
   <PropertyGroup>
     <!--
-      The React review UI. Published into this project's wwwroot so one process serves both
-      the API and the UI in Production — see SpaHosting.cs for why, and
-      docs/api-windows-service.md for the Development story, which does not involve any of
-      this.
+      React review UI. Published into wwwroot so one process serves API + UI in Production
+      (SpaHosting.cs). Development uses Vite separately — docs/api-windows-service.md.
     -->
     <SpaRoot>..\OmsLoan.Web\</SpaRoot>
     <SpaDist>$(SpaRoot)dist\</SpaDist>
     <!--
-      Set to false to publish the API without running a web build: -p:BuildSpaOnPublish=false.
-      Whatever is already in dist/ is still published, so a pipeline that builds the UI in its
-      own step can hand the output over rather than pay for it twice.
+      -p:BuildSpaOnPublish=false skips the npm build; existing dist/ is still published so a
+      pipeline that built the UI elsewhere does not pay twice.
     -->
     <BuildSpaOnPublish Condition="'$(BuildSpaOnPublish)' == ''">true</BuildSpaOnPublish>
   </PropertyGroup>
@@ -46,9 +43,8 @@
   </ItemGroup>
 
   <!--
-    Deliberately hung off the publish pipeline and nothing else. Attaching it to Build would
-    put a Node toolchain in the way of `dotnet build` and `dotnet test` on a clean clone,
-    which is a cost paid on every commit for something only a deployment needs.
+    Publish-only. Attaching to Build would put Node in the way of `dotnet build` / `dotnet
+    test` on every clean clone for something only deploy needs.
   -->
   <Target Name="PublishOmsLoanWeb" AfterTargets="ComputeFilesToPublish">
     <Exec Command="npm ci"
@@ -61,8 +57,7 @@
     <ItemGroup>
       <SpaDistFiles Include="$(SpaDist)**" />
       <!--
-        Exclude anything already resolved so a file that exists in both places keeps the one
-        the SDK chose, rather than producing a duplicate-item error at copy time.
+        Exclude already-resolved items so dual presence does not duplicate-error at copy.
       -->
       <ResolvedFileToPublish Include="@(SpaDistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
         <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
@@ -72,8 +67,7 @@
     </ItemGroup>
 
     <!--
-      A Message rather than a Warning: the API-only publish is a supported deployment, and the
-      running service says the same thing in its startup banner where an operator will see it.
+      Message, not Warning: API-only publish is supported; the service banner says the same.
     -->
     <Message Importance="high"
              Condition="'@(SpaDistFiles)' == ''"
