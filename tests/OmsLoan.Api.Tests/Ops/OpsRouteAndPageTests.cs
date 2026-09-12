@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using OmsLoan.Api.Controllers;
 using OmsLoan.Api.Ops;
 using static OmsLoan.Api.Tests.Ops.OpsTestConfiguration;
@@ -9,6 +10,8 @@ namespace OmsLoan.Api.Tests.Ops;
 
 public class OpsRouteAndPageTests
 {
+    private const string SpaApiPrefix = "/api";
+
     private static string RouteOf(string actionName) =>
         typeof(OpsController)
             .GetMethod(actionName)!
@@ -17,7 +20,7 @@ public class OpsRouteAndPageTests
             .Template!;
 
     private static OpsController Controller() =>
-        new(Configuration())
+        new(Configuration(), Options.Create(new OpsOptions()))
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };
@@ -69,6 +72,15 @@ public class OpsRouteAndPageTests
     }
 
     [Fact]
+    public void AStubbedCardNeverRendersAsAGreenMeasuredState()
+    {
+        Assert.Contains("stub ? tonedPill(state, \"warn\") : pill(state)", OpsPage.Html, StringComparison.Ordinal);
+        Assert.Contains("chip(\"not measured\")", OpsPage.Html, StringComparison.Ordinal);
+        Assert.Contains("service.path, status.stub", OpsPage.Html, StringComparison.Ordinal);
+        Assert.Contains("endpoint, status.stub", OpsPage.Html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ThePageNeverWritesLogTextAsMarkup()
     {
         Assert.DoesNotContain("innerHTML", OpsPage.Html, StringComparison.Ordinal);
@@ -92,6 +104,4 @@ public class OpsRouteAndPageTests
 
         Assert.Equal("no-store", controller.Response.Headers.CacheControl.ToString());
     }
-
-    private const string SpaApiPrefix = "/api";
 }

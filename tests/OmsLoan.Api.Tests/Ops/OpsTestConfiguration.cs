@@ -18,8 +18,10 @@ internal static class OpsTestConfiguration
     public static Task<OpsStatus> Build(
         IConfiguration configuration,
         IOpsDatabaseProbe? databaseProbe = null,
-        bool stub = true) =>
+        bool stub = true,
+        OpsOptions? options = null) =>
         OpsStatusFactory.BuildAsync(
+            options ?? new OpsOptions(),
             configuration,
             databaseProbe ?? StubOpsDatabaseProbe.Instance,
             Now,
@@ -27,4 +29,18 @@ internal static class OpsTestConfiguration
             CancellationToken.None);
 
     public static string Serialize(OpsStatus status) => JsonSerializer.Serialize(status, WebJson);
+
+    public static string RepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "OmsLoan.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        Assert.NotNull(directory);
+
+        return directory.FullName;
+    }
 }

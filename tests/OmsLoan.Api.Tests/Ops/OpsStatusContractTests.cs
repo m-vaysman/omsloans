@@ -42,11 +42,9 @@ public class OpsStatusContractTests
     [Fact]
     public async Task BothServicesAreReportedWithTheConfiguredPaths()
     {
-        var status = await Build(Configuration(new Dictionary<string, string?>
-        {
-            ["Ops:WorkerPath"] = @"D:\Services\Worker",
-            ["Ops:ApiPath"] = @"D:\Services\Api",
-        }));
+        var status = await Build(
+            Configuration(),
+            options: new OpsOptions { WorkerPath = @"D:\Services\Worker", ApiPath = @"D:\Services\Api" });
 
         Assert.Collection(
             status.Services,

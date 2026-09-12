@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using OmsLoan.Api;
+using OmsLoan.Api.Ops;
 using OmsLoan.Data.Postgres;
 using OmsLoan.Domain;
 
@@ -48,6 +49,9 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<UploadOptions>(
     builder.Configuration.GetSection(UploadOptions.SectionName));
+
+builder.Services.Configure<OpsOptions>(
+    builder.Configuration.GetSection(OpsOptions.SectionName));
 
 // Cap the request body just above the upload limit, with room for the multipart envelope.
 // Without this Kestrel's default decides independently of Upload:MaxBytes, and raising the

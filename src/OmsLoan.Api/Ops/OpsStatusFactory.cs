@@ -25,13 +25,13 @@ public static class OpsStatusFactory
     ];
 
     public static async Task<OpsStatus> BuildAsync(
+        OpsOptions options,
         IConfiguration configuration,
         IOpsDatabaseProbe databaseProbe,
         DateTimeOffset now,
         bool stub,
         CancellationToken cancellationToken)
     {
-        var options = OpsOptions.FromConfiguration(configuration);
         var configuredProvider = configuration[DatabaseProvider.ConfigurationKey];
         var connectionString = configuration[ConfigurationKeys.ConnectionStringKey];
 
@@ -39,7 +39,7 @@ public static class OpsStatusFactory
             ? new OpsDatabaseStatus(ProviderLabel(configuredProvider), OpsDatabaseState.NotConfigured, null)
             : new OpsDatabaseStatus(
                 ProviderLabel(configuredProvider),
-                await ProbeAsync(databaseProbe, options.ProbeTimeoutMilliseconds, cancellationToken),
+                await ProbeAsync(databaseProbe, options.ProbeTimeout(), cancellationToken),
                 OpsConnectionEndpoint.Describe(connectionString, configuredProvider));
 
         var serviceState = stub ? OpsServiceState.Running : OpsServiceState.Unknown;
@@ -78,10 +78,11 @@ public static class OpsStatusFactory
         CancellationToken cancellationToken)
     {
         using var probeCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        probeCancellation.CancelAfter(timeoutMilliseconds);
 
         try
         {
+            probeCancellation.CancelAfter(timeoutMilliseconds);
+
             return await databaseProbe
                 .ProbeAsync(probeCancellation.Token)
                 .WaitAsync(TimeSpan.FromMilliseconds(timeoutMilliseconds), cancellationToken);

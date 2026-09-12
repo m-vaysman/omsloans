@@ -39,6 +39,7 @@ public static class OpsPage
         .pill.good { color: var(--good); }
         .pill.bad { color: var(--bad); }
         .pill.warn { color: var(--warn); }
+        .chip { border: 1px dashed var(--warn); color: var(--warn); border-radius: 999px; padding: 1px 8px; font-size: 11px; letter-spacing: 0.06em; }
         .row { display: flex; gap: 12px; align-items: center; margin: 8px 0; }
         .path { color: var(--muted); font-size: 12px; word-break: break-all; }
         .logs { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
@@ -93,7 +94,14 @@ public static class OpsPage
           return tonedPill(state, tone(state));
         }
 
-        function card(title, name, state, detail) {
+        function chip(text) {
+          var span = document.createElement("span");
+          span.className = "chip";
+          span.textContent = text;
+          return span;
+        }
+
+        function card(title, name, state, detail, stub) {
           var host = document.createElement("section");
           host.className = "card";
           var heading = document.createElement("h2");
@@ -103,7 +111,8 @@ public static class OpsPage
           nameLine.textContent = name;
           var row = document.createElement("div");
           row.className = "row";
-          row.appendChild(pill(state));
+          row.appendChild(stub ? tonedPill(state, "warn") : pill(state));
+          if (stub) { row.appendChild(chip("not measured")); }
           var path = document.createElement("div");
           path.className = "path";
           path.textContent = detail;
@@ -118,10 +127,12 @@ public static class OpsPage
           var host = document.getElementById("cards");
           host.textContent = "";
           status.services.forEach(function (service) {
-            host.appendChild(card(service.name, service.displayName, service.status, service.path));
+            host.appendChild(
+              card(service.name, service.displayName, service.status, service.path, status.stub));
           });
           var endpoint = status.database.endpoint || "no connection string";
-          host.appendChild(card("Database", status.database.provider, status.database.status, endpoint));
+          host.appendChild(
+            card("Database", status.database.provider, status.database.status, endpoint, status.stub));
         }
 
         function renderSecrets(status) {

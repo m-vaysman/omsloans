@@ -83,15 +83,29 @@ public class OpsDatabaseTests
     [Fact]
     public async Task AProbeThatHangsIsGivenUpOnAfterTheTimeout()
     {
-        var settings = Connected("Postgres");
-        settings["Ops:ProbeTimeoutMilliseconds"] = "50";
-
         var stopwatch = Stopwatch.StartNew();
-        var status = await Build(Configuration(settings), new HangingProbe());
+
+        var status = await Build(
+            Configuration(Connected("Postgres")),
+            new HangingProbe(),
+            options: new OpsOptions { ProbeTimeoutMilliseconds = 50 });
+
         stopwatch.Stop();
 
         Assert.Equal(OpsDatabaseState.Unhealthy, status.Database.Status);
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"took {stopwatch.Elapsed}");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task AnUnusableConfiguredTimeoutStillProducesAStatus(int configured)
+    {
+        var status = await Build(
+            Configuration(Connected("Postgres")),
+            options: new OpsOptions { ProbeTimeoutMilliseconds = configured });
+
+        Assert.Equal(OpsDatabaseState.Healthy, status.Database.Status);
     }
 
     [Fact]
