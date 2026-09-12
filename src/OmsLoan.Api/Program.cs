@@ -50,6 +50,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.Configure<UploadOptions>(
     builder.Configuration.GetSection(UploadOptions.SectionName));
 
+// Same pattern as Upload: bind Ops so the controller takes IOptions<OpsOptions>
+// instead of reflecting the section on every request.
 builder.Services.Configure<OpsOptions>(
     builder.Configuration.GetSection(OpsOptions.SectionName));
 

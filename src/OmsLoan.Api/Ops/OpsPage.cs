@@ -2,6 +2,9 @@ namespace OmsLoan.Api.Ops;
 
 public static class OpsPage
 {
+    // One string, inline CSS and JS: nothing to publish, nothing to fetch,
+    // works on a host with no outbound access. Log lines use textContent,
+    // never markup. $$ interpolates the status URL so page and server agree.
     public static string Html { get; } =
         $$"""
         <!doctype html>
