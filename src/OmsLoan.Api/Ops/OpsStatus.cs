@@ -18,6 +18,7 @@ public static class OpsDatabaseState
     public const string NotConfigured = "NotConfigured";
 }
 
+// Stub true until phase 2. The page paints unmeasured cards amber, never green.
 public sealed record OpsStatus(
     IReadOnlyList<OpsServiceStatus> Services,
     OpsDatabaseStatus Database,
@@ -37,4 +38,5 @@ public sealed record OpsLogSections(
 
 public sealed record OpsLogEntry(DateTimeOffset TimestampUtc, string Level, string Message);
 
+// Name and present/absent. The secret value never enters the payload.
 public sealed record OpsSecretPresence(string Name, bool Present);

@@ -6,6 +6,8 @@ public static class OpsConnectionEndpoint
 {
     private const int DefaultPostgresPort = 5432;
 
+    // Host and port only. Password, user, and database name stay out of the payload.
+    // Split is on ';' and does not honor quoting.
     public static string? Describe(string? connectionString, string? provider)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -32,6 +34,7 @@ public static class OpsConnectionEndpoint
                 continue;
             }
 
+            // Npgsql: Host. SqlClient: Server / Data Source. Same field either way.
             switch (key)
             {
                 case "host":
@@ -58,6 +61,7 @@ public static class OpsConnectionEndpoint
             return $"{host}:{port}";
         }
 
+        // Postgres: omitted Port means 5432. SQL Server: host only — do not invent 1433.
         return string.Equals(provider, DatabaseProvider.Postgres, StringComparison.OrdinalIgnoreCase)
             ? $"{host}:{DefaultPostgresPort}"
             : host;

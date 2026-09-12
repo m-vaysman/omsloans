@@ -4,6 +4,8 @@ public static class OpsLogText
 {
     public const string Ellipsis = "…";
 
+    // First line only, then the configured cap. A stack frame on line 2 never
+    // reaches the payload.
     public static string Summarize(string? message, int maxLength)
     {
         if (string.IsNullOrWhiteSpace(message))
@@ -21,6 +23,8 @@ public static class OpsLogText
             : firstLine[..maxLength] + Ellipsis;
     }
 
+    // 50 entries, 300 characters. Take keeps the first maxEntries — oldest if
+    // the source is chronological.
     public static IReadOnlyList<OpsLogEntry> Trim(
         IEnumerable<OpsLogEntry> entries,
         int maxEntries,
