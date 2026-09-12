@@ -1,6 +1,11 @@
 # Deploy — OmsLoan Windows Services (Octopus-style)
 
-Two phases: **first deploy** registers the Windows Service on COBBLER1 without RDP; **going forward** is bounce-only (Stop → publish overwrite → Start). The runner is `actions.runner.m-vaysman-omsloans.cobbler1` under `G:\actions-runner\`, logon `NT AUTHORITY\SYSTEM`. Prefer drive **G:** for service folders.
+Two phases on the cobbler1 self-hosted runner (`actions.runner.m-vaysman-omsloans.cobbler1`, `G:\actions-runner\`, `NT AUTHORITY\SYSTEM`):
+
+1. **First deploy** — if `OmsLoanWorker` / `OmsLoanApi` is **missing**, Actions **headless-runs** `Install-OmsLoanService.ps1` / `Install-OmsLoanApiService.ps1` (no RDP, no `Get-Credential` for keys).
+2. **Going forward** — if the service **exists**, bounce only: Stop → publish overwrite → Start. Installers are **not** re-run.
+
+Prefer drive **G:** for service folders (`G:\Services\OmsLoan`, `G:\Services\OmsLoanApi`).
 
 | Workflow | Runner | Trigger |
 | --- | --- | --- |
@@ -12,98 +17,82 @@ No `pull_request` on cobbler1 workflows (public repo + SYSTEM on the target).
 
 ---
 
+## Secrets policy
+
+**LLM / Graph / DB secrets are already on the machine** (machine env and/or the service `Environment` REG_MULTI_SZ). The pipeline does **not** require putting those into GitHub Actions secrets.
+
+- Installer/workflow reads host env (`ConnectionStrings__OmsLoan`, `Database__Provider`, `Ingestion__WatchedFolder`, `GRAPH_*`, LLM keys, …).
+- On install, prior service env is **merged** so keys are not wiped.
+- Preferred account: **gMSA** (`…$`) — no password in Actions.
+- Optional Actions secrets only if you refuse gMSA: `OMSLOAN_WORKER_SERVICE_PASSWORD` / `OMSLOAN_API_SERVICE_PASSWORD` for the service logon account. Not for Graph/LLM/DB.
+
+---
+
 ## Phase 1 — First deploy (service missing)
 
-The workflow detects `Get-Service` missing, then: tests → Postgres ensure (Worker) → publish into the service folder → **headless Install** → migrate (Worker) → Start → gate Running (Api also HTTP).
+Order (Worker): tests → Postgres ensure → publish → **Install-OmsLoanService.ps1 -NonInteractive** → `Invoke-OmsLoanMigration.ps1` → Start → Running gate.
+
+Order (Api): tests → publish → **Install-OmsLoanApiService.ps1 -NonInteractive** → Start → Running + HTTP gate.
 
 ### Account model
 
-- **Preferred:** gMSA (`CONTOSO\gmsa_omsloan$`). No password. Installer treats accounts ending in `$` as empty-password credentials.
-- **Fallback:** dedicated domain account. Put the password in repo Actions secret `OMSLOAN_WORKER_SERVICE_PASSWORD` / `OMSLOAN_API_SERVICE_PASSWORD` (read only on the first-ship step). Do not commit it.
-- **Ruled out:** LocalSystem for headless first ship (`-NonInteractive` refuses it). SYSTEM runs the *deploy* only; the app services use the dedicated/gMSA account.
+- **Preferred:** gMSA. Pass workflow input `service_account` (or machine env `OMSLOAN_WORKER_SERVICE_ACCOUNT` / `OMSLOAN_API_SERVICE_ACCOUNT`).
+- **Fallback:** domain account + optional Actions password secret (above).
+- **Ruled out for headless:** LocalSystem (`-NonInteractive` refuses it). SYSTEM deploys; apps run as gMSA/dedicated account.
 
-### What you configure once (outside git)
+### Host prep once (AD / GPO / script — not an interactive RDP install of the app)
 
-Do these with AD / GPO / Intune / a one-shot admin script — not necessarily an interactive RDP session to the app UI:
+1. gMSA (or domain account) + **Log on as a service** on COBBLER1.
+2. Folders under G:; watched-folder ACLs for Worker.
+3. DB login for the service account.
+4. Machine (or existing) env with connection string, provider, watched folder, Graph/LLM as needed.
+5. Docker Engine if using compose Postgres.
 
-1. Create gMSA (or domain service account) for Worker and Api.
-2. Install gMSA on COBBLER1; grant **Log on as a service**.
-3. Create `G:\Services\OmsLoan` and `G:\Services\OmsLoanApi` (or accept workflow defaults).
-4. Watched folder + `processed\` / `failed\` with Modify for the Worker account.
-5. SQL/Postgres login for the service account; set machine or process env the installer can see:
-   - `ConnectionStrings__OmsLoan` (or Actions secret `OMSLOAN_CONNECTION` for first ship only)
-   - `Database__Provider` (`Postgres` or `SqlServer` / blank)
-   - `Ingestion__WatchedFolder` (Worker)
-   - Graph / LLM names as needed (`GRAPH_*`, `CLAUDE_API_KEY`, …)
-6. Workflow input `service_account` (or machine env `OMSLOAN_WORKER_SERVICE_ACCOUNT` / `OMSLOAN_API_SERVICE_ACCOUNT`).
-7. Docker Engine reachable if using compose Postgres (`Install-OmsLoanPostgres.ps1`).
+### Verify
 
-### Installer behavior (headless)
-
-`Install-OmsLoanService.ps1` / `Install-OmsLoanApiService.ps1` with `-NonInteractive`:
-
-- No `Get-Credential` prompt.
-- gMSA or password from `OMSLOAN_SERVICE_ACCOUNT_PASSWORD` (workflow maps the Actions secret into that name for the install step only).
-- Captures prior service env before delete and **merges** it with new values so a re-install does not wipe Graph/LLM keys.
-- Pulls connection / watched folder / provider from process env when parameters are empty.
-
-### Verify first ship
-
-- Job summary mode = `first`.
-- Service **Running**; Api answers on `ASPNETCORE_URLS` port.
-- Event Log source exists; service env names present (values never printed).
+- Job summary `mode=first`.
+- Service **Running**; Api answers on `ASPNETCORE_URLS`.
+- Service env **names** present (values never printed in logs).
 
 ---
 
 ## Phase 2 — Going forward (service present)
 
-Bounce only. The workflow **must not** re-run Install.
+Bounce only — **Actions must not call the Install scripts**.
 
-Order (Worker): tests → Postgres ensure → Stop → publish with `ApplyMigrations=true` → Start → Running gate.
+Worker: tests → Postgres ensure → Stop → publish `ApplyMigrations=true` → Start → Running.
 
-Order (Api): tests → Stop → publish with `BuildSpaOnPublish=false` → Start → Running + HTTP gate.
+Api: tests → Stop → publish `BuildSpaOnPublish=false` → Start → Running + HTTP.
 
-Shared concurrency `omsloan-host-deploy`.
+Shared concurrency `omsloan-host-deploy`. On failure the workflow tries Start again so the box is not left stopped.
 
-### Never re-run on bounce
+### Never on bounce
 
-- `Install-OmsLoanService.ps1` / `Install-OmsLoanApiService.ps1` (would delete/re-register and historically rewrote env).
-- Interactive `Get-Credential`.
-- Anything that registers the service as LocalSystem.
+- `Install-OmsLoanService.ps1` / `Install-OmsLoanApiService.ps1`
+- `Get-Credential`
+- Re-registering as LocalSystem
 
-### Verify bounce
+### Verify
 
-- Job summary mode = `bounce`.
-- Service **Running** after Start; Api HTTP probe green.
-- On failure the workflow attempts Start again so the box is not left stopped.
+- Job summary `mode=bounce`.
+- Service Running; Api HTTP green.
 
 ---
 
 ## Postgres and migrations
 
-- Compose project `omsloan`, image `postgres:17`, `127.0.0.1:5432`, volume `omsloan-postgres`.
-- Worker first ship: `Invoke-OmsLoanMigration.ps1` after Install. Bounce: `-p:ApplyMigrations=true` on publish.
+- Compose project `omsloan`, `postgres:17`, `127.0.0.1:5432`, volume `omsloan-postgres`.
+- Worker first ship: migrate after Install. Bounce: `-p:ApplyMigrations=true`.
 - Api never migrates.
 
-## Optional Actions secret names (values stay in Settings)
-
-| Name | When |
-| --- | --- |
-| `OMSLOAN_WORKER_SERVICE_PASSWORD` | First ship Worker if account is not gMSA |
-| `OMSLOAN_API_SERVICE_PASSWORD` | First ship Api if account is not gMSA |
-| `OMSLOAN_CONNECTION` | First ship if connection string is not already on the host |
-
-Prefer host/machine env + gMSA so these stay empty.
-
-## Host environment names (app config)
+## Host environment names
 
 | Purpose | Name |
 | --- | --- |
 | Database provider | `Database__Provider` |
 | Database | `ConnectionStrings__OmsLoan` |
 | Watched folder | `Ingestion__WatchedFolder` |
-| Worker environment | `DOTNET_ENVIRONMENT` |
-| Api environment | `ASPNETCORE_ENVIRONMENT` |
+| Worker / Api env | `DOTNET_ENVIRONMENT` / `ASPNETCORE_ENVIRONMENT` |
 | Api URLs | `ASPNETCORE_URLS` |
 | Graph / LLM | `GRAPH_*`, `CLAUDE_API_KEY`, `OPEN_API_KEY`, `GROQ_API_KEY` |
 
