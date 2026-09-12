@@ -30,6 +30,8 @@ internal static class OpsTestConfiguration
 
     public static string Serialize(OpsStatus status) => JsonSerializer.Serialize(status, WebJson);
 
+    // Walks up from the test host directory to OmsLoan.sln so the appsettings
+    // bind test finds the shipped file.
     public static string RepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

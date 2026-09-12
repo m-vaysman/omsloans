@@ -12,6 +12,7 @@ public class OpsDatabaseTests
             throw new InvalidOperationException("connection refused");
     }
 
+    // Ignores the token so CancelAfter cannot save the poll — WaitAsync must.
     private sealed class HangingProbe : IOpsDatabaseProbe
     {
         public async Task<string> ProbeAsync(CancellationToken cancellationToken)
@@ -99,6 +100,7 @@ public class OpsDatabaseTests
     [Theory]
     [InlineData(0)]
     [InlineData(-5)]
+    // 0 or negative used to throw out of CancelAfter and 500 the page.
     public async Task AnUnusableConfiguredTimeoutStillProducesAStatus(int configured)
     {
         var status = await Build(
@@ -109,6 +111,7 @@ public class OpsDatabaseTests
     }
 
     [Fact]
+    // Postgres invents 5432. SQL Server must not invent 1433.
     public async Task ASqlServerEndpointShowsTheServerWithoutAnInventedPort()
     {
         var status = await Build(Configuration(new Dictionary<string, string?>

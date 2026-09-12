@@ -86,6 +86,7 @@ public class OpsStatusContractTests
     }
 
     [Fact]
+    // Phase 1 flag. Running here is stub paint, not a measured service.
     public async Task StubIsTrueWhileNothingIsProbedForReal()
     {
         var status = await Build(Configuration());

@@ -3,6 +3,7 @@ using static OmsLoan.Api.Tests.Ops.OpsTestConfiguration;
 
 namespace OmsLoan.Api.Tests.Ops;
 
+// Payload must never carry a connection string, a secret value, or a stack frame.
 public class OpsRedactionTests
 {
     private const string Password = "NEVER-SHOW";
@@ -58,6 +59,7 @@ public class OpsRedactionTests
     }
 
     [Fact]
+    // Stack frames are line 2+. First line only, so they never reach the payload.
     public void ALogLineKeepsItsFirstLineOnly()
     {
         var message = OpsLogText.Summarize(

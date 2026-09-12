@@ -31,6 +31,8 @@ public class OpsOptionsTests
     }
 
     [Fact]
+    // Shipped section and class defaults must stay twins. The section is the source;
+    // the class is the last fallback.
     public void TheShippedSettingsMatchTheCodeDefaults()
     {
         var shipped = FromAppSettings();

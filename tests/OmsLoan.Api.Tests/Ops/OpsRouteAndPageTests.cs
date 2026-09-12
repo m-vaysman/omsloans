@@ -26,6 +26,8 @@ public class OpsRouteAndPageTests
         };
 
     [Fact]
+    // UseDefaultFiles only rewrites paths ending in `/`. Exact /ops, or the SPA
+    // catch-all returns the React shell with 200.
     public void ThePageIsServedAtExactlyOps()
     {
         Assert.Equal("/ops", OpsRoutes.Page);
@@ -33,6 +35,7 @@ public class OpsRouteAndPageTests
     }
 
     [Fact]
+    // Under /api so a typo inherits SpaHosting's `/api/{**path}` 404, not HTML.
     public void TheStatusJsonIsServedUnderTheApiPrefix()
     {
         Assert.StartsWith($"{SpaApiPrefix}/", OpsRoutes.Status, StringComparison.Ordinal);
@@ -53,6 +56,7 @@ public class OpsRouteAndPageTests
     }
 
     [Fact]
+    // One file, inline CSS/JS: no <link>, no src=, no http(s). Works with no outbound.
     public void ThePageLoadsNothingFromTheInternet()
     {
         Assert.DoesNotContain("http://", OpsPage.Html, StringComparison.OrdinalIgnoreCase);
@@ -81,6 +85,7 @@ public class OpsRouteAndPageTests
     }
 
     [Fact]
+    // textContent, never innerHTML: Event Log text must not execute in the browser.
     public void ThePageNeverWritesLogTextAsMarkup()
     {
         Assert.DoesNotContain("innerHTML", OpsPage.Html, StringComparison.Ordinal);
@@ -96,6 +101,7 @@ public class OpsRouteAndPageTests
     }
 
     [Fact]
+    // no-store: a reviewer refresh must not show a cached poll.
     public async Task TheStatusResponseIsNotCachedByTheBrowser()
     {
         var controller = Controller();
