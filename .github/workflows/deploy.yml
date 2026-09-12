@@ -8,6 +8,11 @@ on:
         required: true
         type: string
         default: G:\Services\OmsLoan
+      service_account:
+        description: Service account (gMSA preferred, ends with $). Required on first ship.
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: omsloan-host-deploy
@@ -60,13 +65,18 @@ jobs:
         shell: pwsh
         run: dotnet test tests/OmsLoan.Api.Tests/OmsLoan.Api.Tests.csproj -c Release --verbosity normal
 
-      - name: Require first ship
+      - name: Detect mode
+        id: mode
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $svc = Get-Service -Name OmsLoanWorker -ErrorAction SilentlyContinue
           if ($null -eq $svc) {
-            throw "first ship is by hand - run scripts/Install-OmsLoanService.ps1 on the host with -ServiceAccount"
+            Write-Host "Mode: first-ship (service missing)"
+            "mode=first" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            Write-Host "Mode: bounce (service present, status $($svc.Status))"
+            "mode=bounce" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           }
 
       - name: Ensure Postgres
@@ -76,6 +86,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Install-OmsLoanPostgres.ps1 failed with $LASTEXITCODE" }
 
       - name: Stop Worker
+        if: steps.mode.outputs.mode == 'bounce'
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\scripts\Stop-OmsLoanService.ps1"
@@ -87,12 +98,38 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $dir = "${{ inputs.service_folder }}"
           New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $migrate = if ("${{ steps.mode.outputs.mode }}" -eq 'bounce') { 'true' } else { 'false' }
           dotnet publish src/OmsLoan.Worker/OmsLoan.Worker.csproj `
             -c Release `
             -p:PublishProfile=WindowsServiceHost `
             -p:PublishDir="$dir\" `
-            -p:ApplyMigrations=true
+            -p:ApplyMigrations=$migrate
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish Worker failed with $LASTEXITCODE" }
+
+      - name: First ship install
+        if: steps.mode.outputs.mode == 'first'
+        shell: pwsh
+        env:
+          OMSLOAN_SERVICE_ACCOUNT_PASSWORD: ${{ secrets.OMSLOAN_WORKER_SERVICE_PASSWORD }}
+          OMSLOAN_CONNECTION: ${{ secrets.OMSLOAN_CONNECTION }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $account = "${{ inputs.service_account }}".Trim()
+          if ([string]::IsNullOrWhiteSpace($account)) {
+            $account = "$env:OMSLOAN_WORKER_SERVICE_ACCOUNT".Trim()
+          }
+          if ([string]::IsNullOrWhiteSpace($account)) {
+            throw "First ship needs workflow input service_account (gMSA preferred) or machine env OMSLOAN_WORKER_SERVICE_ACCOUNT."
+          }
+          $dir = "${{ inputs.service_folder }}"
+          & "$env:GITHUB_WORKSPACE\scripts\Install-OmsLoanService.ps1" `
+            -PublishPath $dir `
+            -ServiceAccount $account `
+            -Environment Production `
+            -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw "Install-OmsLoanService.ps1 failed with $LASTEXITCODE" }
+          & "$env:GITHUB_WORKSPACE\scripts\Invoke-OmsLoanMigration.ps1" -ServiceName OmsLoanWorker
+          if ($LASTEXITCODE -ne 0) { throw "Invoke-OmsLoanMigration.ps1 failed with $LASTEXITCODE" }
 
       - name: Start Worker
         shell: pwsh
@@ -144,8 +181,9 @@ jobs:
           | | |
           | --- | --- |
           | Commit | `${{ github.sha }}` |
+          | Mode | `${{ steps.mode.outputs.mode }}` |
           | Service folder | `${{ inputs.service_folder }}` |
           | Provider | $provider |
           | Service status | $status |
-          | Migrations | Applied when Publish ran with ApplyMigrations=true (see publish step log) |
+          | Migrations | first-ship via Invoke-OmsLoanMigration; bounce via ApplyMigrations on publish |
           "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append

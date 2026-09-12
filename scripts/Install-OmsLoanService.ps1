@@ -65,6 +65,12 @@ param(
 
     [hashtable]$GraphCredential = @{},
 
+    [System.Management.Automation.PSCredential]$Credential,
+
+    [securestring]$ServiceAccountPassword,
+
+    [switch]$NonInteractive,
+
     [switch]$StartAfterInstall
 )
 
@@ -95,13 +101,17 @@ $exePath = (Resolve-Path -LiteralPath $exePath).Path
 
 # --- Remove any existing installation so the script is re-runnable -----------------------
 $existing = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+$priorEnvironment = $null
 if ($null -ne $existing) {
+    $priorKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName"
+    if (Test-Path -LiteralPath $priorKey) {
+        $priorEnvironment = (Get-ItemProperty -Path $priorKey -Name Environment -ErrorAction SilentlyContinue).Environment
+    }
     Write-Host "Existing service found. Stopping and removing it."
     if ($existing.Status -ne 'Stopped') {
         Stop-Service -Name $serviceName -Force
         $existing.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30))
     }
-    # Remove-Service needs PowerShell 6+; sc.exe covers Windows PowerShell 5.1 as well.
     & sc.exe delete $serviceName | Out-Null
     Start-Sleep -Seconds 2
 }
@@ -116,12 +126,31 @@ $newServiceArgs = @{
 }
 
 if ($ServiceAccount) {
-    # Prompted rather than taken as a parameter so the password is never in a command line,
-    # a script file, or PSReadLine history.
-    $credential = Get-Credential -UserName $ServiceAccount -Message "Password for the $serviceName service account"
-    $newServiceArgs['Credential'] = $credential
+    if ($null -ne $Credential) {
+        $resolvedCredential = $Credential
+    }
+    elseif ($ServiceAccount.EndsWith('$')) {
+        $resolvedCredential = [pscredential]::new($ServiceAccount, [securestring]::new())
+    }
+    elseif ($null -ne $ServiceAccountPassword) {
+        $resolvedCredential = [pscredential]::new($ServiceAccount, $ServiceAccountPassword)
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($env:OMSLOAN_SERVICE_ACCOUNT_PASSWORD)) {
+        $secure = ConvertTo-SecureString -String $env:OMSLOAN_SERVICE_ACCOUNT_PASSWORD -AsPlainText -Force
+        $resolvedCredential = [pscredential]::new($ServiceAccount, $secure)
+    }
+    elseif ($NonInteractive) {
+        throw "NonInteractive install needs a gMSA (account ending in `$), -Credential, -ServiceAccountPassword, or OMSLOAN_SERVICE_ACCOUNT_PASSWORD."
+    }
+    else {
+        $resolvedCredential = Get-Credential -UserName $ServiceAccount -Message "Password for the $serviceName service account"
+    }
+    $newServiceArgs['Credential'] = $resolvedCredential
 }
 else {
+    if ($NonInteractive) {
+        throw 'NonInteractive install requires -ServiceAccount (gMSA preferred). LocalSystem is not allowed for headless first ship.'
+    }
     Write-Warning 'No -ServiceAccount given; installing as LocalSystem. Fine for a first install, wrong for production — see docs/windows-service.md.'
 }
 
@@ -165,6 +194,13 @@ if (-not [System.Diagnostics.EventLog]::SourceExists($eventLogSource)) {
 # Secret names are the flat ones the machines already carry. The older
 # Extraction__<Provider>__ApiKey spelling is no longer written; it still resolves if some
 # host has it set, but the flat name wins. See src/OmsLoan.Worker/ConfigurationKeys.cs.
+if ([string]::IsNullOrWhiteSpace($ConnectionString)) {
+    $ConnectionString = $env:OMSLOAN_CONNECTION
+    if ([string]::IsNullOrWhiteSpace($ConnectionString)) { $ConnectionString = $env:ConnectionStrings__OmsLoan }
+}
+$watchedFolder = $env:Ingestion__WatchedFolder
+$databaseProvider = $env:Database__Provider
+
 $environmentEntries = @("DOTNET_ENVIRONMENT=$Environment")
 
 if ($ConnectionString) {
@@ -204,6 +240,28 @@ foreach ($setting in $GraphCredential.Keys) {
 if ($GraphCredential.Count -gt 0 -and $GraphCredential.Count -lt $graphVariables.Count) {
     $missing = $graphVariables.Keys | Where-Object { -not $GraphCredential.ContainsKey($_) }
     Write-Warning "-GraphCredential is incomplete; missing: $($missing -join ', '). Mailbox ingestion needs all three."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($watchedFolder)) {
+    $environmentEntries += "Ingestion__WatchedFolder=$watchedFolder"
+}
+if (-not [string]::IsNullOrWhiteSpace($databaseProvider)) {
+    $environmentEntries += "Database__Provider=$databaseProvider"
+}
+
+if ($null -ne $priorEnvironment) {
+    $merged = [ordered]@{}
+    foreach ($line in @($priorEnvironment)) {
+        $idx = $line.IndexOf('=')
+        if ($idx -lt 1) { continue }
+        $merged[$line.Substring(0, $idx)] = $line.Substring($idx + 1)
+    }
+    foreach ($line in $environmentEntries) {
+        $idx = $line.IndexOf('=')
+        if ($idx -lt 1) { continue }
+        $merged[$line.Substring(0, $idx)] = $line.Substring($idx + 1)
+    }
+    $environmentEntries = @($merged.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" })
 }
 
 $serviceKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName"
