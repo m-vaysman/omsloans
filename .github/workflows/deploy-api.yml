@@ -7,7 +7,17 @@ on:
         description: Service folder
         required: true
         type: string
-        default: C:\Services\OmsLoanApi
+        default: G:\Services\OmsLoanApi
+      service_account:
+        description: Service account (gMSA preferred, ends with $). Required on first ship.
+        required: false
+        type: string
+        default: ""
+      urls:
+        description: ASPNETCORE_URLS for first ship
+        required: false
+        type: string
+        default: http://+:5080
 
 concurrency:
   group: omsloan-host-deploy
@@ -60,16 +70,22 @@ jobs:
         shell: pwsh
         run: dotnet test tests/OmsLoan.Api.Tests/OmsLoan.Api.Tests.csproj -c Release --verbosity normal
 
-      - name: Require first ship
+      - name: Detect mode
+        id: mode
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $svc = Get-Service -Name OmsLoanApi -ErrorAction SilentlyContinue
           if ($null -eq $svc) {
-            throw "first ship is by hand - run scripts/Install-OmsLoanApiService.ps1 on the host with -ServiceAccount"
+            Write-Host "Mode: first-ship (service missing)"
+            "mode=first" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            Write-Host "Mode: bounce (service present, status $($svc.Status))"
+            "mode=bounce" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           }
 
       - name: Stop Api
+        if: steps.mode.outputs.mode == 'bounce'
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\scripts\Stop-OmsLoanApiService.ps1"
@@ -87,6 +103,30 @@ jobs:
             -p:PublishDir="$dir\" `
             -p:BuildSpaOnPublish=false
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish Api failed with $LASTEXITCODE" }
+
+      - name: First ship install
+        if: steps.mode.outputs.mode == 'first'
+        shell: pwsh
+        env:
+          OMSLOAN_SERVICE_ACCOUNT_PASSWORD: ${{ secrets.OMSLOAN_API_SERVICE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $account = "${{ inputs.service_account }}".Trim()
+          if ([string]::IsNullOrWhiteSpace($account)) {
+            $account = "$env:OMSLOAN_API_SERVICE_ACCOUNT".Trim()
+          }
+          if ([string]::IsNullOrWhiteSpace($account)) {
+            throw "First ship needs workflow input service_account (gMSA preferred) or machine env OMSLOAN_API_SERVICE_ACCOUNT."
+          }
+          $dir = "${{ inputs.service_folder }}"
+          $urls = "${{ inputs.urls }}"
+          & "$env:GITHUB_WORKSPACE\scripts\Install-OmsLoanApiService.ps1" `
+            -PublishPath $dir `
+            -ServiceAccount $account `
+            -Environment Production `
+            -Urls $urls `
+            -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw "Install-OmsLoanApiService.ps1 failed with $LASTEXITCODE" }
 
       - name: Start Api
         shell: pwsh
@@ -121,7 +161,7 @@ jobs:
             $p = $part.Trim().TrimEnd('/')
             if ($p -match ':(\d+)$') { $port = [int]$Matches[1]; break }
           }
-          if ($null -eq $port) { throw "Could not parse a port from ASPNETCORE_URLS name present" }
+          if ($null -eq $port) { throw "Could not parse a port from ASPNETCORE_URLS=$urls" }
           $ok = $false
           foreach ($i in 1..30) {
             try {
@@ -161,6 +201,7 @@ jobs:
           | | |
           | --- | --- |
           | Commit | `${{ github.sha }}` |
+          | Mode | `${{ steps.mode.outputs.mode }}` |
           | Service folder | `${{ inputs.service_folder }}` |
           | Provider | (Api does not migrate) |
           | Service status | $status |

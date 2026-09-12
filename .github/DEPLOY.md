@@ -1,76 +1,101 @@
-# Deploy — OmsLoan Windows Services
+# Deploy — OmsLoan Windows Services (Octopus-style)
 
-## What runs where
+Two phases on the cobbler1 self-hosted runner (`actions.runner.m-vaysman-omsloans.cobbler1`, `G:\actions-runner\`, `NT AUTHORITY\SYSTEM`):
+
+1. **First deploy** — if `OmsLoanWorker` / `OmsLoanApi` is **missing**, Actions **headless-runs** `Install-OmsLoanService.ps1` / `Install-OmsLoanApiService.ps1` (no RDP, no `Get-Credential` for keys).
+2. **Going forward** — if the service **exists**, bounce only: Stop → publish overwrite → Start. Installers are **not** re-run.
+
+Prefer drive **G:** for service folders (`G:\Services\OmsLoan`, `G:\Services\OmsLoanApi`).
 
 | Workflow | Runner | Trigger |
 | --- | --- | --- |
-| [CI](.github/workflows/ci.yml) | `windows-latest` (GitHub-hosted) | **Run workflow** only |
+| [CI](.github/workflows/ci.yml) | `windows-latest` | **Run workflow** only |
 | [Deploy Worker](.github/workflows/deploy.yml) | `[self-hosted, Windows, cobbler1]` | **Run workflow** only |
 | [Deploy Api](.github/workflows/deploy-api.yml) | `[self-hosted, Windows, cobbler1]` | **Run workflow** only |
 
-No `pull_request` trigger on the cobbler1 workflows. The repo is public and that runner is `NT AUTHORITY\SYSTEM` on the target machine.
+No `pull_request` on cobbler1 workflows (public repo + SYSTEM on the target).
 
-## First ship (by hand)
+---
 
-An admin on the host, once:
+## Secrets policy
 
-1. Install Docker Desktop (WSL2) or native Postgres, or point at a separate DB host.
-2. For Docker Postgres: ensure the engine is reachable, then from a repo checkout run `scripts/Install-OmsLoanPostgres.ps1` after setting `Database__Provider=Postgres` and `ConnectionStrings__OmsLoan` for the service you will install (or machine scope).
-3. Run `scripts/Install-OmsLoanService.ps1` with `-ServiceAccount` and the connection string / secrets.
-4. Run `scripts/Install-OmsLoanApiService.ps1` with `-ServiceAccount`, `-Urls`, and the same database settings.
+**LLM / Graph / DB secrets are already on the machine** (machine env and/or the service `Environment` REG_MULTI_SZ). The pipeline does **not** require putting those into GitHub Actions secrets.
 
-The runner never runs those installers. They delete and re-register the service and can rewrite the environment block.
+- Installer/workflow reads host env (`ConnectionStrings__OmsLoan`, `Database__Provider`, `Ingestion__WatchedFolder`, `GRAPH_*`, LLM keys, …).
+- On install, prior service env is **merged** so keys are not wiped.
+- Preferred account: **gMSA** (`…$`) — no password in Actions.
+- Optional Actions secrets only if you refuse gMSA: `OMSLOAN_WORKER_SERVICE_PASSWORD` / `OMSLOAN_API_SERVICE_PASSWORD` for the service logon account. Not for Graph/LLM/DB.
 
-## Later deploys (runner)
+---
 
-`SYSTEM` only deploys. The app services keep their own account and registry environment block.
+## Phase 1 — First deploy (service missing)
 
-**Worker:** Actions → Deploy Worker → Run workflow (optional service folder, default `C:\Services\OmsLoan`).
+Order (Worker): tests → Postgres ensure → publish → **Install-OmsLoanService.ps1 -NonInteractive** → `Invoke-OmsLoanMigration.ps1` → Start → Running gate.
 
-Order: tests → refuse if service missing → Postgres if needed → Stop → publish with `ApplyMigrations=true` → Start → gate Running.
+Order (Api): tests → publish → **Install-OmsLoanApiService.ps1 -NonInteractive** → Start → Running + HTTP gate.
 
-**Api:** Actions → Deploy Api → Run workflow (default `C:\Services\OmsLoanApi`).
+### Account model
 
-Order: tests → refuse if service missing → Stop → publish with `BuildSpaOnPublish=false` → Start → gate Running and HTTP on the port from `ASPNETCORE_URLS`.
+- **Preferred:** gMSA. Pass workflow input `service_account` (or machine env `OMSLOAN_WORKER_SERVICE_ACCOUNT` / `OMSLOAN_API_SERVICE_ACCOUNT`).
+- **Fallback:** domain account + optional Actions password secret (above).
+- **Ruled out for headless:** LocalSystem (`-NonInteractive` refuses it). SYSTEM deploys; apps run as gMSA/dedicated account.
 
-Shared concurrency group `omsloan-host-deploy` so the two deploys do not race.
+### Host prep once (AD / GPO / script — not an interactive RDP install of the app)
 
-## Postgres
+1. gMSA (or domain account) + **Log on as a service** on COBBLER1.
+2. Folders under G:; watched-folder ACLs for Worker.
+3. DB login for the service account.
+4. Machine (or existing) env with connection string, provider, watched folder, Graph/LLM as needed.
+5. Docker Engine if using compose Postgres.
 
-- Compose project name is always `omsloan` (`docker compose -p omsloan`).
-- Image `postgres:17`, loopback `127.0.0.1:5432`, volume `omsloan-postgres`, trust auth.
-- Connection string name: `ConnectionStrings__OmsLoan` with value shaped like `Host=localhost;Port=5432;Database=omsloan;Username=omsloan`.
-- `Install-OmsLoanPostgres.ps1` leaves a healthy compose container or an occupied port alone. It never `down`s or removes volumes.
-- If `docker info` fails, the script fails; that is not the same as a stopped container.
-- Docker Desktop often runs only while a user is signed in; Worker/Api start at boot. For unattended hosts prefer Engine access that starts at boot, native Postgres as a Windows service, or a separate DB host.
+### Verify
 
-## Migrations
+- Job summary `mode=first`.
+- Service **Running**; Api answers on `ASPNETCORE_URLS`.
+- Service env **names** present (values never printed in logs).
 
-- Applied on Worker publish when `-p:ApplyMigrations=true` (the Deploy Worker workflow passes this).
-- `scripts/Invoke-OmsLoanMigration.ps1` reads `Database__Provider` and `ConnectionStrings__OmsLoan` from the service registry block, then machine scope, then process env.
-- Postgres → `src/OmsLoan.Data.Postgres`; blank or SqlServer → `src/OmsLoan.Domain`. Always passes `--connection`.
-- Hand path for migrate without compose changes: `scripts/Install-OmsLoanPostgres.ps1 -MigrateOnly`.
+---
 
-## Host environment (names only)
+## Phase 2 — Going forward (service present)
+
+Bounce only — **Actions must not call the Install scripts**.
+
+Worker: tests → Postgres ensure → Stop → publish `ApplyMigrations=true` → Start → Running.
+
+Api: tests → Stop → publish `BuildSpaOnPublish=false` → Start → Running + HTTP.
+
+Shared concurrency `omsloan-host-deploy`. On failure the workflow tries Start again so the box is not left stopped.
+
+### Never on bounce
+
+- `Install-OmsLoanService.ps1` / `Install-OmsLoanApiService.ps1`
+- `Get-Credential`
+- Re-registering as LocalSystem
+
+### Verify
+
+- Job summary `mode=bounce`.
+- Service Running; Api HTTP green.
+
+---
+
+## Postgres and migrations
+
+- Compose project `omsloan`, `postgres:17`, `127.0.0.1:5432`, volume `omsloan-postgres`.
+- Worker first ship: migrate after Install. Bounce: `-p:ApplyMigrations=true`.
+- Api never migrates.
+
+## Host environment names
 
 | Purpose | Name |
 | --- | --- |
-| Database provider | `Database__Provider` (`SqlServer`, `Postgres`, or blank) |
+| Database provider | `Database__Provider` |
 | Database | `ConnectionStrings__OmsLoan` |
 | Watched folder | `Ingestion__WatchedFolder` |
-| Worker environment | `DOTNET_ENVIRONMENT` |
-| Api environment | `ASPNETCORE_ENVIRONMENT` |
+| Worker / Api env | `DOTNET_ENVIRONMENT` / `ASPNETCORE_ENVIRONMENT` |
 | Api URLs | `ASPNETCORE_URLS` |
-| Graph tenant | `GRAPH_TENANT_ID` |
-| Graph app id | `GRAPH_CLIENT_ID` |
-| Graph secret | `GRAPH_CLIENT_SECRET` |
-| Shared mailbox | `GRAPH_USER` |
-| Claude | `CLAUDE_API_KEY` |
-| OpenAI | `OPEN_API_KEY` |
-| Groq | `GROQ_API_KEY` |
-
-No Actions secrets for this pipeline. Values stay on the host.
+| Graph / LLM | `GRAPH_*`, `CLAUDE_API_KEY`, `OPEN_API_KEY`, `GROQ_API_KEY` |
 
 ## Node.js in Actions logs
 
-`actions/checkout` is a JavaScript action. That is not `npm` / `OmsLoan.Web`. Deploy Api passes `BuildSpaOnPublish=false`.
+`actions/checkout` is a JavaScript action — not `npm` / `OmsLoan.Web`. Deploy Api uses `BuildSpaOnPublish=false`.
