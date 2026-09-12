@@ -1,0 +1,151 @@
+name: Deploy Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      service_folder:
+        description: Service folder
+        required: true
+        type: string
+        default: C:\Services\OmsLoan
+
+concurrency:
+  group: omsloan-host-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-worker:
+    name: Deploy OmsLoanWorker
+    runs-on: [self-hosted, Windows, cobbler1]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify .NET 8 SDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdks = @(dotnet --list-sdks)
+          if (-not ($sdks | Where-Object { $_ -match '^8\.' })) {
+            throw "Host needs a .NET 8 SDK. Found: $($sdks -join '; ')"
+          }
+          Write-Host "SDK OK"
+          $sdks | ForEach-Object { Write-Host $_ }
+
+      - name: Restore local tools
+        shell: pwsh
+        run: dotnet tool restore
+
+      - name: Test Domain
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Worker
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Infrastructure
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Infrastructure.Tests/OmsLoan.Infrastructure.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Postgres
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Data.Postgres.Tests/OmsLoan.Data.Postgres.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Api
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Api.Tests/OmsLoan.Api.Tests.csproj -c Release --verbosity normal
+
+      - name: Require first ship
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $svc = Get-Service -Name OmsLoanWorker -ErrorAction SilentlyContinue
+          if ($null -eq $svc) {
+            throw "first ship is by hand - run scripts/Install-OmsLoanService.ps1 on the host with -ServiceAccount"
+          }
+
+      - name: Ensure Postgres
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\scripts\Install-OmsLoanPostgres.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "Install-OmsLoanPostgres.ps1 failed with $LASTEXITCODE" }
+
+      - name: Stop Worker
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\scripts\Stop-OmsLoanService.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "Stop-OmsLoanService.ps1 failed with $LASTEXITCODE" }
+
+      - name: Publish Worker
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = "${{ inputs.service_folder }}"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          dotnet publish src/OmsLoan.Worker/OmsLoan.Worker.csproj `
+            -c Release `
+            -p:PublishProfile=WindowsServiceHost `
+            -p:PublishDir="$dir\" `
+            -p:ApplyMigrations=true
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish Worker failed with $LASTEXITCODE" }
+
+      - name: Start Worker
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\scripts\Start-OmsLoanService.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "Start-OmsLoanService.ps1 failed with $LASTEXITCODE" }
+
+      - name: Gate Worker Running
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $svc = Get-Service -Name OmsLoanWorker
+          if ($svc.Status -ne 'Running') {
+            Get-WinEvent -LogName Application -MaxEvents 40 -ErrorAction SilentlyContinue |
+              Where-Object { $_.ProviderName -eq 'OmsLoanWorker' } |
+              ForEach-Object { Write-Host ("[{0}] {1}" -f $_.TimeCreated, $_.Message) }
+            throw "OmsLoanWorker status is $($svc.Status), expected Running"
+          }
+          Write-Host "OmsLoanWorker is Running"
+
+      - name: Restart Worker after failure
+        if: failure()
+        shell: pwsh
+        run: |
+          Write-Host "Deploy failed; restarting OmsLoanWorker so the box is not left stopped."
+          & "$env:GITHUB_WORKSPACE\scripts\Start-OmsLoanService.ps1"
+          $svc = Get-Service -Name OmsLoanWorker -ErrorAction SilentlyContinue
+          if ($null -ne $svc) { Write-Host "OmsLoanWorker status after restart attempt: $($svc.Status)" }
+
+      - name: Summary
+        if: always()
+        shell: pwsh
+        run: |
+          $svc = Get-Service -Name OmsLoanWorker -ErrorAction SilentlyContinue
+          $status = if ($null -eq $svc) { 'not-installed' } else { [string]$svc.Status }
+          $provider = '(unresolved)'
+          $key = 'HKLM:\SYSTEM\CurrentControlSet\Services\OmsLoanWorker'
+          if (Test-Path $key) {
+            $envBlock = (Get-ItemProperty -Path $key -Name Environment -ErrorAction SilentlyContinue).Environment
+            if ($envBlock) {
+              foreach ($line in $envBlock) {
+                if ($line -like 'Database__Provider=*') { $provider = ($line -split '=', 2)[1]; break }
+              }
+            }
+          }
+          @"
+          ## Deploy Worker
+
+          | | |
+          | --- | --- |
+          | Commit | `${{ github.sha }}` |
+          | Service folder | `${{ inputs.service_folder }}` |
+          | Provider | $provider |
+          | Service status | $status |
+          | Migrations | Applied when Publish ran with ApplyMigrations=true (see publish step log) |
+          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
