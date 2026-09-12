@@ -1,0 +1,168 @@
+name: Deploy Api
+
+on:
+  workflow_dispatch:
+    inputs:
+      service_folder:
+        description: Service folder
+        required: true
+        type: string
+        default: C:\Services\OmsLoanApi
+
+concurrency:
+  group: omsloan-host-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-api:
+    name: Deploy OmsLoanApi
+    runs-on: [self-hosted, Windows, cobbler1]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify .NET 8 SDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdks = @(dotnet --list-sdks)
+          if (-not ($sdks | Where-Object { $_ -match '^8\.' })) {
+            throw "Host needs a .NET 8 SDK. Found: $($sdks -join '; ')"
+          }
+          Write-Host "SDK OK"
+          $sdks | ForEach-Object { Write-Host $_ }
+
+      - name: Restore local tools
+        shell: pwsh
+        run: dotnet tool restore
+
+      - name: Test Domain
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Domain.Tests/OmsLoan.Domain.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Worker
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Infrastructure
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Infrastructure.Tests/OmsLoan.Infrastructure.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Postgres
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Data.Postgres.Tests/OmsLoan.Data.Postgres.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Api
+        shell: pwsh
+        run: dotnet test tests/OmsLoan.Api.Tests/OmsLoan.Api.Tests.csproj -c Release --verbosity normal
+
+      - name: Require first ship
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $svc = Get-Service -Name OmsLoanApi -ErrorAction SilentlyContinue
+          if ($null -eq $svc) {
+            throw "first ship is by hand - run scripts/Install-OmsLoanApiService.ps1 on the host with -ServiceAccount"
+          }
+
+      - name: Stop Api
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\scripts\Stop-OmsLoanApiService.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "Stop-OmsLoanApiService.ps1 failed with $LASTEXITCODE" }
+
+      - name: Publish Api
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = "${{ inputs.service_folder }}"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          dotnet publish src/OmsLoan.Api/OmsLoan.Api.csproj `
+            -c Release `
+            -p:PublishProfile=WindowsServiceHost `
+            -p:PublishDir="$dir\" `
+            -p:BuildSpaOnPublish=false
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish Api failed with $LASTEXITCODE" }
+
+      - name: Start Api
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\scripts\Start-OmsLoanApiService.ps1"
+          if ($LASTEXITCODE -ne 0) { throw "Start-OmsLoanApiService.ps1 failed with $LASTEXITCODE" }
+
+      - name: Gate Api Running and port
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $svc = Get-Service -Name OmsLoanApi
+          if ($svc.Status -ne 'Running') {
+            Get-WinEvent -LogName Application -MaxEvents 40 -ErrorAction SilentlyContinue |
+              Where-Object { $_.ProviderName -eq 'OmsLoanApi' } |
+              ForEach-Object { Write-Host ("[{0}] {1}" -f $_.TimeCreated, $_.Message) }
+            throw "OmsLoanApi status is $($svc.Status), expected Running"
+          }
+          $urls = $null
+          $key = 'HKLM:\SYSTEM\CurrentControlSet\Services\OmsLoanApi'
+          $envBlock = (Get-ItemProperty -Path $key -Name Environment -ErrorAction SilentlyContinue).Environment
+          if ($envBlock) {
+            foreach ($line in $envBlock) {
+              if ($line -like 'ASPNETCORE_URLS=*') { $urls = ($line -split '=', 2)[1]; break }
+            }
+          }
+          if ([string]::IsNullOrWhiteSpace($urls)) {
+            throw "ASPNETCORE_URLS not found on OmsLoanApi service environment block"
+          }
+          $port = $null
+          foreach ($part in ($urls -split ';')) {
+            $p = $part.Trim().TrimEnd('/')
+            if ($p -match ':(\d+)$') { $port = [int]$Matches[1]; break }
+          }
+          if ($null -eq $port) { throw "Could not parse a port from ASPNETCORE_URLS name present" }
+          $ok = $false
+          foreach ($i in 1..30) {
+            try {
+              $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 5
+              Write-Host "Port $port answered HTTP $($resp.StatusCode)"
+              $ok = $true
+              break
+            } catch {
+              if ($_.Exception.Response) {
+                Write-Host "Port $port answered HTTP $([int]$_.Exception.Response.StatusCode)"
+                $ok = $true
+                break
+              }
+              Start-Sleep -Seconds 2
+            }
+          }
+          if (-not $ok) { throw "No HTTP response from localhost:$port" }
+
+      - name: Restart Api after failure
+        if: failure()
+        shell: pwsh
+        run: |
+          Write-Host "Deploy failed; restarting OmsLoanApi so the box is not left stopped."
+          & "$env:GITHUB_WORKSPACE\scripts\Start-OmsLoanApiService.ps1"
+          $svc = Get-Service -Name OmsLoanApi -ErrorAction SilentlyContinue
+          if ($null -ne $svc) { Write-Host "OmsLoanApi status after restart attempt: $($svc.Status)" }
+
+      - name: Summary
+        if: always()
+        shell: pwsh
+        run: |
+          $svc = Get-Service -Name OmsLoanApi -ErrorAction SilentlyContinue
+          $status = if ($null -eq $svc) { 'not-installed' } else { [string]$svc.Status }
+          @"
+          ## Deploy Api
+
+          | | |
+          | --- | --- |
+          | Commit | `${{ github.sha }}` |
+          | Service folder | `${{ inputs.service_folder }}` |
+          | Provider | (Api does not migrate) |
+          | Service status | $status |
+          | Migrations | none |
+          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append

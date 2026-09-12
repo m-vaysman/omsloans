@@ -1,18 +1,10 @@
 name: CI
 
 on:
-  pull_request:
-    paths:
-      - "src/OmsLoan.Domain/**"
-      - "src/OmsLoan.Worker/**"
-      - "src/Directory.Build.props"
-      - "tests/OmsLoan.Domain.Tests/**"
-      - "tests/OmsLoan.Worker.Tests/**"
-      - ".github/workflows/ci.yml"
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -20,9 +12,9 @@ permissions:
 
 jobs:
   build-test:
-    name: Build and test (Worker path)
-    # Worker is a Windows Service; folder-lock tests assume NTFS share semantics.
+    name: Build and test
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,3 +29,12 @@ jobs:
 
       - name: Test Worker
         run: dotnet test tests/OmsLoan.Worker.Tests/OmsLoan.Worker.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Infrastructure
+        run: dotnet test tests/OmsLoan.Infrastructure.Tests/OmsLoan.Infrastructure.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Postgres
+        run: dotnet test tests/OmsLoan.Data.Postgres.Tests/OmsLoan.Data.Postgres.Tests.csproj -c Release --verbosity normal
+
+      - name: Test Api
+        run: dotnet test tests/OmsLoan.Api.Tests/OmsLoan.Api.Tests.csproj -c Release --verbosity normal
