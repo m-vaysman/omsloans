@@ -23,13 +23,15 @@ public static class OpsLogText
             : firstLine[..maxLength] + Ellipsis;
     }
 
-    // 50 entries, 300 characters. Take keeps the first maxEntries — oldest if
-    // the source is chronological.
+    // Newest first, then 50 entries and 300 characters. Ordering here rather than
+    // trusting the caller: an Event Log query that hands over oldest-first would
+    // otherwise trim away the failure worth reading.
     public static IReadOnlyList<OpsLogEntry> Trim(
         IEnumerable<OpsLogEntry> entries,
         int maxEntries,
         int maxMessageLength) =>
         entries
+            .OrderByDescending(entry => entry.TimestampUtc)
             .Take(maxEntries)
             .Select(entry => entry with { Message = Summarize(entry.Message, maxMessageLength) })
             .ToList();

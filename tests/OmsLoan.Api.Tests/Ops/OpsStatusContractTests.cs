@@ -79,20 +79,30 @@ public class OpsStatusContractTests
 
         string[] serviceStates = [OpsServiceState.Running, OpsServiceState.Stopped, OpsServiceState.Unknown];
         string[] databaseStates =
-            [OpsDatabaseState.Healthy, OpsDatabaseState.Unhealthy, OpsDatabaseState.NotConfigured];
+        [
+            OpsDatabaseState.Healthy,
+            OpsDatabaseState.Unhealthy,
+            OpsDatabaseState.NotConfigured,
+            OpsDatabaseState.NotMeasured,
+        ];
 
         Assert.All(status.Services, service => Assert.Contains(service.Status, serviceStates));
         Assert.Contains(status.Database.Status, databaseStates);
     }
 
     [Fact]
-    // Phase 1 flag. Running here is stub paint, not a measured service.
-    public async Task StubIsTrueWhileNothingIsProbedForReal()
+    // Stub data must not claim a measured state anywhere in the payload, not only on
+    // the page: whatever reads the JSON never sees the badge.
+    public async Task StubbedStatusNeverClaimsRunningOrHealthy()
     {
-        var status = await Build(Configuration());
+        var status = await Build(Configuration(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:OmsLoan"] = "Host=localhost;Database=omsloan;Username=omsloan",
+        }));
 
         Assert.True(status.Stub);
-        Assert.All(status.Services, service => Assert.Equal(OpsServiceState.Running, service.Status));
+        Assert.All(status.Services, service => Assert.Equal(OpsServiceState.Unknown, service.Status));
+        Assert.Equal(OpsDatabaseState.NotMeasured, status.Database.Status);
     }
 
     [Fact]

@@ -16,9 +16,12 @@ public static class OpsDatabaseState
     public const string Unhealthy = "Unhealthy";
 
     public const string NotConfigured = "NotConfigured";
+
+    public const string NotMeasured = "NotMeasured";
 }
 
-// Stub true until phase 2. The page paints unmeasured cards amber, never green.
+// Stub true until phase 2. Unmeasured states say so in the payload, so a JSON
+// consumer that ignores Stub still cannot read success. The page paints them amber.
 public sealed record OpsStatus(
     IReadOnlyList<OpsServiceStatus> Services,
     OpsDatabaseStatus Database,

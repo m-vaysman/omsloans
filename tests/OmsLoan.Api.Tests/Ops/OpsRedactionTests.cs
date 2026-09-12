@@ -37,6 +37,21 @@ public class OpsRedactionTests
     }
 
     [Fact]
+    // A quoted value may hold a semicolon. Splitting on ';' by hand put half the
+    // password in the endpoint field.
+    public async Task AQuotedSemicolonInThePasswordCannotReachTheEndpoint()
+    {
+        var status = await Build(Configuration(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:OmsLoan"] = "Host=db01;Port=6432;Password='a;Host=SECRET-HOST'",
+            ["Database:Provider"] = "Postgres",
+        }));
+
+        Assert.Equal("db01:6432", status.Database.Endpoint);
+        Assert.DoesNotContain("SECRET-HOST", Serialize(status), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task SecretsAppearAsPresentOrAbsentOnly()
     {
         var status = await Build(Configuration(HostSettings()));

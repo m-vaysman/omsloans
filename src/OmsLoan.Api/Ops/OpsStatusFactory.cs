@@ -45,9 +45,10 @@ public static class OpsStatusFactory
                 await ProbeAsync(databaseProbe, options.ProbeTimeout(), cancellationToken),
                 OpsConnectionEndpoint.Describe(connectionString, configuredProvider));
 
-        // Phase 1 has no service query. Stub paints Running; without stub it
-        // is Unknown, never invented. The page still marks stub cards "not measured".
-        var serviceState = stub ? OpsServiceState.Running : OpsServiceState.Unknown;
+        // Phase 1 has no service query, so the state is Unknown whether or not this
+        // is stub data. Painting Running while nothing was measured reads as success
+        // to anything consuming the JSON rather than the page.
+        var serviceState = OpsServiceState.Unknown;
 
         var services = new[]
         {

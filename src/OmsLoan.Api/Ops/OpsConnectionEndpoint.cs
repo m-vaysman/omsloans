@@ -1,3 +1,4 @@
+using System.Data.Common;
 using OmsLoan.Data.Postgres;
 
 namespace OmsLoan.Api.Ops;
@@ -6,8 +7,14 @@ public static class OpsConnectionEndpoint
 {
     private const int DefaultPostgresPort = 5432;
 
+    // Npgsql: Host. SqlClient: Server / Data Source. Same field either way.
+    private static readonly string[] HostKeys =
+        ["host", "server", "data source", "datasource", "address", "addr", "network address"];
+
     // Host and port only. Password, user, and database name stay out of the payload.
-    // Split is on ';' and does not honor quoting.
+    // DbConnectionStringBuilder rather than a split on ';': a quoted value may hold a
+    // semicolon, and hand-splitting Password='a;Host=SECRET' puts half the password
+    // in the endpoint.
     public static string? Describe(string? connectionString, string? provider)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -15,46 +22,27 @@ public static class OpsConnectionEndpoint
             return null;
         }
 
-        string? host = null;
-        string? port = null;
+        DbConnectionStringBuilder parsed;
 
-        foreach (var part in connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        try
         {
-            var separator = part.IndexOf('=');
-            if (separator <= 0)
-            {
-                continue;
-            }
-
-            var key = part[..separator].Replace(" ", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
-            var value = part[(separator + 1)..].Trim();
-
-            if (value.Length == 0)
-            {
-                continue;
-            }
-
-            // Npgsql: Host. SqlClient: Server / Data Source. Same field either way.
-            switch (key)
-            {
-                case "host":
-                case "server":
-                case "datasource":
-                case "address":
-                case "addr":
-                case "networkaddress":
-                    host = value;
-                    break;
-                case "port":
-                    port = value;
-                    break;
-            }
+            parsed = new DbConnectionStringBuilder { ConnectionString = connectionString };
         }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+
+        var host = HostKeys
+            .Select(key => Value(parsed, key))
+            .FirstOrDefault(value => value is not null);
 
         if (host is null)
         {
             return null;
         }
+
+        var port = Value(parsed, "port");
 
         if (port is not null)
         {
@@ -66,4 +54,9 @@ public static class OpsConnectionEndpoint
             ? $"{host}:{DefaultPostgresPort}"
             : host;
     }
+
+    private static string? Value(DbConnectionStringBuilder parsed, string key) =>
+        parsed.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value?.ToString())
+            ? value.ToString()
+            : null;
 }
