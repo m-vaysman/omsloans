@@ -111,7 +111,6 @@ jobs:
         shell: pwsh
         env:
           OMSLOAN_SERVICE_ACCOUNT_PASSWORD: ${{ secrets.OMSLOAN_WORKER_SERVICE_PASSWORD }}
-          OMSLOAN_CONNECTION: ${{ secrets.OMSLOAN_CONNECTION }}
         run: |
           $ErrorActionPreference = 'Stop'
           $account = "${{ inputs.service_account }}".Trim()
