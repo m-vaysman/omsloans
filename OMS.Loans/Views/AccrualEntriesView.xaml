@@ -17,7 +17,7 @@
     d:DesignHeight="900"
     d:DesignWidth="1000">
     <dxmvvm:Interaction.Behaviors>
-        <dxmvvm:EventToCommand Command="{Binding InitializeViewModelCommand}" />
+        <dxmvvm:EventToCommand Command="{Binding InitializeViewModelCommand}" EventName="Loaded" />
         <dxmvvm1:DXMessageBoxService/>
     </dxmvvm:Interaction.Behaviors>
     <dxgo:LayoutControl >
