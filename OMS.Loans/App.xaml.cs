@@ -8,6 +8,7 @@ using OMS.Loans.Services;
 using OMS.Loans.ViewModels;
 using System;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace OMS.Loans
 {
@@ -53,6 +54,13 @@ namespace OMS.Loans
         public App()
         {
             Services = ConfigureServices();
+            DispatcherUnhandledException += OnDispatcherUnhandledException;
+        }
+
+        private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            DXMessageBox.Show(e.Exception.Message, "Loan Trader", MessageBoxButton.OK, MessageBoxImage.Error);
+            e.Handled = true;
         }
     }
 }

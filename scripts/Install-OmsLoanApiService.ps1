@@ -67,6 +67,12 @@ param(
 
     [string]$ConnectionString,
 
+    [System.Management.Automation.PSCredential]$Credential,
+
+    [securestring]$ServiceAccountPassword,
+
+    [switch]$NonInteractive,
+
     [switch]$StartAfterInstall
 )
 
@@ -128,13 +134,17 @@ foreach ($url in @($Urls -split ';' | Where-Object { $_ })) {
 
 # --- Remove any existing installation so the script is re-runnable -----------------------
 $existing = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+$priorEnvironment = $null
 if ($null -ne $existing) {
+    $priorKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName"
+    if (Test-Path -LiteralPath $priorKey) {
+        $priorEnvironment = (Get-ItemProperty -Path $priorKey -Name Environment -ErrorAction SilentlyContinue).Environment
+    }
     Write-Host 'Existing service found. Stopping and removing it.'
     if ($existing.Status -ne 'Stopped') {
         Stop-Service -Name $serviceName -Force
         $existing.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30))
     }
-    # Remove-Service needs PowerShell 6+; sc.exe covers Windows PowerShell 5.1 as well.
     & sc.exe delete $serviceName | Out-Null
     Start-Sleep -Seconds 2
 }
@@ -149,12 +159,31 @@ $newServiceArgs = @{
 }
 
 if ($ServiceAccount) {
-    # Prompted rather than taken as a parameter so the password is never in a command line,
-    # a script file, or PSReadLine history.
-    $credential = Get-Credential -UserName $ServiceAccount -Message "Password for the $serviceName service account"
-    $newServiceArgs['Credential'] = $credential
+    if ($null -ne $Credential) {
+        $resolvedCredential = $Credential
+    }
+    elseif ($ServiceAccount.EndsWith('$')) {
+        $resolvedCredential = [pscredential]::new($ServiceAccount, [securestring]::new())
+    }
+    elseif ($null -ne $ServiceAccountPassword) {
+        $resolvedCredential = [pscredential]::new($ServiceAccount, $ServiceAccountPassword)
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($env:OMSLOAN_SERVICE_ACCOUNT_PASSWORD)) {
+        $secure = ConvertTo-SecureString -String $env:OMSLOAN_SERVICE_ACCOUNT_PASSWORD -AsPlainText -Force
+        $resolvedCredential = [pscredential]::new($ServiceAccount, $secure)
+    }
+    elseif ($NonInteractive) {
+        throw "NonInteractive install needs a gMSA (account ending in `$), -Credential, -ServiceAccountPassword, or OMSLOAN_SERVICE_ACCOUNT_PASSWORD."
+    }
+    else {
+        $resolvedCredential = Get-Credential -UserName $ServiceAccount -Message "Password for the $serviceName service account"
+    }
+    $newServiceArgs['Credential'] = $resolvedCredential
 }
 else {
+    if ($NonInteractive) {
+        throw 'NonInteractive install requires -ServiceAccount (gMSA preferred). LocalSystem is not allowed for headless first ship.'
+    }
     Write-Warning 'No -ServiceAccount given; installing as LocalSystem. Fine for a first install, wrong for production — see docs/api-windows-service.md.'
 }
 
@@ -188,6 +217,12 @@ if (-not [System.Diagnostics.EventLog]::SourceExists($eventLogSource)) {
 # A service does not inherit variables set with setx. Its own block lives in the registry as
 # a REG_MULTI_SZ, which is what makes the environment name, the listening address and the
 # connection string visible to it and to nothing else on the machine.
+if ([string]::IsNullOrWhiteSpace($ConnectionString)) {
+    $ConnectionString = $env:OMSLOAN_CONNECTION
+    if ([string]::IsNullOrWhiteSpace($ConnectionString)) { $ConnectionString = $env:ConnectionStrings__OmsLoan }
+}
+$databaseProvider = $env:Database__Provider
+
 $environmentEntries = @(
     "ASPNETCORE_ENVIRONMENT=$Environment"
     "ASPNETCORE_URLS=$Urls"
@@ -195,6 +230,24 @@ $environmentEntries = @(
 
 if ($ConnectionString) {
     $environmentEntries += "ConnectionStrings__OmsLoan=$ConnectionString"
+}
+if (-not [string]::IsNullOrWhiteSpace($databaseProvider)) {
+    $environmentEntries += "Database__Provider=$databaseProvider"
+}
+
+if ($null -ne $priorEnvironment) {
+    $merged = [ordered]@{}
+    foreach ($line in @($priorEnvironment)) {
+        $idx = $line.IndexOf('=')
+        if ($idx -lt 1) { continue }
+        $merged[$line.Substring(0, $idx)] = $line.Substring($idx + 1)
+    }
+    foreach ($line in $environmentEntries) {
+        $idx = $line.IndexOf('=')
+        if ($idx -lt 1) { continue }
+        $merged[$line.Substring(0, $idx)] = $line.Substring($idx + 1)
+    }
+    $environmentEntries = @($merged.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" })
 }
 
 $serviceKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName"
