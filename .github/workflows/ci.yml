@@ -1,6 +1,12 @@
 name: CI
 
 on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "OmsLoan.sln"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 concurrency:
