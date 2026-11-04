@@ -15,6 +15,9 @@ namespace OMS.Loans.ViewModels
     {
         // Blotter trade properties
         [ObservableProperty]
+        public int blotterId;
+
+        [ObservableProperty]
         public string counterPartyName;
 
         [ObservableProperty]
