@@ -13,9 +13,23 @@ namespace OMS.Loans.Mapping
         {
             var configuration = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMap<Blotter, BlotterItem>()
-                .ForMember("counterPartyName", a => a.Ignore())
+                cfg.ShouldMapProperty = property =>
+                {
+                    var setter = property.SetMethod;
+                    if (setter == null || !setter.IsPublic)
+                    {
+                        return false;
+                    }
 
+                    if (property.Name == "HasErrors")
+                    {
+                        return false;
+                    }
+
+                    return !typeof(System.Windows.Input.ICommand).IsAssignableFrom(property.PropertyType);
+                };
+
+                cfg.CreateMap<Blotter, BlotterItem>()
              .ForMember(dest => dest.CounterPartyName,
                         opt => opt.MapFrom(src => src.CounterParty != null ? src.CounterParty.CounterPartyName : string.Empty))
              .ForMember(dest => dest.Ticker, opt => opt.MapFrom(src => src.Ticker))
