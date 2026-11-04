@@ -15,7 +15,7 @@
                     VerticalAlignment="Center"
                     Command="{Binding PublishExternalCashFlowItemCommand}"
                     HorizontalAlignment="Center"
-                    Glyph="{dx:FontIconSource ColorName=Blue, Glyph=60889}"
+                    AutomationProperties.Name="Match selected payment" ToolTip="Match selected payment" Glyph="{dx:FontIconSource Glyph=60889}"
                     Margin="0,30,0,0"/>
             </dxlc:LayoutItem>
             <dxlc:LayoutItem VerticalAlignment="Stretch">
@@ -42,11 +42,6 @@
                                     TotalSummaryPosition="Bottom"
                                      VerticalScrollbarVisibility="Hidden"
                                     AutoWidth="True">
-                                <dxg:TableView.RowStyle>
-                                    <Style TargetType="dxg:RowControl">
-                                        <Setter Property="Background" Value="#008080"/>
-                                    </Style>
-                                </dxg:TableView.RowStyle>
                 
                     </dxg:TableView>
                 </dxg:GridControl.View>
@@ -54,7 +49,7 @@
                             <dxg:GridColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel>
-                                        <dx:SimpleButton Background="Black"  Command="{Binding DataContext.PublishExternalCashFlowItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage SvgImages/DiagramIcons/PreviousPage.svg}" />
+                                        <dx:SimpleButton AutomationProperties.Name="{Binding Row.Code, StringFormat=Match payment {0}}" ToolTip="{Binding Row.Code, StringFormat=Match payment {0}}" Command="{Binding DataContext.PublishExternalCashFlowItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage SvgImages/DiagramIcons/PreviousPage.svg}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </dxg:GridColumn.CellTemplate>

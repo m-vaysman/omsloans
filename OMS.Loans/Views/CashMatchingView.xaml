@@ -76,26 +76,10 @@
                                 AllowHeaderNavigation="True"
                                 AllowEditing="False"
                                 AutoWidth="True"
+                                ShowGroupedColumns="False"
                                 VerticalScrollbarVisibility="Hidden"
                                 
                                 TotalSummaryPosition="Bottom">
-
-
-                                <!-- Conditional formatting based on SourceType -->
-                                <dxg:TableView.FormatConditions>
-                                    <dxg:FormatCondition Expression="[SourceType] = 'externalCash'" FieldName="SourceType" ApplyToRow="true">
-                                        <dx:Format Background="Gray"/>
-                                    </dxg:FormatCondition>
-                                    <dxg:FormatCondition Expression="[SourceType] = 'expectedCash'" FieldName="SourceType" ApplyToRow="true">
-                                        <dx:Format Background="#FFA9A9A9"/>
-                                    </dxg:FormatCondition>
-                                    <dxg:FormatCondition Expression="[SourceType] = 'externalCash'" FieldName="Amount">
-                                        <dx:Format Foreground="#FF932320" FontStyle="Italic" FontWeight="Bold"/>
-                                    </dxg:FormatCondition>
-                                    <dxg:FormatCondition Expression="[SourceType] = 'expectedCash'" FieldName="Amount">
-                                        <dx:Format FontStyle="Italic" FontWeight="Bold"/>
-                                    </dxg:FormatCondition>
-                                </dxg:TableView.FormatConditions>
                             </dxg:TableView>
                         </dxg:GridControl.View>
 
@@ -104,10 +88,9 @@
                             <dxg:GridColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel>
-                                        <dx:SimpleButton 
-                                            BorderBrush="Transparent"
-                                            Background="Black"
-                                            Opacity="0.5"
+                                        <dx:SimpleButton
+                                            AutomationProperties.Name="{Binding Row.Code, StringFormat=Reject {0}}"
+                                            ToolTip="{Binding Row.Code, StringFormat=Reject {0}}"
                                             Command="{Binding DataContext.RemoveSelectedItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             Glyph="{dx:DXImage GrayScaleImages/Edit/Delete_16x16.png}" />
                                     </StackPanel>
@@ -115,7 +98,7 @@
                             </dxg:GridColumn.CellTemplate>
                         </dxg:GridColumn>
 
-                        <dxg:GridColumn FieldName="SourceType" IsSmart="True"/>
+                        <dxg:GridColumn FieldName="SourceType" Header="Side" GroupIndex="0" IsSmart="True"/>
                         <dxg:GridColumn FieldName="Date" IsSmart="True"/>
                         <dxg:GridColumn FieldName="Source" IsSmart="True"/>
                         <dxg:GridColumn FieldName="CounterParty" IsSmart="True"/>
@@ -138,8 +121,7 @@
                     <DockPanel>
                         <dx:SimpleButton 
                             Content="APPLY" 
-                            Command="{Binding ApplyCashCommand}" 
-                            Background="LawnGreen"/>
+                            Command="{Binding ApplyCashCommand}"/>
                     </DockPanel>
                 </dxlc:LayoutItem>
             </dxlc:LayoutGroup>

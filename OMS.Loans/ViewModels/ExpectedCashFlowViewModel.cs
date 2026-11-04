@@ -50,7 +50,7 @@ namespace OMS.Loans.ViewModels
         public object OriginalVm { get; }
 
         /// <summary>
-        /// Indicates whether the source is 'expectedCash' or 'externalCash'.
+        /// Side label shown as the group header: Expected or Payment.
         /// </summary>
         [ObservableProperty]
         private string sourceType;
@@ -94,7 +94,7 @@ namespace OMS.Loans.ViewModels
             if (expectedCash is null)
                 throw new ArgumentNullException(nameof(expectedCash));
 
-            SourceType = "expectedCash";
+            SourceType = "Expected";
             Date = expectedCash.ExpectedCashPaymentDate;
             Source = expectedCash.Source;
             CounterParty = expectedCash.CounterParty;
@@ -112,7 +112,7 @@ namespace OMS.Loans.ViewModels
             if (externalCash is null)
                 throw new ArgumentNullException(nameof(externalCash));
 
-            SourceType = "externalCash";
+            SourceType = "Payment";
             Date = externalCash.Date;
             Source = "Payment";
             Code = string.IsNullOrWhiteSpace(externalCash.SubCode)
