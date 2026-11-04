@@ -34,25 +34,23 @@ namespace OMS.Loans.ViewModels
         // Accrual start date (required)
         [ObservableProperty]
         [NotifyDataErrorInfo]
-        [Required(ErrorMessage = "From Date is required.")]
         public DateOnly fromDate;
 
-        // Accrual end date (required)
+        // Accrual end date
         [ObservableProperty]
         [NotifyDataErrorInfo]
-        [Required(ErrorMessage = "Start Date is required.")]
         public DateOnly toDate;
 
-        // Interest rate from bank (percentage 0–100)
+        // Bank rate as a fraction. 0.05 is 5 percent. The grid mask is percent.
         [ObservableProperty]
         [NotifyDataErrorInfo]
-        [Range(0, 100, ErrorMessage = "Bank Rate must be between 0 and 100.")]
+        [Range(0, 1, ErrorMessage = "Bank Rate must be between 0% and 100%.")]
         public decimal bankRate;
 
-        // Spread over the bank rate (percentage 0–100)
+        // Spread as a fraction. 0.00125 is 12.5 bp.
         [ObservableProperty]
         [NotifyDataErrorInfo]
-        [Range(0, 100, ErrorMessage = "Spread must be between 0 and 100.")]
+        [Range(0, 1, ErrorMessage = "Spread must be between 0% and 100%.")]
         public decimal spread;
 
         // Day count convention (e.g., "360" or "365") — required, max 50 chars
@@ -100,14 +98,20 @@ namespace OMS.Loans.ViewModels
         /// Calculates expected accrual cash using the formula:
         /// Notional * Days * (BankRate + Spread) / DayCountBasis
         /// </summary>
+        public bool HasDateOrderError => ToDate < FromDate;
+
+        public bool HasDayCountError => Act != "360" && Act != "365";
+
         public void RecalculateExpectedAccrualCash()
         {
-            // Convert DateOnly to DateTime for arithmetic
+            if (HasDateOrderError || HasDayCountError)
+            {
+                ExpectedCash = 0;
+                return;
+            }
+
             int days = (ToDate.ToDateTime(TimeOnly.MinValue) - FromDate.ToDateTime(TimeOnly.MinValue)).Days;
-
             var partialCalc = Notional * days * (BankRate + Spread);
-
-            // Use 360 or 365 based on "Act" value
             ExpectedCash = Act == "360"
                 ? partialCalc / 360
                 : partialCalc / 365;
