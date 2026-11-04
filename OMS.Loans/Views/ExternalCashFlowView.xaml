@@ -49,7 +49,7 @@
                             <dxg:GridColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel>
-                                        <dx:SimpleButton AutomationProperties.Name="Match payment" ToolTip="Match payment" Command="{Binding DataContext.PublishExternalCashFlowItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage SvgImages/DiagramIcons/PreviousPage.svg}" />
+                                        <dx:SimpleButton AutomationProperties.Name="{Binding Row.Code, StringFormat=Match payment {0}}" ToolTip="{Binding Row.Code, StringFormat=Match payment {0}}" Command="{Binding DataContext.PublishExternalCashFlowItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage SvgImages/DiagramIcons/PreviousPage.svg}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </dxg:GridColumn.CellTemplate>

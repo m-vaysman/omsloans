@@ -79,6 +79,14 @@
                                 VerticalScrollbarVisibility="Hidden"
                                 
                                 TotalSummaryPosition="Bottom">
+                                <dxg:TableView.FormatConditions>
+                                    <dxg:FormatCondition Expression="[SourceType] = 'externalCash'" FieldName="SourceType" ApplyToRow="True">
+                                        <dx:Format FontStyle="Italic"/>
+                                    </dxg:FormatCondition>
+                                    <dxg:FormatCondition Expression="[SourceType] = 'expectedCash'" FieldName="SourceType" ApplyToRow="True">
+                                        <dx:Format FontWeight="Bold"/>
+                                    </dxg:FormatCondition>
+                                </dxg:TableView.FormatConditions>
                             </dxg:TableView>
                         </dxg:GridControl.View>
 
@@ -88,8 +96,8 @@
                                 <DataTemplate>
                                     <StackPanel>
                                         <dx:SimpleButton
-                                            AutomationProperties.Name="Return row"
-                                            ToolTip="Return row"
+                                            AutomationProperties.Name="{Binding Row.Code, StringFormat=Reject {0}}"
+                                            ToolTip="{Binding Row.Code, StringFormat=Reject {0}}"
                                             Command="{Binding DataContext.RemoveSelectedItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             Glyph="{dx:DXImage GrayScaleImages/Edit/Delete_16x16.png}" />
                                     </StackPanel>

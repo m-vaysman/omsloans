@@ -270,7 +270,10 @@
                             <dxlc:LayoutItem>
                                 <dx:SimpleButton
                                     HorizontalAlignment="Left"
-                                    Content="Pay Downs" />
+                                    Content="Pay Downs"
+                                    IsEnabled="False"
+                                    AutomationProperties.Name="Pay downs"
+                                    ToolTip="Pay downs are not available on this screen" />
                                                         </dxlc:LayoutItem>
                             <dxlc:LayoutItem>
                                 <dx:SimpleButton
