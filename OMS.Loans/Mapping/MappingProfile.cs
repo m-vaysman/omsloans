@@ -15,18 +15,18 @@ namespace OMS.Loans.Mapping
             {
                 cfg.ShouldMapProperty = property =>
                 {
-                    var setter = property.SetMethod;
-                    if (setter == null || !setter.IsPublic)
+                    if (property.SetMethod == null)
                     {
                         return false;
                     }
 
-                    if (property.Name == "HasErrors")
+                    if (typeof(System.Windows.Input.ICommand).IsAssignableFrom(property.PropertyType))
                     {
                         return false;
                     }
 
-                    return !typeof(System.Windows.Input.ICommand).IsAssignableFrom(property.PropertyType);
+                    return property.Name != "HasErrors"
+                        || !typeof(System.ComponentModel.INotifyDataErrorInfo).IsAssignableFrom(property.DeclaringType);
                 };
 
                 cfg.CreateMap<Blotter, BlotterItem>()
