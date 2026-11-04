@@ -31,7 +31,7 @@ namespace OMS.Loans.Views
             InitializeComponent();
             screenScope = App.Current.CreateScreenScope();
             DataContext = screenScope.ServiceProvider.GetRequiredService<TradeEntryViewModel>();
-            Unloaded += (_, _) => screenScope.Dispose();
+            ScreenScopeLifetime.HoldUntilWindowCloses(this, screenScope, DataContext);
         }
 
         private async void ReInitializeViewModel_RequestNavigation(object sender, HyperlinkEditRequestNavigationEventArgs e)

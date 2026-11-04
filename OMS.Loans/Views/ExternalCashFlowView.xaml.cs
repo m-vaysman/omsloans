@@ -13,7 +13,7 @@ namespace OMS.Loans.Views
             InitializeComponent();
             screenScope = App.Current.CreateScreenScope();
             DataContext = screenScope.ServiceProvider.GetRequiredService<ExternalCashFlowViewModel>();
-            Unloaded += (_, _) => screenScope.Dispose();
+            ScreenScopeLifetime.HoldUntilWindowCloses(this, screenScope, DataContext);
         }
     }
 }

@@ -109,7 +109,7 @@ namespace OMS.Loans.ViewModels
             }
             catch (Exception e)
             {
-
+                MessageBoxService.ShowMessage(e.Message, "Trade entry", MessageButton.OK, MessageIcon.Error);
             }
         }
 
@@ -279,6 +279,8 @@ namespace OMS.Loans.ViewModels
         [RelayCommand]
         public void ShowAccruals()
         {
+            // ShowDialog is modal, so this scope outlives the dialog.
+            // A non-modal dialog would dispose the scope under a live AccrualEntriesViewModel.
             using var scope = App.Current.CreateScreenScope();
             var viewModel = scope.ServiceProvider.GetRequiredService<AccrualEntriesViewModel>();
             viewModel.SetTradeId(this.TradeEntryItem.TradeId);
