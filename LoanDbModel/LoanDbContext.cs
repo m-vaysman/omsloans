@@ -6,16 +6,17 @@ namespace LoanDbModel
     {
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         {
-            options.UseSqlServer(
-                // NOTE: placeholder only. Do NOT commit real credentials.
-                // See SETUP.md for supplying the real connection string locally.
-                @"Server=YOUR_SERVER;
-                  Database=YOUR_DB;
-                  User ID=YOUR_USER;
-                  Password=YOUR_PASSWORD;
-                  TrustServerCertificate=true;
-                  MultipleActiveResultSets=True;
-                  Max Pool Size=100;");
+            if (options.IsConfigured)
+            {
+                return;
+            }
+
+            // No credentials in source. See SETUP.md.
+            var connectionString = Environment.GetEnvironmentVariable("OMSLOANS_CONNECTION");
+            if (!string.IsNullOrWhiteSpace(connectionString))
+            {
+                options.UseSqlServer(connectionString);
+            }
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

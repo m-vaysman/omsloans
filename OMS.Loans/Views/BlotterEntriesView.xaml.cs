@@ -1,4 +1,5 @@
 ﻿using DevExpress.Data.Utils;
+using Microsoft.Extensions.DependencyInjection;
 using OMS.Loans.ViewModels;
 using System;
 using System.Windows;
@@ -11,10 +12,14 @@ namespace OMS.Loans.Views
     /// </summary>
     public partial class BlotterEntriesView : UserControl
     {
+        private readonly IServiceScope screenScope;
+
         public BlotterEntriesView()
         {
             InitializeComponent();
-            this.DataContext = App.Current.Services.GetService<BlotterEntriesViewModel>();
+            screenScope = App.Current.CreateScreenScope();
+            DataContext = screenScope.ServiceProvider.GetRequiredService<BlotterEntriesViewModel>();
+            Unloaded += (_, _) => screenScope.Dispose();
         }
 
         private void GridControl_LostFocus(object sender, RoutedEventArgs e)

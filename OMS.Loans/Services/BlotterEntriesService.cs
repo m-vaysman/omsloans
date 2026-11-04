@@ -32,8 +32,9 @@ namespace OMS.Loans.Services
         public IEnumerable<Blotter> GetBlotterEntries()
         {
             return loanDbContext.BlotteredTrades
-                                .Include(i => i.CounterParty) // Eager load the related CounterParty
-                                .ToList();                    // Materialize the query
+                                .AsNoTracking()
+                                .Include(i => i.CounterParty)
+                                .ToList();
         }
     }
 }

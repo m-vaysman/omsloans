@@ -1,33 +1,18 @@
 # Setup — Local Configuration
 
-This repository contains **no real credentials**. The connection string in
-`LoanDbModel/LoanDbContext.cs` is a placeholder:
-
-```
-Server=YOUR_SERVER;Database=YOUR_DB;User ID=YOUR_USER;Password=YOUR_PASSWORD;
-```
-
-Supply the real value locally using one of the options below. **Never commit it.**
+This repository contains **no real credentials**. `LoanDbContext.OnConfiguring` reads
+`OMSLOANS_CONNECTION` when the host has not already configured a provider.
+**Never commit a connection string.**
 
 ## Option 1 — Environment variable (recommended)
 
-Set `OMSLOANS_CONNECTION` on your machine:
+Set `OMSLOANS_CONNECTION` on your machine, then start a new terminal so the process sees it:
 
 ```powershell
 setx OMSLOANS_CONNECTION "Server=myserver;Database=Oms;User ID=me;Password=...;TrustServerCertificate=true;MultipleActiveResultSets=True;Max Pool Size=100;"
 ```
 
-Then read it in `OnConfiguring`:
-
-```csharp
-protected override void OnConfiguring(DbContextOptionsBuilder options)
-{
-    var cs = Environment.GetEnvironmentVariable("OMSLOANS_CONNECTION")
-             ?? throw new InvalidOperationException(
-                    "Set OMSLOANS_CONNECTION — see SETUP.md.");
-    options.UseSqlServer(cs);
-}
-```
+If the variable is missing, the trade-entry screen shows the database error when it loads counterparties. The source no longer contains a server name or password.
 
 ## Option 2 — .NET User Secrets
 
