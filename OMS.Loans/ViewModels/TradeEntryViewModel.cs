@@ -91,7 +91,18 @@ namespace OMS.Loans.ViewModels
             _fieldsToSum.Add(nameof(tradeEntryItem.InterestReceived));
             _fieldsToSum.Add(nameof(tradeEntryItem.EconomicBenefit));
             _fieldsToSum.Add(nameof(tradeEntryItem.DelayCompensation));
+            _fieldsToSum.Add(nameof(tradeEntryItem.AdditionalCredit));
 
+        }
+
+        [RelayCommand]
+        public void StartNewTrade()
+        {
+            Documents.Clear();
+            Total = 0;
+            TradeEntryItem = new TradeEntryItem(counterPartiesService);
+            Subscribe();
+            BookTradeCommand.NotifyCanExecuteChanged();
         }
 
         [RelayCommand]
@@ -99,6 +110,7 @@ namespace OMS.Loans.ViewModels
         {
             try
             {
+                CounterParties.Clear();
                 counterPartiesService
                     .GetCounterParties()
                     .ToList()
@@ -129,6 +141,7 @@ namespace OMS.Loans.ViewModels
 
                     TradeEntryItem = mapper.Map<Trade, TradeEntryItem>(result);
                     Subscribe();
+                    Documents.Clear();
                   var documents=  DocumentRetrieverService.GetTradeDocuments(TradeEntryItem.TradeId).ToList();
                     foreach(var d in documents)
                     {
@@ -206,7 +219,7 @@ namespace OMS.Loans.ViewModels
 
         }
 
-        [RelayCommand]
+        [RelayCommand(CanExecute = nameof(CanBookTrade))]
         public void BookTrade()
         {
             try
@@ -245,7 +258,7 @@ namespace OMS.Loans.ViewModels
                 else
                 {
                     var val = tradeEntriesService.Save(trade);
-                    this.TradeEntryItem.tradeId = val;
+                    this.TradeEntryItem.TradeId = val;
                     MessageBoxService.ShowMessage($"Trade booked. Id{val}");
                 }
 
@@ -272,7 +285,8 @@ namespace OMS.Loans.ViewModels
         public void Subscribe()
         {
 
-            this.tradeEntryItem.PropertyChanged += TradeEntryItem_PropertyChanged;
+            this.TradeEntryItem.PropertyChanged -= TradeEntryItem_PropertyChanged;
+            this.TradeEntryItem.PropertyChanged += TradeEntryItem_PropertyChanged;
         }
 
         [RelayCommand]

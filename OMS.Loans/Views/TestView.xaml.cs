@@ -29,10 +29,12 @@ namespace OMS.Loans.Views
             this.DataContext = App.Current.Services.GetService(typeof(TradeEntryViewModel));
         }
 
-        private async void ReInitializeViewModel_RequestNavigation(object sender, HyperlinkEditRequestNavigationEventArgs e)
+        private void ReInitializeViewModel_RequestNavigation(object sender, HyperlinkEditRequestNavigationEventArgs e)
         {
-            var vm = App.Current.Services.GetService(typeof(TradeEntryViewModel)) as TradeEntryViewModel;
-           await vm.InitializeViewModel();
+            if (DataContext is TradeEntryViewModel vm)
+            {
+                vm.StartNewTrade();
+            }
         }
     }
 }

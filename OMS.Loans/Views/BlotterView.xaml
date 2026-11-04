@@ -31,7 +31,7 @@
         <dxlc:LayoutControl DockPanel.Dock="Left">
             <dxlc:LayoutGroup Orientation="Vertical">
                 <dxlc:LayoutItem Label="CP" AddColonToLabel="True">
-                    <dxg:LookUpEdit  ItemsSource="{Binding CounterParties}" ValueMember="CounterPartyId" DisplayMember="CounterPartyName" SelectedItem="{Binding SelectedCounterParty, UpdateSourceTrigger=LostFocus}">
+                    <dxg:LookUpEdit ItemsSource="{Binding CounterParties}" ValueMember="CounterPartyId" DisplayMember="CounterPartyName" SelectedItem="{Binding SelectedCounterParty, ValidatesOnNotifyDataErrors=True}">
                     </dxg:LookUpEdit>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem Label="Ticker" AddColonToLabel="True">
@@ -41,19 +41,19 @@
                     <dxg1:TextEdit Text="{Binding BlotterItem.TradeAcct}"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem Label="Trade Date" AddColonToLabel="True">
-                    <dxg1:TextEdit Text="{Binding BlotterItem.TradeDate}" MaskUseAsDisplayFormat="True" MaskType="DateTime" Mask="d"/>
+                    <dxg1:TextEdit EditValue="{Binding BlotterItem.TradeDate, ValidatesOnNotifyDataErrors=True}" MaskUseAsDisplayFormat="True" MaskType="DateTime" Mask="d"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem Label="Buy/Sell" AddColonToLabel="True">
                     <dxg1:TextEdit Text="{Binding BlotterItem.BuySell}"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem Label="Price" AddColonToLabel="True">
-                    <dxg1:TextEdit Text="{Binding BlotterItem.Price}" MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="P2"/>
+                    <dxg1:TextEdit EditValue="{Binding BlotterItem.Price, ValidatesOnNotifyDataErrors=True}" MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="P2"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem Label="Spread" AddColonToLabel="True">
-                    <dxg1:TextEdit Text="{Binding BlotterItem.Spread}" MaskUseAsDisplayFormat="True" MaskType="Numeric" Mask="P2"/>
+                    <dxg1:TextEdit EditValue="{Binding BlotterItem.Spread, ValidatesOnNotifyDataErrors=True}" MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="P2"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem Label="Notional" AddColonToLabel="True">
-                    <dxg1:TextEdit Text="{Binding BlotterItem.Notional}" MaskType="Numeric" Mask="c"/>
+                    <dxg1:TextEdit EditValue="{Binding BlotterItem.Notional, ValidatesOnNotifyDataErrors=True}" MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="c"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem>
                     <dx:SimpleButton Content="&gt;" Command="{Binding SaveBlotterItemCommand}" HorizontalAlignment="Right"/>
