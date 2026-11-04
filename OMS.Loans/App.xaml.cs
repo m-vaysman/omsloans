@@ -18,6 +18,8 @@ namespace OMS.Loans
     {
         public new static App Current => (App)Application.Current;
         public IServiceProvider Services { get; }
+
+        public IServiceScope CreateScreenScope() => Services.CreateScope();
         private static IServiceProvider ConfigureServices()
         {
 
@@ -35,6 +37,9 @@ namespace OMS.Loans
             serviceCollection.AddTransient<AccrualEntriesViewModel>();
             serviceCollection.AddTransient<BlotterEntriesViewModel>();
             serviceCollection.AddTransient<TradeEntryViewModel>();
+            serviceCollection.AddTransient<ExpectedCashFlowItemMergedViewModel>();
+            serviceCollection.AddTransient<ExpectedCashFlowViewModel>();
+            serviceCollection.AddTransient<ExternalCashFlowViewModel>();
             return serviceCollection.BuildServiceProvider();
         }
         static App()

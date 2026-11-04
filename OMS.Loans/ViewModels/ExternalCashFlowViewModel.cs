@@ -27,6 +27,13 @@ namespace OMS.Loans.ViewModels
         public ExternalCashFlowViewModel()
         {
             WeakReferenceMessenger.Default.Register<RejectedExternalCashFlowItemMessage>(this, RejectedExpectedCashFlowItemMessage_Handler);
+            ExternalCashFlowEntries = new ObservableCollection<ExternalCashFlowItemViewModel>
+            {
+                new ExternalCashFlowItemViewModel("BOA", "EW2323", new DateOnly(2025, 1, 14), 40000.0m),
+                new ExternalCashFlowItemViewModel("JPM", "EW232213", new DateOnly(2025, 2, 11), 43344.32m),
+                new ExternalCashFlowItemViewModel("WAC", "EW231223", new DateOnly(2025, 4, 4), 2322.22m),
+                new ExternalCashFlowItemViewModel("BOA", "EW322323", new DateOnly(2025, 1, 1), 2300.43m)
+            };
         }
 
         private void RejectedExpectedCashFlowItemMessage_Handler(object recipient, RejectedExternalCashFlowItemMessage message)
