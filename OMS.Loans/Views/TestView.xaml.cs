@@ -1,5 +1,6 @@
 ﻿using DevExpress.Mvvm.POCO;
 using DevExpress.Xpf.Editors;
+using Microsoft.Extensions.DependencyInjection;
 using OMS.Loans.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -23,16 +24,22 @@ namespace OMS.Loans.Views
     /// </summary>
     public partial class TestView : UserControl
     {
+        private readonly IServiceScope screenScope;
+
         public TestView()
         {
             InitializeComponent();
-            this.DataContext = App.Current.Services.GetService(typeof(TradeEntryViewModel));
+            screenScope = App.Current.CreateScreenScope();
+            DataContext = screenScope.ServiceProvider.GetRequiredService<TradeEntryViewModel>();
+            ScreenScopeLifetime.HoldUntilWindowCloses(this, screenScope, DataContext);
         }
 
         private async void ReInitializeViewModel_RequestNavigation(object sender, HyperlinkEditRequestNavigationEventArgs e)
         {
-            var vm = App.Current.Services.GetService(typeof(TradeEntryViewModel)) as TradeEntryViewModel;
-           await vm.InitializeViewModel();
+            if (DataContext is TradeEntryViewModel vm)
+            {
+                await vm.InitializeViewModel();
+            }
         }
     }
 }

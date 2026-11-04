@@ -19,6 +19,12 @@ namespace OMS.Loans.ViewModels
         public ExpectedCashFlowViewModel()
         {
             WeakReferenceMessenger.Default.Register<RejectedExpectedCashFlowItemMessage>(this, RejectedExpectedCashFlowItemMessage_Handler);
+            ExpectedCashFlowItems.Add(new ExpectedCashFlowItemViewModel() { Amount = 500, Code = "ACC2023", CounterParty = "BOA", ExpectedCashPaymentDate = new DateOnly(2025, 1, 10), Source = "Loan Accrual" });
+            ExpectedCashFlowItems.Add(new ExpectedCashFlowItemViewModel() { Amount = 500, Code = "ACC2024", CounterParty = "BOA", ExpectedCashPaymentDate = new DateOnly(2025, 1, 10), Source = "Loan Accrual" });
+            ExpectedCashFlowItems.Add(new ExpectedCashFlowItemViewModel() { Amount = 33500, Code = "ACC2025", CounterParty = "JPM", ExpectedCashPaymentDate = new DateOnly(2025, 1, 10), Source = "Loan Accrual" });
+            ExpectedCashFlowItems.Add(new ExpectedCashFlowItemViewModel() { Amount = 1200, Code = "ACC2026", CounterParty = "ML", ExpectedCashPaymentDate = new DateOnly(2025, 1, 10), Source = "Loan Accrual" });
+            ExpectedCashFlowItems.Add(new ExpectedCashFlowItemViewModel() { Amount = 1500, Code = "ACC2027", CounterParty = "GS", ExpectedCashPaymentDate = new DateOnly(2025, 1, 10), Source = "Loan Accrual" });
+            ExpectedCashFlowItems.Add(new ExpectedCashFlowItemViewModel() { Amount = 4500, Code = "ACC2028", CounterParty = "WAC", ExpectedCashPaymentDate = new DateOnly(2025, 1, 10), Source = "Loan Accrual" });
         }
 
         [RelayCommand]

@@ -23,7 +23,6 @@
                                    TotalSummaryPosition="Bottom"
                                    AutoWidth="True"
                                    VerticalScrollbarVisibility="Hidden"
-                                   DragEnter="TableView_DragEnter"
                                    >
                         <dxg:TableView.RowStyle>
                             <Style TargetType="dxg:RowControl">

@@ -1,4 +1,5 @@
 ﻿using DevExpress.Data.Utils;
+using Microsoft.Extensions.DependencyInjection;
 using OMS.Loans.ViewModels;
 using System;
 using System.Windows.Controls;
@@ -10,10 +11,14 @@ namespace OMS.Loans.Views
     /// </summary>
     public partial class BlotterView : UserControl
     {
+        private readonly IServiceScope screenScope;
+
         public BlotterView()
         {
             InitializeComponent();
-            this.DataContext = App.Current.Services.GetService<BlotterViewModel>();
+            screenScope = App.Current.CreateScreenScope();
+            DataContext = screenScope.ServiceProvider.GetRequiredService<BlotterViewModel>();
+            ScreenScopeLifetime.HoldUntilWindowCloses(this, screenScope, DataContext);
         }
     }
 }
