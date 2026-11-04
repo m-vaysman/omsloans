@@ -23,7 +23,6 @@
         <dx:DialogService>
             <dx:DialogService.DialogStyle>
                 <Style TargetType="dx:DXDialogWindow">
-                    <Setter Property="dx:ThemeManager.ThemeName" Value="DeepBlue"/>
                     <Setter Property="MaxHeight" Value="700"/>
                     <Setter Property="MaxWidth" Value="900"/>
                 </Style>
