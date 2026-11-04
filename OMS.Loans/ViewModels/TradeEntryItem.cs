@@ -57,7 +57,7 @@ namespace OMS.Loans.ViewModels
 
         [ObservableProperty]
         [NotifyDataErrorInfo]
-        [Range(0,double.MaxValue,ErrorMessage="Price must be above 0")]
+        [Range(0, 10, ErrorMessage = "Price must be between 0% and 1000%.")]
         public decimal price;
 
         [ObservableProperty]

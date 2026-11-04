@@ -47,10 +47,10 @@
                     <dxg1:TextEdit Text="{Binding BlotterItem.BuySell}"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem Label="Price" AddColonToLabel="True">
-                    <dxg1:TextEdit Text="{Binding BlotterItem.Price}" MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="P2"/>
+                    <dxg1:TextEdit Text="{Binding BlotterItem.Price}" MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="P3"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem Label="Spread" AddColonToLabel="True">
-                    <dxg1:TextEdit Text="{Binding BlotterItem.Spread}" MaskUseAsDisplayFormat="True" MaskType="Numeric" Mask="P2"/>
+                    <dxg1:TextEdit Text="{Binding BlotterItem.Spread}" MaskUseAsDisplayFormat="True" MaskType="Numeric" Mask="P3"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem Label="Notional" AddColonToLabel="True">
                     <dxg1:TextEdit Text="{Binding BlotterItem.Notional}" MaskType="Numeric" Mask="c"/>

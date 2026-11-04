@@ -28,7 +28,7 @@
         [Required]
         public string BuySell { get; set; }
 
-        [Precision(18, 2)]
+        [Precision(18, 6)]
         [Required]
         public Decimal Price { get; set; }
 
@@ -68,7 +68,7 @@
 
         public string Currency { get; set; }
 
-        [Precision(18, 2)]
+        [Precision(18, 6)]
         [Required]
         public decimal Spread { get; set; }
 

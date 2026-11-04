@@ -46,13 +46,13 @@ namespace OMS.Loans.ViewModels
         // Interest rate from bank (percentage 0–100)
         [ObservableProperty]
         [NotifyDataErrorInfo]
-        [Range(0, 100, ErrorMessage = "Bank Rate must be between 0 and 100.")]
+        [Range(0, 1, ErrorMessage = "Bank Rate must be between 0% and 100%.")]
         public decimal bankRate;
 
         // Spread over the bank rate (percentage 0–100)
         [ObservableProperty]
         [NotifyDataErrorInfo]
-        [Range(0, 100, ErrorMessage = "Spread must be between 0 and 100.")]
+        [Range(0, 1, ErrorMessage = "Spread must be between 0% and 100%.")]
         public decimal spread;
 
         // Day count convention (e.g., "360" or "365") — required, max 50 chars
@@ -98,7 +98,8 @@ namespace OMS.Loans.ViewModels
 
         /// <summary>
         /// Calculates expected accrual cash using the formula:
-        /// Notional * Days * (BankRate + Spread) / DayCountBasis
+        /// Notional * Days * (BankRate + Spread) / DayCountBasis.
+        /// BankRate and Spread are fractions: 0.05 is 5 percent, 0.00125 is 12.5 bp.
         /// </summary>
         public void RecalculateExpectedAccrualCash()
         {

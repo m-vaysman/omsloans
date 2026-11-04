@@ -42,7 +42,8 @@ namespace LoanDbModel.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("BankRate")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime>("CreatedDate")
                         .ValueGeneratedOnAdd()
@@ -62,7 +63,8 @@ namespace LoanDbModel.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("Spread")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<DateOnly>("ToDate")
                         .HasColumnType("date");
@@ -120,12 +122,12 @@ namespace LoanDbModel.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<decimal>("Spread")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<string>("Ticker")
                         .IsRequired()
@@ -327,15 +329,15 @@ namespace LoanDbModel.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime>("SettlementDate")
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("Spread")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<string>("Strategy")
                         .HasColumnType("nvarchar(max)");
