@@ -13,7 +13,6 @@
     Height="800"
     FontFamily="Arial"
     FontSize="12"
-    FontWeight="DemiBold"
     Title="Loan Trader">
 
     <Grid>

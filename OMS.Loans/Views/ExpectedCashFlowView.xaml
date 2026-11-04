@@ -25,11 +25,6 @@
                                    VerticalScrollbarVisibility="Hidden"
                                    DragEnter="TableView_DragEnter"
                                    >
-                        <dxg:TableView.RowStyle>
-                            <Style TargetType="dxg:RowControl">
-                                <Setter Property="Background" Value="#FF7F50"/>
-                            </Style>
-                        </dxg:TableView.RowStyle>
                     </dxg:TableView>
                 </dxg:GridControl.View>
                 <dxg:GridColumn FieldName="Code" IsSmart="True"/>
@@ -41,7 +36,7 @@
                     <dxg:GridColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel>
-                                <dx:SimpleButton Background="Black" Command="{Binding DataContext.PublishSelectedItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage SvgImages/DiagramIcons/NextPage.svg}"  />
+                                <dx:SimpleButton AutomationProperties.Name="Match expected cash" ToolTip="Match expected cash" Command="{Binding DataContext.PublishSelectedItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage SvgImages/DiagramIcons/NextPage.svg}" />
                             </StackPanel>
                         </DataTemplate>
                     </dxg:GridColumn.CellTemplate>
@@ -53,7 +48,7 @@
                 HorizontalAlignment="Center"
                 Command="{Binding PublishSelectedItemCommand}"
                 VerticalAlignment="Center"
-                Glyph="{dx:FontIconSource ColorName=Blue, Glyph=60890}"
+                AutomationProperties.Name="Match selected expected cash" ToolTip="Match selected expected cash" Glyph="{dx:FontIconSource Glyph=60890}"
                 />
         </dxlc:LayoutItem>
     </dxlc:LayoutControl>

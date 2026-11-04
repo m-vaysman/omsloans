@@ -23,7 +23,6 @@
         <dx:DialogService>
             <dx:DialogService.DialogStyle>
                 <Style TargetType="dx:DXDialogWindow">
-                    <Setter Property="dx:ThemeManager.ThemeName" Value="DeepBlue"/>
                     <Setter Property="MaxHeight" Value="700"/>
                     <Setter Property="MaxWidth" Value="900"/>
                 </Style>
@@ -266,26 +265,22 @@
                                 <dx:SimpleButton
                                     HorizontalAlignment="Right"
                                     Command="{Binding AttachDocumentationCommand}"
-                                    FontSize="9"
                                     Content="Attach Doc" />
                             </dxlc:LayoutItem>
                             <dxlc:LayoutItem>
                                 <dx:SimpleButton
                                     HorizontalAlignment="Left"
-                                    FontSize="9"
                                     Content="Pay Downs" />
                                                         </dxlc:LayoutItem>
                             <dxlc:LayoutItem>
                                 <dx:SimpleButton
                                     HorizontalAlignment="Left"
-                                    FontSize="9"
                                     Command="{Binding ShowAccrualsCommand}"
                                     Content="Accruals" />
                             </dxlc:LayoutItem>
                             <dxlc:LayoutItem>
                                 <dx:SimpleButton
                                     HorizontalAlignment="Left"
-                                    FontSize="9"
                                     Command="{Binding BookTradeCommand}"
                                     Content="Book Trade" />
                             </dxlc:LayoutItem>

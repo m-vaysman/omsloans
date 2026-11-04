@@ -35,7 +35,6 @@
                     <dxg:GridControl.View>
                         <dxg:TableView
                             AllowBestFit="True"
-                            FontSize="9"
                             AllowColumnMoving="False"
                             AllowHeaderNavigation="True"
                             ShowGroupPanel="False"

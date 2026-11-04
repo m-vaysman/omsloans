@@ -56,7 +56,7 @@
                     <dxg1:TextEdit Text="{Binding BlotterItem.Notional}" MaskType="Numeric" Mask="c"/>
                 </dxlc:LayoutItem>
                 <dxlc:LayoutItem>
-                    <dx:SimpleButton Content="&gt;" Command="{Binding SaveBlotterItemCommand}" HorizontalAlignment="Right"/>
+                    <dx:SimpleButton Content="Save" AutomationProperties.Name="Save blotter" ToolTip="Save blotter" Command="{Binding SaveBlotterItemCommand}" HorizontalAlignment="Right"/>
                 </dxlc:LayoutItem>
             </dxlc:LayoutGroup>
         </dxlc:LayoutControl>
