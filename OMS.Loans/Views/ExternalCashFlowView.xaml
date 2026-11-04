@@ -13,7 +13,7 @@
             <dxlc:LayoutItem HorizontalAlignment="Left" VerticalAlignment="Stretch">
                 <dx:SimpleButton  
                     VerticalAlignment="Center"
-                    Command="{Binding PublishExternalCashFlowItemCommand}"
+                    Command="{Binding PublishExternalCommand}"
                     HorizontalAlignment="Center"
                     Glyph="{dx:FontIconSource ColorName=Blue, Glyph=60889}"
                     Margin="0,30,0,0"/>
@@ -21,8 +21,8 @@
             <dxlc:LayoutItem VerticalAlignment="Stretch">
         <DockPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" HorizontalAlignment="Right">
-                <dx:SimpleButton  HorizontalAlignment="Right" Content="Split" Command="{Binding SplitCommand}"/>
-                <dx:SimpleButton  HorizontalAlignment="Right" Content="Remove Split" Command="{Binding RemoveSplitCommand}"/>
+                <dx:SimpleButton HorizontalAlignment="Right" Content="Split" Command="{Binding SplitCommand}"/>
+                <dx:SimpleButton HorizontalAlignment="Right" Content="Remove Split" Command="{Binding RemoveSplitCommand}"/>
              
             </StackPanel>
             
@@ -30,8 +30,8 @@
                 Background="Transparent"
                 DockPanel.Dock="Bottom"
                 DesignTimeDataObjectType="{x:Type viewmodels:ExternalCashFlowItemViewModel}"
-                ItemsSource="{Binding ExternalCashFlowEntries}"
-                SelectedItem="{Binding SelectedItem}">
+                ItemsSource="{Binding CashReceipts}"
+                SelectedItem="{Binding SelectedExternal}">
                 
                 <dxg:GridControl.View>
                     <dxg:TableView  AllowHeaderNavigation="True"
@@ -40,13 +40,8 @@
                                     ShowGroupPanel="False"
                                     AllowDragDrop="True"
                                     TotalSummaryPosition="Bottom"
-                                     VerticalScrollbarVisibility="Hidden"
+                                     VerticalScrollbarVisibility="Auto"
                                     AutoWidth="True">
-                                <dxg:TableView.RowStyle>
-                                    <Style TargetType="dxg:RowControl">
-                                        <Setter Property="Background" Value="#008080"/>
-                                    </Style>
-                                </dxg:TableView.RowStyle>
                 
                     </dxg:TableView>
                 </dxg:GridControl.View>
@@ -54,7 +49,7 @@
                             <dxg:GridColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel>
-                                        <dx:SimpleButton Background="Black"  Command="{Binding DataContext.PublishExternalCashFlowItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage SvgImages/DiagramIcons/PreviousPage.svg}" />
+                                        <dx:SimpleButton ToolTip="Match this payment" Command="{Binding DataContext.PublishExternalCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Glyph="{dx:DXImage SvgImages/DiagramIcons/PreviousPage.svg}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </dxg:GridColumn.CellTemplate>

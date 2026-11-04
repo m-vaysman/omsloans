@@ -10,8 +10,8 @@
         <dxlc:LayoutItem VerticalAlignment="Stretch">
             <dxg:GridControl Background="Transparent"
                 DesignTimeDataObjectType="{x:Type viewmodels:ExpectedCashFlowItemViewModel}"
-                SelectedItem="{Binding SelectedItem}"
-                ItemsSource="{Binding ExpectedCashFlowItems}"
+                SelectedItem="{Binding SelectedExpected}"
+                ItemsSource="{Binding ExpectedCash}"
                 SelectionMode="Row">
                
                 <dxg:GridControl.View>
@@ -22,14 +22,8 @@
                                    AllowDragDrop="True"
                                    TotalSummaryPosition="Bottom"
                                    AutoWidth="True"
-                                   VerticalScrollbarVisibility="Hidden"
-                                   DragEnter="TableView_DragEnter"
+                                   VerticalScrollbarVisibility="Auto"
                                    >
-                        <dxg:TableView.RowStyle>
-                            <Style TargetType="dxg:RowControl">
-                                <Setter Property="Background" Value="#FF7F50"/>
-                            </Style>
-                        </dxg:TableView.RowStyle>
                     </dxg:TableView>
                 </dxg:GridControl.View>
                 <dxg:GridColumn FieldName="Code" IsSmart="True"/>
@@ -41,7 +35,7 @@
                     <dxg:GridColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel>
-                                <dx:SimpleButton Background="Black" Command="{Binding DataContext.PublishSelectedItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" Glyph="{dx:DXImage SvgImages/DiagramIcons/NextPage.svg}"  />
+                                <dx:SimpleButton ToolTip="Match this expected row" Command="{Binding DataContext.PublishExpectedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" Glyph="{dx:DXImage SvgImages/DiagramIcons/NextPage.svg}" />
                             </StackPanel>
                         </DataTemplate>
                     </dxg:GridColumn.CellTemplate>
@@ -51,7 +45,7 @@
         <dxlc:LayoutItem HorizontalAlignment="Right" VerticalAlignment="Stretch">
             <dx:SimpleButton 
                 HorizontalAlignment="Center"
-                Command="{Binding PublishSelectedItemCommand}"
+                Command="{Binding PublishExpectedCommand}"
                 VerticalAlignment="Center"
                 Glyph="{dx:FontIconSource ColorName=Blue, Glyph=60890}"
                 />
