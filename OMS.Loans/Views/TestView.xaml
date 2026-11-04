@@ -164,7 +164,7 @@
                         <dxlc:LayoutItem Label="Price">
                             <dxe:TextEdit
                                 AllowNullInput="True"
-                                Mask="p2"
+                                Mask="p3"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
                                 NullValue="0"
@@ -173,7 +173,7 @@
                         <dxlc:LayoutItem Label="Spread">
                             <dxe:TextEdit
                                 AllowNullInput="True"
-                                Mask="p2"
+                                Mask="p3"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
                                 Text="{Binding TradeEntryItem.Spread}" />

@@ -80,12 +80,12 @@
                         <dxg:GridColumn FieldName="ToDate" IsSmart="True" />
                         <dxg:GridColumn FieldName="BankRate" IsSmart="True" >
                             <dxg:GridColumn.EditSettings>
-                                <dxe:TextEditSettings MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="p"/>
+                                <dxe:TextEditSettings MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="p3"/>
                             </dxg:GridColumn.EditSettings>
                         </dxg:GridColumn>
                         <dxg:GridColumn FieldName="Spread" IsSmart="True" >
                             <dxg:GridColumn.EditSettings>
-                                <dxe:TextEditSettings MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="p"/>
+                                <dxe:TextEditSettings MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="p3"/>
                             </dxg:GridColumn.EditSettings>
                         </dxg:GridColumn>
                         <dxg:GridColumn FieldName="Act" IsSmart="True" />

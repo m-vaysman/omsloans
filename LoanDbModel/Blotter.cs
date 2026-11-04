@@ -28,11 +28,11 @@ namespace LoanDbModel
         [Required]
         public decimal Notional { get; set; }
 
-        [Precision(18, 2)]
+        [Precision(18, 6)]
         [Required]
         public decimal Price { get; set; }
 
-        [Precision(18, 2)]
+        [Precision(18, 6)]
         public decimal Spread { get; set; }
 
         [Column(TypeName = "varchar(50)")]
