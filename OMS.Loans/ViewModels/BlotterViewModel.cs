@@ -68,14 +68,10 @@ namespace OMS.Loans.ViewModels
             // Listen for trade selection and initialize BlotterItem
             WeakReferenceMessenger.Default.Register<BlotteredTradeSelectedMessage>(this, (e, o) =>
             {
-                this.BlotterItem = new BlotterItem();
-                this.BlotterItem.PropertyChanged += BlotterItem_PropertyChanged;
-
-                // Map incoming domain model to editable ViewModel
-                var m = mapper.Map<Blotter, BlotterItem>(o.BlotterItem);
-                this.BlotterItem = m;
-
-                SaveBlotterItemCommand.NotifyCanExecuteChanged();
+                ViewModelSetUp();
+                var mapped = mapper.Map<Blotter, BlotterItem>(o.BlotterItem);
+                ReplaceBlotterItem(mapped);
+                SelectedCounterParty = CounterParties.FirstOrDefault(cp => cp.CounterPartyId == mapped.CounterPartyId);
             });
         }
 
@@ -91,12 +87,23 @@ namespace OMS.Loans.ViewModels
             BlotterItems = new ObservableCollection<BlotterItem>();
             CounterParties = new ObservableCollection<CounterParty>();
 
-            this.BlotterItem = new BlotterItem
+            ReplaceBlotterItem(new BlotterItem
             {
                 BuySell = "B",
                 TradeDate = DateTime.Now
-            };
-            this.BlotterItem.PropertyChanged += BlotterItem_PropertyChanged;
+            });
+        }
+
+        private void ReplaceBlotterItem(BlotterItem item)
+        {
+            if (BlotterItem != null)
+            {
+                BlotterItem.PropertyChanged -= BlotterItem_PropertyChanged;
+            }
+
+            BlotterItem = item;
+            BlotterItem.PropertyChanged += BlotterItem_PropertyChanged;
+            SaveBlotterItemCommand.NotifyCanExecuteChanged();
         }
 
         /// <summary>
@@ -164,6 +171,7 @@ namespace OMS.Loans.ViewModels
             {
                 var blotter = new Blotter
                 {
+                    BlotterId = BlotterItem.BlotterId,
                     CounterPartyId = SelectedCounterParty.CounterPartyId,
                     BuySell = BlotterItem.BuySell,
                     Ticker = BlotterItem.Ticker,
@@ -174,27 +182,49 @@ namespace OMS.Loans.ViewModels
                     Notional = BlotterItem.Notional
                 };
 
-                loanDbContext.Add(blotter);
-                loanDbContext.SaveChanges();
+                if (blotter.BlotterId == 0)
+                {
+                    loanDbContext.Add(blotter);
+                }
+                else
+                {
+                    var existing = loanDbContext.BlotteredTrades.Find(blotter.BlotterId);
+                    if (existing == null)
+                    {
+                        throw new InvalidOperationException($"Blotter {blotter.BlotterId} was not found.");
+                    }
 
-                SelectedCounterParty = null;
+                    existing.CounterPartyId = blotter.CounterPartyId;
+                    existing.BuySell = blotter.BuySell;
+                    existing.Ticker = blotter.Ticker;
+                    existing.TradeAcct = blotter.TradeAcct;
+                    existing.TradeDate = blotter.TradeDate;
+                    existing.Price = blotter.Price;
+                    existing.Spread = blotter.Spread;
+                    existing.Notional = blotter.Notional;
+                    blotter = existing;
+                }
+
+                loanDbContext.SaveChanges();
 
                 MessageBoxService.ShowMessage($"Blotter booked. Id: {blotter.BlotterId}");
 
-                // Notify other viewmodels that a blotter trade was saved
                 WeakReferenceMessenger.Default.Send(new TradeBlotteredMessage
                 {
                     BlotteredTrade = BlotterItem
+                });
+
+                SelectedCounterParty = null;
+                ReplaceBlotterItem(new BlotterItem
+                {
+                    BuySell = "B",
+                    TradeDate = DateTime.Now
                 });
             }
             catch (Exception e)
             {
                 MessageBoxService.ShowMessage(e.Message, "Error", MessageButton.OK, MessageIcon.Error);
             }
-
-            // Reset the form for a new entry
-            this.BlotterItem = new BlotterItem();
-            this.BlotterItem.PropertyChanged += BlotterItem_PropertyChanged;
         }
 
         /// <summary>
