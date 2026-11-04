@@ -28,6 +28,7 @@ namespace OMS.Loans.Services
 
         /// <summary>
         /// Retrieves all blotter entries, including associated CounterParty data.
+        /// The grid is read-only, so these instances are not tracked.
         /// </summary>
         /// <returns>List of blotter entries with eager-loaded counterparty info</returns>
         public async Task<IReadOnlyList<Blotter>> GetBlotterEntries()

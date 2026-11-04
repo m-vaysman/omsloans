@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DevExpress.Mvvm;
+using DevExpress.Xpf.Core;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -25,29 +26,43 @@ namespace OMS.Loans.Common.DTO
 
         public bool isInDb { get; set; } = false;
         public int TradeDocumentId { get; set; }
-        public Func<int, byte[]> LoadData { get; set; }
+        public Func<int, Task<byte[]>> LoadData { get; set; }
 
         [RelayCommand]
-        public void Start() {
-
-            if ((Data == null || Data.Length == 0) && TradeDocumentId != 0 && LoadData != null)
+        public async Task Start()
+        {
+            try
             {
-                Data = LoadData(TradeDocumentId);
+                if ((Data == null || Data.Length == 0) && TradeDocumentId != 0 && LoadData != null)
+                {
+                    Data = await LoadData(TradeDocumentId);
+                }
+
+                if (Data == null)
+                {
+                    throw new InvalidOperationException($"TradeDocument {TradeDocumentId} not found.");
+                }
+
+                if (FullPath.IsNullOrEmpty())
+                {
+                    string tempFilePath = Path.Combine(Path.GetTempPath(), Name);
+                    FullPath = tempFilePath;
+                    File.WriteAllBytes(tempFilePath, Data);
+                }
+
+                Process.Start(new ProcessStartInfo(FullPath)
+                {
+                    UseShellExecute = true
+                });
             }
-
-            if (FullPath.IsNullOrEmpty())
+            catch (Exception ex)
             {
-                string tempFilePath = Path.Combine(Path.GetTempPath(),  Name);
-                FullPath = tempFilePath;
-                File.WriteAllBytes(tempFilePath, Data);
+                DXMessageBox.Show(
+                    $"Could not open attachment. {ex.Message}",
+                    "Attachment",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
             }
-
-            Process.Start(new ProcessStartInfo(FullPath)
-            {
-                UseShellExecute = true
-            });
-          
-
         }
         
     }

@@ -4,6 +4,7 @@ using OMS.Loans.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace OMS.Loans.Services
 {
@@ -45,13 +46,20 @@ namespace OMS.Loans.Services
                                 .ToList();
         }
 
-        public byte[] GetDocumentData(int tradeDocumentId)
+        public async Task<byte[]> GetDocumentData(int tradeDocumentId)
         {
-            return loanDbContext.TradeDocuments
+            var data = await loanDbContext.TradeDocuments
                                 .AsNoTracking()
                                 .Where(t => t.TradeDocumentId == tradeDocumentId)
                                 .Select(t => t.Data)
-                                .FirstOrDefault();
+                                .FirstOrDefaultAsync();
+
+            if (data == null)
+            {
+                throw new InvalidOperationException($"TradeDocument {tradeDocumentId} not found.");
+            }
+
+            return data;
         }
     }
 }
