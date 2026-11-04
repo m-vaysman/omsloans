@@ -89,7 +89,7 @@ jobs:
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\scripts\Stop-OmsLoanApiService.ps1"
-          if ($LASTEXITCODE -ne 0) { throw "Stop-OmsLoanApiService.ps1 failed with $LASTEXITCODE" }
+          if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Stop-OmsLoanApiService.ps1 failed with $LASTEXITCODE" }
 
       - name: Publish Api
         shell: pwsh
@@ -126,13 +126,13 @@ jobs:
             -Environment Production `
             -Urls $urls `
             -NonInteractive
-          if ($LASTEXITCODE -ne 0) { throw "Install-OmsLoanApiService.ps1 failed with $LASTEXITCODE" }
+          if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Install-OmsLoanApiService.ps1 failed with $LASTEXITCODE" }
 
       - name: Start Api
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\scripts\Start-OmsLoanApiService.ps1"
-          if ($LASTEXITCODE -ne 0) { throw "Start-OmsLoanApiService.ps1 failed with $LASTEXITCODE" }
+          if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Start-OmsLoanApiService.ps1 failed with $LASTEXITCODE" }
 
       - name: Gate Api Running and port
         shell: pwsh
@@ -184,6 +184,10 @@ jobs:
         if: failure()
         shell: pwsh
         run: |
+          if ($null -eq (Get-Service -Name OmsLoanApi -ErrorAction SilentlyContinue)) {
+            Write-Host "Deploy failed before OmsLoanApi was installed; nothing to restart."
+            exit 0
+          }
           Write-Host "Deploy failed; restarting OmsLoanApi so the box is not left stopped."
           & "$env:GITHUB_WORKSPACE\scripts\Start-OmsLoanApiService.ps1"
           $svc = Get-Service -Name OmsLoanApi -ErrorAction SilentlyContinue

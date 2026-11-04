@@ -83,14 +83,14 @@ jobs:
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\scripts\Install-OmsLoanPostgres.ps1"
-          if ($LASTEXITCODE -ne 0) { throw "Install-OmsLoanPostgres.ps1 failed with $LASTEXITCODE" }
+          if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Install-OmsLoanPostgres.ps1 failed with $LASTEXITCODE" }
 
       - name: Stop Worker
         if: steps.mode.outputs.mode == 'bounce'
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\scripts\Stop-OmsLoanService.ps1"
-          if ($LASTEXITCODE -ne 0) { throw "Stop-OmsLoanService.ps1 failed with $LASTEXITCODE" }
+          if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Stop-OmsLoanService.ps1 failed with $LASTEXITCODE" }
 
       - name: Publish Worker
         shell: pwsh
@@ -126,15 +126,15 @@ jobs:
             -ServiceAccount $account `
             -Environment Production `
             -NonInteractive
-          if ($LASTEXITCODE -ne 0) { throw "Install-OmsLoanService.ps1 failed with $LASTEXITCODE" }
+          if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Install-OmsLoanService.ps1 failed with $LASTEXITCODE" }
           & "$env:GITHUB_WORKSPACE\scripts\Invoke-OmsLoanMigration.ps1" -ServiceName OmsLoanWorker
-          if ($LASTEXITCODE -ne 0) { throw "Invoke-OmsLoanMigration.ps1 failed with $LASTEXITCODE" }
+          if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Invoke-OmsLoanMigration.ps1 failed with $LASTEXITCODE" }
 
       - name: Start Worker
         shell: pwsh
         run: |
           & "$env:GITHUB_WORKSPACE\scripts\Start-OmsLoanService.ps1"
-          if ($LASTEXITCODE -ne 0) { throw "Start-OmsLoanService.ps1 failed with $LASTEXITCODE" }
+          if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw "Start-OmsLoanService.ps1 failed with $LASTEXITCODE" }
 
       - name: Gate Worker Running
         shell: pwsh
@@ -153,6 +153,10 @@ jobs:
         if: failure()
         shell: pwsh
         run: |
+          if ($null -eq (Get-Service -Name OmsLoanWorker -ErrorAction SilentlyContinue)) {
+            Write-Host "Deploy failed before OmsLoanWorker was installed; nothing to restart."
+            exit 0
+          }
           Write-Host "Deploy failed; restarting OmsLoanWorker so the box is not left stopped."
           & "$env:GITHUB_WORKSPACE\scripts\Start-OmsLoanService.ps1"
           $svc = Get-Service -Name OmsLoanWorker -ErrorAction SilentlyContinue
