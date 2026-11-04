@@ -84,36 +84,33 @@ namespace OMS.Loans.ViewModels
         [RelayCommand]
         public void InitializeViewModel()
         {
-            if (tradeId == 0)
+            try
             {
+                AccrualEntryItems.Clear();
+                dailyBalanceVsAccrued.Clear();
 
-            }
-            //make this into base class
-            var result = from a in accrualEntriesService.GetAccruals(tradeId)
-                         select new {item= Mapper.Map<Accrual, AccrualEntryItemViewModel>(a) } ;
-            
-            result.ToList().ForEach(i =>
-            {
-                try
+                if (tradeId == 0)
                 {
-                    //so calc binding is updated.
-                    i.item.RecalculateExpectedAccrualCash();
-                    accrualEntryItems.Add(i.item);
+                    return;
                 }
-                catch(Exception e) {
-                //do nothing.
+
+                var accruals = accrualEntriesService.GetAccruals(tradeId).ToList();
+                foreach (var accrual in accruals)
+                {
+                    var item = Mapper.Map<Accrual, AccrualEntryItemViewModel>(accrual);
+                    item.RecalculateExpectedAccrualCash();
+                    AccrualEntryItems.Add(item);
                 }
-            
-            });
 
-            if (result.Any()) {
-
-                tradeBalanceVsAccrued.GetDailyBalanceVsAccrued(result.First().item.TradeId)
-                    .ToList()
-                    .ForEach(b=>dailyBalanceVsAccrued.Add(b));
-            
+                foreach (var balance in tradeBalanceVsAccrued.GetDailyBalanceVsAccrued(tradeId))
+                {
+                    dailyBalanceVsAccrued.Add(balance);
+                }
             }
-
+            catch (Exception ex)
+            {
+                MessageBoxService.ShowMessage(ex.Message, "Accruals", MessageButton.OK, MessageIcon.Error);
+            }
         }
 
         public void SetTradeId(int tradeId) => this.tradeId = tradeId;
