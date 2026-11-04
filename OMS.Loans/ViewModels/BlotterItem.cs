@@ -127,11 +127,18 @@ namespace OMS.Loans.ViewModels
                 AddError(nameof(CounterPartyId), "CounterParty ID must be greater than zero.");
         }
 
+        public BlotterItem()
+        {
+            OnTickerChanged(ticker);
+            OnPriceChanged(price);
+            OnSpreadChanged(spread);
+            OnNotionalChanged(notional);
+            OnBuySellChanged(buySell);
+        }
+
         partial void OnCusipChanged(string value)
         {
             ClearErrors(nameof(Cusip));
-            if (string.IsNullOrWhiteSpace(value))
-                AddError(nameof(Cusip), "CUSIP is required.");
         }
 
         partial void OnPriceChanged(decimal value)

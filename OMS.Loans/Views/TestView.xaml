@@ -69,7 +69,7 @@
                                 MaskType="Numeric"
                                 Name="TradeId"
                                 NullValue="0"
-                                Text="{Binding TradeEntryItem.TradeId}">
+                                EditValue="{Binding TradeEntryItem.TradeId}">
                                 <dxmvvm:Interaction.Behaviors>
                                     <dxmvvm:EventToCommand Command="{Binding LoadTradeRelatedDataCommand}" EventName="LostFocus" />
                                 </dxmvvm:Interaction.Behaviors>
@@ -79,7 +79,7 @@
                             <dxe:TextEdit IsEnabled="False" NullValue="0" Text="{Binding TradeEntryItem.CounterPartyId}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="CUSIP">
-                            <dxe:TextEdit IsEnabled="False"  />
+                            <dxe:TextEdit IsEnabled="False" EditValue="{Binding TradeEntryItem.Cusip}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Counter Party">
                             <dxe1:LookUpEdit
@@ -102,13 +102,13 @@
                     >
                     <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical">
                         <dxlc:LayoutItem Label="Trade Acct">
-                            <dxe1:LookUpEdit ItemsSource="{Binding TradeAccounts}" SelectedItem="{Binding TradeEntryItem.TradeAcct}" />
+                            <dxe1:LookUpEdit ItemsSource="{Binding TradeAccounts}" EditValue="{Binding TradeEntryItem.TradeAcct}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Strategy">
-                            <dxe1:LookUpEdit ItemsSource="{Binding Strategies}" SelectedItem="{Binding TradeEntryItem.Strategy}" />
+                            <dxe1:LookUpEdit ItemsSource="{Binding Strategies}" EditValue="{Binding TradeEntryItem.Strategy}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="SubStrategy">
-                            <dxe1:LookUpEdit ItemsSource="{Binding SubStrategies}" SelectedItem="{Binding TradeEntryItem.SubStrategy}" />
+                            <dxe1:LookUpEdit ItemsSource="{Binding SubStrategies}" EditValue="{Binding TradeEntryItem.SubStrategy}" />
                         </dxlc:LayoutItem>
                     </dxlc:LayoutGroup>
                 </dxlc:LayoutGroup>
@@ -176,21 +176,21 @@
                                 Mask="p2"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.Spread}" />
+                                EditValue="{Binding TradeEntryItem.Spread, ValidatesOnNotifyDataErrors=True}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Notional">
                             <dxe:TextEdit
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.Notional}" />
+                                EditValue="{Binding TradeEntryItem.Notional, ValidatesOnNotifyDataErrors=True}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Global Commitment">
                             <dxe:TextEdit
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.GlobalCommitment}" />
+                                EditValue="{Binding TradeEntryItem.GlobalCommitment}" />
                         </dxlc:LayoutItem>
                     </dxlc:LayoutGroup>
                     <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical" />
@@ -203,49 +203,49 @@
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.TermUnfundedAmount}" />
+                                EditValue="{Binding TradeEntryItem.TermUnfundedAmount}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Fees/Costs">
                             <dxe:TextEdit
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.FeesCosts}" />
+                                EditValue="{Binding TradeEntryItem.FeesCosts}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Interest Received">
                             <dxe:TextEdit
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.InterestReceived}" />
+                                EditValue="{Binding TradeEntryItem.InterestReceived}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Economic Benefit">
                             <dxe:TextEdit
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.EconomicBenefit}" />
+                                EditValue="{Binding TradeEntryItem.EconomicBenefit}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Commitment Reduction">
                             <dxe:TextEdit
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.CommitmentReduction}" />
+                                EditValue="{Binding TradeEntryItem.CommitmentReduction}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Delay Compensation">
                             <dxe:TextEdit
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.DelayCompensation}" />
+                                EditValue="{Binding TradeEntryItem.DelayCompensation}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutItem Label="Additional Credit">
                             <dxe:TextEdit
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding TradeEntryItem.AdditionalCredit}" />
+                                EditValue="{Binding TradeEntryItem.AdditionalCredit}" />
                         </dxlc:LayoutItem>
                     </dxlc:LayoutGroup>
                     <dxlc:LayoutGroup Header="LayoutGroup" Orientation="Vertical" />
@@ -258,7 +258,7 @@
                                 Mask="c"
                                 MaskType="Numeric"
                                 MaskUseAsDisplayFormat="True"
-                                Text="{Binding Total, Mode=OneWay}" />
+                                EditValue="{Binding Total, Mode=OneWay}" />
                         </dxlc:LayoutItem>
                         <dxlc:LayoutGroup>
 
