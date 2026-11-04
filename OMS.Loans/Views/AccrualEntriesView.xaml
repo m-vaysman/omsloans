@@ -88,7 +88,16 @@
                                 <dxe:TextEditSettings MaskType="Numeric" MaskUseAsDisplayFormat="True" Mask="p"/>
                             </dxg:GridColumn.EditSettings>
                         </dxg:GridColumn>
-                        <dxg:GridColumn FieldName="Act" IsSmart="True" />
+                        <dxg:GridColumn FieldName="Act" IsSmart="True">
+                            <dxg:GridColumn.EditSettings>
+                                <dxe:ComboBoxEditSettings IsTextEditable="False">
+                                    <dxe:ComboBoxEditSettings.Items>
+                                        <System:String>360</System:String>
+                                        <System:String>365</System:String>
+                                    </dxe:ComboBoxEditSettings.Items>
+                                </dxe:ComboBoxEditSettings>
+                            </dxg:GridColumn.EditSettings>
+                        </dxg:GridColumn>
                         <dxg:GridColumn
                             AllowEditing="False"
                             EditFormStartNewRow="False"
@@ -116,7 +125,7 @@
             </dxgo:LayoutItem>
             <dxgo:LayoutGroup HorizontalAlignment="Center"  Orientation="Horizontal">
                 <dxgo:LayoutItem >
-                    <dxe:HyperlinkEdit Text="Check Accruals" />
+                    <dxe:HyperlinkEdit Text="Check Accruals" Command="{Binding CheckAccrualsCommand}" />
                 </dxgo:LayoutItem>
 
                 <dxgo:LayoutItem >

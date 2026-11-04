@@ -119,11 +119,29 @@ namespace OMS.Loans.ViewModels
         public void SetTradeId(int tradeId) => this.tradeId = tradeId;
 
         [RelayCommand]
+        public void CheckAccruals()
+        {
+            foreach (var entry in AccrualEntryItems)
+            {
+                entry.ValidateAllProperties();
+                entry.RecalculateExpectedAccrualCash();
+            }
+        }
+
+        [RelayCommand]
         public void SaveAccruals()
         {
             try
             {
-                
+                foreach (var entry in AccrualEntryItems)
+                {
+                    entry.ValidateAllProperties();
+                    if (entry.HasErrors || entry.HasDateOrderError || entry.HasDayCountError)
+                    {
+                        MessageBoxService.ShowMessage("Fix accrual errors before saving. From Date must be on or before To Date, and day count must be 360 or 365.");
+                        return;
+                    }
+                }
 
                 foreach (var entry in this.AccrualEntryItems)
                 {
