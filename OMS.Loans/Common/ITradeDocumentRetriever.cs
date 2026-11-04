@@ -10,5 +10,6 @@ namespace OMS.Loans.Common
     public interface ITradeDocumentRetriever
     {
         IEnumerable<TradeDocument> GetTradeDocuments(int tradeId);
+        byte[] GetDocumentData(int tradeDocumentId);
     }
 }

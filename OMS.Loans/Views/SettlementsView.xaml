@@ -14,7 +14,7 @@
             <dxlc:LayoutItem>
                 <dxg:GridControl MaxWidth="750" MaxHeight="600" SelectionMode="Row">
                     <dxg:GridControl.View>
-                        <dxg:TableView AllowHeaderNavigation="True" ShowSearchPanelMode="Never" AllowGrouping="False" AllowMoveColumnToDropArea="False" BestFitMode="AllRows" BestFitModeOnSourceChange="AllRows" ShowGroupPanel="False"/>
+                        <dxg:TableView AllowHeaderNavigation="True" ShowSearchPanelMode="Never" AllowGrouping="False" AllowMoveColumnToDropArea="False" BestFitMode="DistinctValues" BestFitModeOnSourceChange="DistinctValues" ShowGroupPanel="False"/>
                     </dxg:GridControl.View>
                     <dxg:GridColumn FieldName="TradeId"/>
                     <dxg:GridColumn FieldName="CounterParty"/>

@@ -24,9 +24,16 @@ namespace OMS.Loans.Common.DTO
         public byte[] Data { get; set; }
 
         public bool isInDb { get; set; } = false;
+        public int TradeDocumentId { get; set; }
+        public Func<int, byte[]> LoadData { get; set; }
 
         [RelayCommand]
         public void Start() {
+
+            if ((Data == null || Data.Length == 0) && TradeDocumentId != 0 && LoadData != null)
+            {
+                Data = LoadData(TradeDocumentId);
+            }
 
             if (FullPath.IsNullOrEmpty())
             {

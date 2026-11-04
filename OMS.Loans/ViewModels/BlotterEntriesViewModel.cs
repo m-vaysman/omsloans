@@ -8,6 +8,7 @@ using OMS.Loans.Message;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace OMS.Loans.ViewModels
 {
@@ -40,7 +41,7 @@ namespace OMS.Loans.ViewModels
             // Register to receive messages when new trades are blottered
             WeakReferenceMessenger.Default.Register<TradeBlotteredMessage>(this, (r, message) =>
             {
-                LoadBlotterEntries();
+                _ = LoadBlotterEntries();
             });
         }
 
@@ -82,14 +83,10 @@ namespace OMS.Loans.ViewModels
         /// Loads all blotter entries and orders them by descending BlotterId (most recent first).
         /// </summary>
         [RelayCommand]
-        public void LoadBlotterEntries()
+        public async Task LoadBlotterEntries()
         {
-            BlotterEntries.Clear();
-
-            blotterEntriesService.GetBlotterEntries()
-                .OrderByDescending(e => e.BlotterId)
-                .ToList()
-                .ForEach(b => BlotterEntries.Add(b));
+            var rows = await blotterEntriesService.GetBlotterEntries();
+            BlotterEntries = new ObservableCollection<Blotter>(rows.OrderByDescending(e => e.BlotterId));
         }
     }
 }

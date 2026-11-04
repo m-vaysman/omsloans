@@ -4,6 +4,7 @@ using OMS.Loans.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace OMS.Loans.Services
 {
@@ -29,11 +30,12 @@ namespace OMS.Loans.Services
         /// Retrieves all blotter entries, including associated CounterParty data.
         /// </summary>
         /// <returns>List of blotter entries with eager-loaded counterparty info</returns>
-        public IEnumerable<Blotter> GetBlotterEntries()
+        public async Task<IReadOnlyList<Blotter>> GetBlotterEntries()
         {
-            return loanDbContext.BlotteredTrades
-                                .Include(i => i.CounterParty) // Eager load the related CounterParty
-                                .ToList();                    // Materialize the query
+            return await loanDbContext.BlotteredTrades
+                                .AsNoTracking()
+                                .Include(i => i.CounterParty)
+                                .ToListAsync();
         }
     }
 }
