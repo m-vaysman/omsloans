@@ -54,14 +54,51 @@ namespace OMS.Loans.Services
         }
 
         /// <summary>
-        /// Updates an existing trade in the database.
-        /// Note: SaveChanges() must be called by the caller.
+        /// Updates an existing trade and saves it.
+        /// A trade booked earlier in this context is already tracked; its values are copied
+        /// onto that instance so a second booking does not attach a duplicate key.
+        /// New documents on the incoming trade are inserted. Navigations are not replaced.
         /// </summary>
         /// <param name="trade">The trade entity with updated values</param>
         public void Update(Trade trade)
         {
-            loanDbContext.Trades.Update(trade);
-            // SaveChanges intentionally omitted to allow batching or deferred commits
+            if (trade is null)
+            {
+                throw new ArgumentNullException(nameof(trade));
+            }
+
+            var newDocuments = trade.TradeDocuments?
+                .Where(document => document.TradeDocumentId == 0)
+                .ToList();
+
+            trade.TradeDocuments = null;
+            trade.CounterParty = null;
+            trade.Paydowns = null;
+            trade.Accruals = null;
+
+            var tracked = loanDbContext.Trades.Local
+                .FirstOrDefault(existing => existing.TradeId == trade.TradeId);
+
+            if (tracked != null)
+            {
+                loanDbContext.Entry(tracked).CurrentValues.SetValues(trade);
+            }
+            else
+            {
+                loanDbContext.Trades.Update(trade);
+            }
+
+            if (newDocuments != null)
+            {
+                foreach (var document in newDocuments)
+                {
+                    document.Trade = null;
+                    document.TradeId = trade.TradeId;
+                    loanDbContext.TradeDocuments.Add(document);
+                }
+            }
+
+            loanDbContext.SaveChanges();
         }
     }
 }

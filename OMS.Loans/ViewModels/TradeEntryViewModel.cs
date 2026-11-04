@@ -241,14 +241,15 @@ namespace OMS.Loans.ViewModels
                 if (trade.TradeId != 0)
                 {
                     tradeEntriesService.Update(trade);
-
-                    MessageBoxService.ShowMessage($"Trade Updated");
+                    MarkDocumentsPersisted();
+                    MessageBoxService.ShowMessage("Trade Updated");
                 }
                 else
                 {
                     var val = tradeEntriesService.Save(trade);
                     this.TradeEntryItem.tradeId = val;
-                    MessageBoxService.ShowMessage($"Trade booked. Id{val}");
+                    MarkDocumentsPersisted();
+                    MessageBoxService.ShowMessage($"Trade booked. Id {val}");
                 }
 
 
@@ -270,6 +271,14 @@ namespace OMS.Loans.ViewModels
         }
 
         public ITradeDocumentRetriever DocumentRetrieverService { get; }
+
+        private void MarkDocumentsPersisted()
+        {
+            foreach (var document in Documents)
+            {
+                document.isInDb = true;
+            }
+        }
 
         public void Subscribe()
         {
