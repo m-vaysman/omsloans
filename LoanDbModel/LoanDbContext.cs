@@ -15,7 +15,8 @@ namespace LoanDbModel
                   Password=YOUR_PASSWORD;
                   TrustServerCertificate=true;
                   MultipleActiveResultSets=True;
-                  Max Pool Size=100;");
+                  Max Pool Size=100;")
+                .AddInterceptors(LegacyLoanSchemaGuard.Instance);
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

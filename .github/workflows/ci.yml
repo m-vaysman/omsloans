@@ -6,6 +6,9 @@ on:
       - "src/**"
       - "tests/**"
       - "OmsLoan.sln"
+      - "LoanDbModel/**"
+      - "OMS.Loans/**"
+      - "SETUP.md"
       - ".github/workflows/**"
   workflow_dispatch:
 
@@ -44,3 +47,8 @@ jobs:
 
       - name: Test Api
         run: dotnet test tests/OmsLoan.Api.Tests/OmsLoan.Api.Tests.csproj -c Release --verbosity normal
+
+      # OMS.Loans is not built here. It restores DevExpress 24.2 from a local feed
+      # that GitHub-hosted runners do not have. LoanDbModel is the project that failed to compile.
+      - name: Build LoanDbModel
+        run: dotnet build LoanDbModel/LoanDbModel.csproj -c Release --verbosity minimal

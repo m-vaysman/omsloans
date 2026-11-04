@@ -47,7 +47,15 @@ already listed in `.gitignore`, so git will not track them.
 ## Database
 
 EF Core migrations live in `LoanDbModel/Migrations/`. The schema targets a
-database named `Oms` with a `loans` schema. To create it:
+database named `Oms` with a `loans` schema. The chain is the April 5 initial
+migration through `3rdMigration`. The older March 31 chain used a second class
+named `InitialMigration`, which did not compile, and it targeted a `loan`
+schema. That chain is gone.
+
+`dotnet ef database update` refuses a database that still has schema `loan`
+or history rows `20250331*` / `20250401*`. It does not create an empty
+`loans` schema beside that data. The app runs the same check on the first
+connection. Move or drop the old schema before updating.
 
 ```bash
 dotnet ef database update --project LoanDbModel
