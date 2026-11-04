@@ -18,6 +18,8 @@ namespace OMS.Loans
     {
         public new static App Current => (App)Application.Current;
         public IServiceProvider Services { get; }
+
+        public IServiceScope CreateScreenScope() => Services.CreateScope();
         private static IServiceProvider ConfigureServices()
         {
 

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DevExpress.Mvvm;
 using LoanDbModel;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols;
 using OMS.Loans.Common;
 using OMS.Loans.Common.DTO;
@@ -108,7 +109,7 @@ namespace OMS.Loans.ViewModels
             }
             catch (Exception e)
             {
-
+                MessageBoxService.ShowMessage(e.Message, "Trade entry", MessageButton.OK, MessageIcon.Error);
             }
         }
 
@@ -278,10 +279,11 @@ namespace OMS.Loans.ViewModels
         [RelayCommand]
         public void ShowAccruals()
         {
-            var viewModel = (AccrualEntriesViewModel)App.Current.Services.GetService(typeof(AccrualEntriesViewModel));
+            using var scope = App.Current.CreateScreenScope();
+            var viewModel = scope.ServiceProvider.GetRequiredService<AccrualEntriesViewModel>();
             viewModel.SetTradeId(this.TradeEntryItem.TradeId);
             var accrualService = AccrualsDialogService();
-            
+
             accrualService.ShowDialog(dialogButtons: MessageButton.OKCancel, title: "Trade Accruals", viewModel: viewModel);
         }
 
