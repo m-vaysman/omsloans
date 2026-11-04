@@ -108,7 +108,7 @@ namespace OMS.Loans.ViewModels
             }
             catch (Exception e)
             {
-
+                MessageBoxService.ShowMessage(e.Message, "Trade entry", MessageButton.OK, MessageIcon.Error);
             }
         }
 
@@ -144,7 +144,7 @@ namespace OMS.Loans.ViewModels
             }
             catch (Exception e)
             {
-                MessageBoxService.ShowMessage("Failed to load attached document from database.");
+                MessageBoxService.ShowMessage($"Failed to load attached documents. {e.Message}", "Trade entry", MessageButton.OK, MessageIcon.Error);
             }
 
         }
