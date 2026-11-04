@@ -1,11 +1,12 @@
-﻿using AutoMapper.Internal.Mappers;
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 using OMS.Loans.Infrastructure;
-using OMS.Loans.Message;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 namespace OMS.Loans.ViewModels
 {
@@ -43,73 +44,79 @@ namespace OMS.Loans.ViewModels
         [ObservableProperty]
         private CashMatchItemViewModel selectedItem;
 
-        /// <summary>
-        /// Constructor initializes collections, wires up change events and message subscriptions.
-        /// </summary>
+        [ObservableProperty]
+        private ExpectedCashFlowItemViewModel selectedExpected;
+
+        [ObservableProperty]
+        private ExternalCashFlowItemViewModel selectedExternal;
+
         public ExpectedCashFlowItemMergedViewModel()
         {
-            expectedCash.CollectionChanged += ExpectedCash_CollectionChanged;
-            cashReceipts.CollectionChanged += CashReceipts_CollectionChanged;
-            cashMatchingItems.CollectionChanged += CashMatchingItems_CollectionChanged;
+            cashMatchingItems.CollectionChanged += (_, _) =>
+            {
+                CollectionIsNotEmpty = cashMatchingItems.Count > 0;
+                ApplyCashCommand.NotifyCanExecuteChanged();
+            };
 
-            WeakReferenceMessenger.Default.Register<ExpectedCashFlowItemMessage>(this, ExpectedCashFlowItemMessage_Handler);
-            WeakReferenceMessenger.Default.Register<ExternalCashFlowItemMessage>(this, ExternalCashFlowItemMessage_Handler);
-
-            this.CollectionIsNotEmpty = false;
-            ApplyCashCommand.NotifyCanExecuteChanged(); // Prime the command availability
-        }
-
-        /// <summary>
-        /// Updates `CollectionIsNotEmpty` and notifies the Apply command availability.
-        /// </summary>
-        private void CashMatchingItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            CollectionIsNotEmpty = cashMatchingItems.Count > 0;
+            CollectionIsNotEmpty = false;
             ApplyCashCommand.NotifyCanExecuteChanged();
         }
 
-        /// <summary>
-        /// Handles receipt of a new external cash item via messaging.
-        /// Adds it to both receipts and matching collections.
-        /// </summary>
-        private void ExternalCashFlowItemMessage_Handler(object recipient, ExternalCashFlowItemMessage message)
+        [RelayCommand]
+        public void PublishExpected(ExpectedCashFlowItemViewModel item)
         {
-            if (message.Value != null)
+            item ??= SelectedExpected;
+            if (item == null)
             {
-                var cashItem = new CashMatchItemViewModel(message.Value);
-                CashMatchingItems.Add(cashItem);
-                CashReceipts.Add(message.Value);
+                return;
             }
+
+            CashMatchingItems.Add(new CashMatchItemViewModel(item));
+            ExpectedCash.RemoveByReference(item);
         }
 
-        /// <summary>
-        /// Handles receipt of a new expected cash item via messaging.
-        /// Adds it to both expected and matching collections.
-        /// </summary>
-        private void ExpectedCashFlowItemMessage_Handler(object sender, ExpectedCashFlowItemMessage message)
+        [RelayCommand]
+        public void PublishExternal(ExternalCashFlowItemViewModel item)
         {
-            if (message.Value != null)
+            item ??= SelectedExternal;
+            if (item == null)
             {
-                var cashItem = new CashMatchItemViewModel(message.Value);
-                CashMatchingItems.Add(cashItem);
-                ExpectedCash.Add(message.Value);
+                return;
             }
+
+            CashMatchingItems.Add(new CashMatchItemViewModel(item));
+            CashReceipts.RemoveByReference(item);
         }
 
-        /// <summary>
-        /// Handler stub for external cash receipt changes (not currently used).
-        /// </summary>
-        private void CashReceipts_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        [RelayCommand]
+        public void Split(ExternalCashFlowItemViewModel item)
         {
-            // Placeholder - implement logic if needed
+            item ??= SelectedExternal;
+            if (item == null || !item.IsParent)
+            {
+                return;
+            }
+
+            CashReceipts.Add(item.CreateChildItem());
         }
 
-        /// <summary>
-        /// Handler stub for expected cash flow changes (not currently used).
-        /// </summary>
-        private void ExpectedCash_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        [RelayCommand]
+        public void RemoveSplit(ExternalCashFlowItemViewModel item)
         {
-            // Placeholder - implement logic if needed
+            item ??= SelectedExternal;
+            if (item == null || item.IsParent)
+            {
+                return;
+            }
+
+            var parent = CashReceipts.FirstOrDefault(candidate => candidate.IsParent && candidate.Code == item.Code);
+            if (parent == null)
+            {
+                return;
+            }
+
+            parent.Amount += item.Amount;
+            CashReceipts.RemoveByReference(item);
         }
 
         /// <summary>
@@ -130,29 +137,54 @@ namespace OMS.Loans.ViewModels
         [RelayCommand(CanExecute = nameof(CanApplyCash))]
         public void ApplyCash()
         {
-            // Matching logic can be implemented here.
+            var path = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "OMS.Loans",
+                "cash-matches.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+
+            var prior = new List<CashMatchBatch>();
+            if (File.Exists(path))
+            {
+                prior = JsonSerializer.Deserialize<List<CashMatchBatch>>(File.ReadAllText(path)) ?? prior;
+            }
+
+            prior.Add(new CashMatchBatch(
+                DateTime.UtcNow,
+                CashMatchingItems.Select(item => new CashMatchRecord(
+                    item.SourceType,
+                    item.Date,
+                    item.Source,
+                    item.CounterParty,
+                    item.Code,
+                    item.Amount)).ToList()));
+            File.WriteAllText(path, JsonSerializer.Serialize(prior));
+            CashMatchingItems.Clear();
         }
 
-        /// <summary>
-        /// Command to remove the currently selected item from the matching list.
-        /// Also sends rejection messages based on original type.
-        /// </summary>
         [RelayCommand]
-        public void RemoveSelectedItem()
+        public void RemoveMatch(CashMatchItemViewModel item)
         {
-            if (SelectedItem.OriginalVm is ExternalCashFlowItemViewModel externalVm)
+            item ??= SelectedItem;
+            if (item == null)
             {
-                WeakReferenceMessenger.Default.Send(new RejectedExternalCashFlowItemMessage(externalVm));
-                CashMatchingItems.RemoveByReference(SelectedItem);
                 return;
             }
 
-            if (SelectedItem.OriginalVm is ExpectedCashFlowItemViewModel expectedVm)
+            if (item.OriginalVm is ExternalCashFlowItemViewModel externalVm)
             {
-                WeakReferenceMessenger.Default.Send(new RejectedExpectedCashFlowItemMessage(expectedVm));
-                CashMatchingItems.RemoveByReference(SelectedItem);
-                return;
+                CashReceipts.Add(externalVm);
             }
+            else if (item.OriginalVm is ExpectedCashFlowItemViewModel expectedVm)
+            {
+                ExpectedCash.Add(expectedVm);
+            }
+
+            CashMatchingItems.RemoveByReference(item);
         }
     }
+
+    public record CashMatchRecord(string SourceType, DateOnly Date, string Source, string CounterParty, string Code, decimal Amount);
+
+    public record CashMatchBatch(DateTime AppliedAtUtc, List<CashMatchRecord> Lines);
 }

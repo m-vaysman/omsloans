@@ -21,7 +21,7 @@
     </UserControl.Resources>
 
     <!-- Layout root -->
-    <dxlc:LayoutControl MinWidth="2000">
+    <dxlc:LayoutControl>
 
         <!-- Top-level horizontal layout group: Three panels side-by-side -->
         <dxlc:LayoutGroup Name="lgGridsContainer" Orientation="Horizontal">
@@ -76,26 +76,9 @@
                                 AllowHeaderNavigation="True"
                                 AllowEditing="False"
                                 AutoWidth="True"
-                                VerticalScrollbarVisibility="Hidden"
+                                VerticalScrollbarVisibility="Auto"
                                 
                                 TotalSummaryPosition="Bottom">
-
-
-                                <!-- Conditional formatting based on SourceType -->
-                                <dxg:TableView.FormatConditions>
-                                    <dxg:FormatCondition Expression="[SourceType] = 'externalCash'" FieldName="SourceType" ApplyToRow="true">
-                                        <dx:Format Background="Gray"/>
-                                    </dxg:FormatCondition>
-                                    <dxg:FormatCondition Expression="[SourceType] = 'expectedCash'" FieldName="SourceType" ApplyToRow="true">
-                                        <dx:Format Background="#FFA9A9A9"/>
-                                    </dxg:FormatCondition>
-                                    <dxg:FormatCondition Expression="[SourceType] = 'externalCash'" FieldName="Amount">
-                                        <dx:Format Foreground="#FF932320" FontStyle="Italic" FontWeight="Bold"/>
-                                    </dxg:FormatCondition>
-                                    <dxg:FormatCondition Expression="[SourceType] = 'expectedCash'" FieldName="Amount">
-                                        <dx:Format FontStyle="Italic" FontWeight="Bold"/>
-                                    </dxg:FormatCondition>
-                                </dxg:TableView.FormatConditions>
                             </dxg:TableView>
                         </dxg:GridControl.View>
 
@@ -108,7 +91,9 @@
                                             BorderBrush="Transparent"
                                             Background="Black"
                                             Opacity="0.5"
-                                            Command="{Binding DataContext.RemoveSelectedItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            ToolTip="Return this row"
+                                            Command="{Binding DataContext.RemoveMatchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
                                             Glyph="{dx:DXImage GrayScaleImages/Edit/Delete_16x16.png}" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -122,7 +107,7 @@
                         <dxg:GridColumn FieldName="Code" IsSmart="True"/>
                         <dxg:GridColumn FieldName="Amount" IsSmart="True">
                             <dxg:GridColumn.EditSettings>
-                                <dxe:TextEditSettings  MaskType="Numeric" Mask="c0" MaskUseAsDisplayFormat="True"/>
+                                <dxe:TextEditSettings MaskType="Numeric" Mask="c" MaskUseAsDisplayFormat="True"/>
                             </dxg:GridColumn.EditSettings>
                         </dxg:GridColumn>
 
