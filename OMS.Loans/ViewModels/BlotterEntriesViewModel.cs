@@ -8,6 +8,8 @@ using OMS.Loans.Message;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OMS.Loans.ViewModels
 {
@@ -18,6 +20,8 @@ namespace OMS.Loans.ViewModels
     public partial class BlotterEntriesViewModel : ObservableObject, IMVVMDockingProperties
     {
         private readonly IBlotterEntries blotterEntriesService;
+        private readonly SemaphoreSlim loadGate = new(1, 1);
+        private int loadVersion;
 
         /// <summary>
         /// Collection of blotter entries shown in the UI.
@@ -33,6 +37,13 @@ namespace OMS.Loans.ViewModels
         public Blotter selectedBlotterEntry;
 
         /// <summary>
+        /// Set when the latest load failed. The grid keeps its previous rows, and this
+        /// text is how a failed load is told apart from an empty blotter.
+        /// </summary>
+        [ObservableProperty]
+        public string loadError;
+
+        /// <summary>
         /// Default constructor that subscribes to TradeBlotteredMessage events.
         /// </summary>
         public BlotterEntriesViewModel()
@@ -40,7 +51,9 @@ namespace OMS.Loans.ViewModels
             // Register to receive messages when new trades are blottered
             WeakReferenceMessenger.Default.Register<TradeBlotteredMessage>(this, (r, message) =>
             {
-                LoadBlotterEntries();
+                // The messenger handler is synchronous. LoadBlotterEntries catches its own
+                // failures, so this task does not become an unobserved exception.
+                _ = LoadBlotterEntries();
             });
         }
 
@@ -82,14 +95,44 @@ namespace OMS.Loans.ViewModels
         /// Loads all blotter entries and orders them by descending BlotterId (most recent first).
         /// </summary>
         [RelayCommand]
-        public void LoadBlotterEntries()
+        public async Task LoadBlotterEntries()
         {
-            BlotterEntries.Clear();
+            if (blotterEntriesService == null)
+            {
+                LoadError = "Blotter load failed. The blotter service is not available.";
+                return;
+            }
 
-            blotterEntriesService.GetBlotterEntries()
-                .OrderByDescending(e => e.BlotterId)
-                .ToList()
-                .ForEach(b => BlotterEntries.Add(b));
+            var version = Interlocked.Increment(ref loadVersion);
+            await loadGate.WaitAsync();
+            try
+            {
+                if (version != loadVersion)
+                {
+                    return;
+                }
+
+                var rows = await blotterEntriesService.GetBlotterEntries();
+                if (version != loadVersion)
+                {
+                    return;
+                }
+
+                BlotterEntries = new ObservableCollection<Blotter>(rows.OrderByDescending(e => e.BlotterId));
+                LoadError = null;
+            }
+            catch (Exception ex) when (version != loadVersion)
+            {
+                _ = ex;
+            }
+            catch (Exception ex)
+            {
+                LoadError = $"Blotter load failed. {ex.Message}";
+            }
+            finally
+            {
+                loadGate.Release();
+            }
         }
     }
 }

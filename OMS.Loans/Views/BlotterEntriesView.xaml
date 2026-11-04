@@ -12,6 +12,21 @@
    
     <DockPanel MaxHeight="700" MaxWidth="1100">
         <dx:SimpleButton DockPanel.Dock="Top" HorizontalAlignment="Right" Glyph="{dx:DXImage GrayScaleImages/Actions/Reset_32x32.png}" Command="{Binding LoadBlotterEntriesCommand}"/>
+        <TextBlock DockPanel.Dock="Top" Text="{Binding LoadError}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="8,4">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding LoadError}" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding LoadError}" Value="">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
         <dxg:GridControl LostFocus="GridControl_LostFocus" DockPanel.Dock="Bottom" ItemsSource="{Binding BlotterEntries}" SelectionMode="Row" SelectedItem="{Binding SelectedBlotterEntry}"  AutoGenerateColumns="None" >
             <dxg:GridControl.Columns>
                 <dxg:GridColumn FieldName="BlotterId" Header="Id"/>

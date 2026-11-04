@@ -4,6 +4,7 @@ using OMS.Loans.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace OMS.Loans.Services
 {
@@ -33,9 +34,32 @@ namespace OMS.Loans.Services
         public IEnumerable<TradeDocument> GetTradeDocuments(int tradeId)
         {
             return loanDbContext.TradeDocuments
-                                .AsNoTracking()                  // Optimize for read-only operation
-                                .Where(t => t.TradeId == tradeId) // Filter documents by trade ID
-                                .ToList();                        // Execute the query
+                                .AsNoTracking()
+                                .Where(t => t.TradeId == tradeId)
+                                .Select(t => new TradeDocument
+                                {
+                                    TradeDocumentId = t.TradeDocumentId,
+                                    TradeId = t.TradeId,
+                                    FileName = t.FileName,
+                                    ContentType = t.ContentType
+                                })
+                                .ToList();
+        }
+
+        public async Task<byte[]> GetDocumentData(int tradeDocumentId)
+        {
+            var data = await loanDbContext.TradeDocuments
+                                .AsNoTracking()
+                                .Where(t => t.TradeDocumentId == tradeDocumentId)
+                                .Select(t => t.Data)
+                                .FirstOrDefaultAsync();
+
+            if (data == null)
+            {
+                throw new InvalidOperationException($"TradeDocument {tradeDocumentId} not found.");
+            }
+
+            return data;
         }
     }
 }

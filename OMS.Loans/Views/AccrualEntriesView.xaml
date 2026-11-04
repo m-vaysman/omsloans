@@ -41,7 +41,7 @@
                             ShowGroupPanel="False"
                             AllowMoveColumnToDropArea="False"
                             BestFitArea="Header"
-                            BestFitMode="AllRows"
+                            BestFitMode="DistinctValues"
                             EditFormShowMode="Dialog"
                             Loaded="TableView_Loaded"
                             NewItemRowPosition="Bottom"

@@ -132,11 +132,13 @@ namespace OMS.Loans.ViewModels
                   var documents=  DocumentRetrieverService.GetTradeDocuments(TradeEntryItem.TradeId).ToList();
                     foreach(var d in documents)
                     {
-                        var doc = new AttachedDocument() { };
-                        doc.Name =d.FileName;
-                        doc.Data = new byte[d.Data.Length];
-                        doc.isInDb = true;
-                        Array.Copy(d.Data, doc.Data,d.Data.Length);
+                        var doc = new AttachedDocument()
+                        {
+                            Name = d.FileName,
+                            TradeDocumentId = d.TradeDocumentId,
+                            isInDb = true,
+                            LoadData = DocumentRetrieverService.GetDocumentData
+                        };
                         Documents.Add(doc);
                     }
                 }
